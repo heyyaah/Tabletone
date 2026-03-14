@@ -6,3 +6,5 @@ gunicorn
 werkzeug
 flask-limiter
 pg8000
+gevent
+gevent-websocket
