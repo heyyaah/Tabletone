@@ -386,33 +386,35 @@ class BannedIP(db.Model):
 
 # Создание таблиц
 with app.app_context():
-    db.create_all()
-    # Добавляем новые колонки если их нет (миграция)
+    # Сначала добавляем недостающие колонки через сырое соединение
+    # (до db.create_all чтобы избежать конфликта метаданных)
     from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            is_postgres = db.engine.dialect.name == 'postgresql'
+            user_table = '"user"' if is_postgres else 'user'
+            ts_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
+            pre_migrations = [
+                f"ALTER TABLE {user_table} ADD COLUMN email VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN two_fa_enabled BOOLEAN DEFAULT FALSE",
+                f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
+                f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires {ts_type}",
+                f"ALTER TABLE {user_table} ADD COLUMN admin_role VARCHAR(20)",
+                f"ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
+                f"ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
+                f"ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
+                f"ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
+            ]
+            for sql in pre_migrations:
+                try:
+                    conn.execute(text(sql))
+                    conn.commit()
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
-    # В PostgreSQL 'user' — зарезервированное слово, нужны кавычки
-    is_postgres = db.engine.dialect.name == 'postgresql'
-    user_table = '"user"' if is_postgres else 'user'
-
-    migrations = [
-        f"ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
-        f"ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
-        f"ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
-        f"ALTER TABLE {user_table} ADD COLUMN two_fa_enabled BOOLEAN DEFAULT FALSE",
-        f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
-        f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires TIMESTAMP",
-        f"ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
-        f"ALTER TABLE {user_table} ADD COLUMN admin_role VARCHAR(20)",
-        f"ALTER TABLE {user_table} ADD COLUMN email VARCHAR(200)",
-    ]
-
-    with db.engine.connect() as conn:
-        for sql in migrations:
-            try:
-                conn.execute(text(sql))
-                conn.commit()
-            except Exception:
-                pass
+    db.create_all()
 
     # ── Сид: бот Tabletone Premium ──────────────────────────────────────────
     _PREMIUM_BOT_USERNAME = 'tabletone_premiumbot'
