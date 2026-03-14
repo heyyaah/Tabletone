@@ -25,34 +25,6 @@ if _db_url.startswith('postgres://'):
 elif _db_url.startswith('postgresql://'):
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
-
-# Добавляем недостающие колонки через psycopg2 напрямую ДО инициализации ORM
-_raw_db_url = os.environ.get('DATABASE_URL', '')
-if _raw_db_url:
-    try:
-        import psycopg2
-        _conn = psycopg2.connect(_raw_db_url)
-        _conn.autocommit = True
-        _cur = _conn.cursor()
-        for _sql in [
-            'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email VARCHAR(200)',
-            'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT FALSE',
-            'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS two_fa_code VARCHAR(8)',
-            'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS two_fa_code_expires TIMESTAMP',
-            'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS admin_role VARCHAR(20)',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT \'[]\'',
-            'ALTER TABLE group_message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES group_message(id)',
-            'ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT \'password\'',
-        ]:
-            try:
-                _cur.execute(_sql)
-            except Exception:
-                pass
-        _cur.close()
-        _conn.close()
-    except Exception as e:
-        print(f"Pre-migration warning: {e}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max

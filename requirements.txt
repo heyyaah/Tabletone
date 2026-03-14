@@ -5,5 +5,4 @@ eventlet
 gunicorn
 werkzeug
 flask-limiter
-psycopg2-binary
 pg8000
