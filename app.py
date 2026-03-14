@@ -408,14 +408,16 @@ with app.app_context():
     _PREMIUM_BOT_NAME = 'Tabletone Premium'
     _PREMIUM_OWNER_ID = 1  # romancev228
 
-    # Назначаем romancev228 роль owner
-    _owner = User.query.get(1)
-    if _owner and _owner.username == 'romancev228':
+    # Назначаем romancev228 роль owner (ищем по username, не по id)
+    _owner = User.query.filter_by(username='romancev228').first()
+    if _owner:
         if _owner.admin_role != 'owner':
             _owner.is_admin = True
             _owner.admin_role = 'owner'
             db.session.commit()
             print("✓ romancev228 назначен owner")
+        # Обновляем _PREMIUM_OWNER_ID на реальный id
+        _PREMIUM_OWNER_ID = _owner.id
 
     _pbot_user = User.query.filter_by(username=_PREMIUM_BOT_USERNAME).first()
     if not _pbot_user:
@@ -4110,7 +4112,9 @@ def _handle_support_message(bot, sender_id, text):
     ])
     bot_user = User.query.filter_by(username='tabletone_supportbot').first()
     if bot_user:
-        _bot_send_message(bot_user.id, 1, admin_text, buttons=json.loads(close_buttons))
+        owner_user = User.query.filter_by(username='romancev228').first()
+        if owner_user:
+            _bot_send_message(bot_user.id, owner_user.id, admin_text, buttons=json.loads(close_buttons))
 
     # Подтверждение пользователю
     _bot_send_message(bot.user_id, sender_id,
