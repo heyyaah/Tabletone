@@ -397,6 +397,8 @@ with app.app_context():
             "ALTER TABLE user ADD COLUMN two_fa_code_expires DATETIME",
             "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
             "ALTER TABLE user ADD COLUMN admin_role VARCHAR(20)",
+            "ALTER TABLE \"user\" ADD COLUMN email VARCHAR(200)",
+            "ALTER TABLE user ADD COLUMN email VARCHAR(200)",
         ]:
             try:
                 conn.execute(text(sql))
