@@ -387,19 +387,25 @@ with app.app_context():
     db.create_all()
     # Добавляем новые колонки если их нет (миграция)
     from sqlalchemy import text
+
+    # В PostgreSQL 'user' — зарезервированное слово, нужны кавычки
+    is_postgres = db.engine.dialect.name == 'postgresql'
+    user_table = '"user"' if is_postgres else 'user'
+
+    migrations = [
+        f"ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
+        f"ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
+        f"ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
+        f"ALTER TABLE {user_table} ADD COLUMN two_fa_enabled BOOLEAN DEFAULT FALSE",
+        f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
+        f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires TIMESTAMP",
+        f"ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
+        f"ALTER TABLE {user_table} ADD COLUMN admin_role VARCHAR(20)",
+        f"ALTER TABLE {user_table} ADD COLUMN email VARCHAR(200)",
+    ]
+
     with db.engine.connect() as conn:
-        for sql in [
-            "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
-            "ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
-            "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
-            "ALTER TABLE user ADD COLUMN two_fa_enabled BOOLEAN DEFAULT 0",
-            "ALTER TABLE user ADD COLUMN two_fa_code VARCHAR(8)",
-            "ALTER TABLE user ADD COLUMN two_fa_code_expires DATETIME",
-            "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
-            "ALTER TABLE user ADD COLUMN admin_role VARCHAR(20)",
-            "ALTER TABLE \"user\" ADD COLUMN email VARCHAR(200)",
-            "ALTER TABLE user ADD COLUMN email VARCHAR(200)",
-        ]:
+        for sql in migrations:
             try:
                 conn.execute(text(sql))
                 conn.commit()
