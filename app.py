@@ -3856,6 +3856,48 @@ def _trigger_webhook(bot, update):
                 if is_support:
                     state = _support_pending.get(sender_id)
 
+                    # Если отправитель — администратор, показываем меню поддержки
+                    sender_user = User.query.get(sender_id)
+                    sender_is_admin = sender_user and sender_user.is_admin
+
+                    if sender_is_admin:
+                        # Кнопка "Закрыть диалог"
+                        if text.lower().startswith('/close_support_'):
+                            try:
+                                target_user_id = int(text.split('_')[-1])
+                                _support_pending[target_user_id] = 'waiting_close_confirm'
+                                target_user = User.query.get(target_user_id)
+                                target_name = (target_user.display_name or target_user.username) if target_user else str(target_user_id)
+                                _bot_send_message(bot.user_id, target_user_id, "💬 Администрация: Ваш вопрос решён?")
+                                _bot_send_message(bot.user_id, sender_id, f"Запрос на закрытие диалога с {target_name} отправлен.")
+                            except (ValueError, IndexError):
+                                pass
+                            return
+
+                        # Показываем открытые тикеты при любом сообщении от админа
+                        tickets = SupportTicket.query.filter_by(status='open').order_by(SupportTicket.created_at.desc()).limit(10).all()
+                        if not tickets:
+                            _bot_send_message(bot.user_id, sender_id,
+                                "✅ Открытых обращений нет.\n\nКак только пользователи напишут — вы получите уведомление.")
+                        else:
+                            _bot_send_message(bot.user_id, sender_id,
+                                f"📬 Открытых обращений: {len(tickets)}\n\nПоследние обращения:")
+                            for t in tickets:
+                                u = User.query.get(t.user_id)
+                                uname = (u.username if u else str(t.user_id))
+                                udisp = (u.display_name or u.username if u else str(t.user_id))
+                                msg_text = (
+                                    f"📩 Обращение #{t.id}\n"
+                                    f"От: @{uname} ({udisp})\n"
+                                    f"Дата: {t.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+                                    f"{t.message_text}"
+                                )
+                                close_btns = [{"label": "✅ Закрыть диалог", "reply": f"/close_support_{t.user_id}"}]
+                                _bot_send_message(bot.user_id, sender_id, msg_text, buttons=close_btns)
+                        return
+
+                    # ── Обычный пользователь ──────────────────────────────────
+
                     # Пользователь ждёт подтверждения закрытия
                     if state == 'waiting_close_confirm':
                         answer = text.strip().lower()
@@ -3919,6 +3961,13 @@ def _trigger_webhook(bot, update):
                     # Команда /support — ставим флаг ожидания сообщения
                     if text.lower() == '/support':
                         _support_pending[sender_id] = 'waiting_message'
+                        _bot_auto_reply(bot, sender_id, text)
+                        return
+
+                    # Любое произвольное сообщение не-команда → сразу в поддержку
+                    if not text.startswith('/'):
+                        _handle_support_message(bot, sender_id, text)
+                        return
 
                 _bot_auto_reply(bot, sender_id, text)
         return
