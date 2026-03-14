@@ -121,6 +121,7 @@ class User(db.Model):
     two_fa_enabled = db.Column(db.Boolean, default=False)  # Двухэтапная аутентификация
     two_fa_code = db.Column(db.String(8))           # Текущий код 2FA
     two_fa_code_expires = db.Column(db.DateTime)    # Срок действия кода
+    email = db.Column(db.String(200), nullable=True)  # Email для 2FA
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -996,7 +997,8 @@ def register():
             username=username,
             display_name=display_name or username,
             avatar_color=random.choice(colors),
-            timezone=request.form.get('timezone', 'Europe/Moscow')
+            timezone=request.form.get('timezone', 'Europe/Moscow'),
+            email=request.form.get('email', '').strip() or None
         )
         user.set_password(password)
         db.session.add(user)
@@ -2085,6 +2087,9 @@ def update_profile():
     
     if 'bio' in data:
         user.bio = data['bio'].strip()
+
+    if 'email' in data:
+        user.email = data['email'].strip() or None
     
     if 'avatar_color' in data:
         user.avatar_color = data['avatar_color']
@@ -4046,10 +4051,8 @@ def _send_tabletone_welcome(user_id):
 
 
 def _send_2fa_code(user_id, code):
-    """Отправляет код 2FA через @tabletonebot."""
+    """Отправляет код 2FA через @tabletonebot и на email если указан."""
     bot_user = User.query.filter_by(username='tabletonebot').first()
-    if not bot_user:
-        return
     text = (
         f"🔐 Код для входа в Tabletone:\n\n"
         f"  {code}  \n\n"
@@ -4057,7 +4060,49 @@ def _send_2fa_code(user_id, code):
         f"⚠️ НЕ ПЕРЕДАВАЙТЕ ЭТОТ КОД ТРЕТЬИМ ЛИЦАМ!\n"
         f"Администрация Tabletone никогда не запрашивает коды."
     )
-    _bot_send_message(bot_user.id, user_id, text)
+    if bot_user:
+        _bot_send_message(bot_user.id, user_id, text)
+
+    # Отправка на email
+    user = User.query.get(user_id)
+    if user and user.email:
+        try:
+            _send_email_2fa(user.email, code)
+        except Exception as e:
+            print(f"Email 2FA error: {e}")
+
+
+def _send_email_2fa(to_email, code):
+    """Отправляет код 2FA на email через Gmail SMTP."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_user = os.environ.get('SMTP_USER')
+    smtp_pass = os.environ.get('SMTP_PASS')
+    if not smtp_user or not smtp_pass:
+        print("SMTP не настроен — пропускаем email 2FA")
+        return
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = f'Код входа в Tabletone: {code}'
+    msg['From'] = f'Tabletone <{smtp_user}>'
+    msg['To'] = to_email
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;background:#f7f8fc;border-radius:12px;">
+      <h2 style="color:#667eea;margin-bottom:8px;">🔐 Код входа в Tabletone</h2>
+      <p style="color:#4a5568;">Используйте этот код для входа в аккаунт:</p>
+      <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#2d3748;background:#fff;padding:20px;border-radius:8px;text-align:center;margin:20px 0;">{code}</div>
+      <p style="color:#718096;font-size:13px;">⏱ Код действителен 10 минут.</p>
+      <p style="color:#e53e3e;font-size:13px;">⚠️ Никому не передавайте этот код. Администрация Tabletone никогда не запрашивает коды.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html, 'html'))
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_user, to_email, msg.as_string())
 
 
 def _notify_admin_support(admin_user_id):
