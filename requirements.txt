@@ -4,3 +4,4 @@ flask-socketio
 eventlet
 gunicorn
 werkzeug
+flask-limiter
