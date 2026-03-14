@@ -13,6 +13,8 @@ import time
 import random
 import secrets
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -34,6 +36,14 @@ def allowed_file(filename, allowed_extensions):
 db = SQLAlchemy(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
+# Rate limiter — защита от DDoS
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["200 per minute", "30 per second"],
+    storage_uri="memory://"
+)
+
 # Словарь для отслеживания онлайн пользователей
 online_users = {}
 
@@ -41,6 +51,10 @@ online_users = {}
 reports = []
 
 # Глобальный обработчик ошибок для подавления ошибок разрыва соединения
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({'error': 'Слишком много запросов. Подождите немного.'}), 429
+
 @app.errorhandler(Exception)
 def handle_exception(e):
     from jinja2 import TemplateNotFound
@@ -344,14 +358,24 @@ class AdminApplication(db.Model):
     """Заявка на вступление в администрацию."""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    reason = db.Column(db.Text, nullable=False)          # Почему хочет стать админом
-    experience = db.Column(db.Text)                       # Опыт модерации
-    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
+    reason = db.Column(db.Text, nullable=False)
+    experience = db.Column(db.Text)
+    status = db.Column(db.String(20), default='pending')
     admin_note = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewed_at = db.Column(db.DateTime)
 
     user = db.relationship('User', foreign_keys=[user_id])
+
+class BannedIP(db.Model):
+    """Заблокированный IP-адрес."""
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(50), unique=True, nullable=False)
+    reason = db.Column(db.String(500))
+    banned_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    admin = db.relationship('User', foreign_keys=[banned_by])
 
 # Создание таблиц
 with app.app_context():
@@ -556,6 +580,13 @@ def update_session_activity():
             db.session.rollback()
     # Если нет токена сессии, но пользователь авторизован (старая сессия)
     # просто продолжаем работу без обновления активности
+
+@app.before_request
+def check_ip_ban():
+    """Блокируем запросы с забаненных IP."""
+    ip = request.remote_addr
+    if ip and BannedIP.query.filter_by(ip_address=ip).first():
+        return jsonify({'error': 'Ваш IP заблокирован.'}), 403
 
 @app.route('/admin/reports', methods=['GET'])
 def get_reports():
@@ -810,7 +841,55 @@ def admin_reject_application(app_id):
     db.session.commit()
     return jsonify({'success': True})
 
-# ── Просмотр всех диалогов (только owner) ────────────────────────────────────
+# ── IP-баны (только owner) ────────────────────────────────────────────────────
+
+@app.route('/admin/ip-bans', methods=['GET'])
+def admin_get_ip_bans():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not _has_role(admin, 'owner'):
+        return jsonify({'error': 'Нет доступа'}), 403
+    bans = BannedIP.query.order_by(BannedIP.created_at.desc()).all()
+    return jsonify({'bans': [{
+        'id': b.id,
+        'ip_address': b.ip_address,
+        'reason': b.reason or '',
+        'created_at': b.created_at.strftime('%d.%m.%Y %H:%M'),
+        'banned_by': b.admin.username if b.admin else '?'
+    } for b in bans]})
+
+@app.route('/admin/ip-bans/add', methods=['POST'])
+def admin_add_ip_ban():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not _has_role(admin, 'owner'):
+        return jsonify({'error': 'Нет доступа'}), 403
+    data = request.get_json() or {}
+    ip = data.get('ip', '').strip()
+    if not ip:
+        return jsonify({'error': 'Укажите IP'}), 400
+    if BannedIP.query.filter_by(ip_address=ip).first():
+        return jsonify({'error': 'Этот IP уже заблокирован'}), 400
+    ban = BannedIP(ip_address=ip, reason=data.get('reason', '').strip() or None, banned_by=admin.id)
+    db.session.add(ban)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/admin/ip-bans/<int:ban_id>/remove', methods=['POST'])
+def admin_remove_ip_ban(ban_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not _has_role(admin, 'owner'):
+        return jsonify({'error': 'Нет доступа'}), 403
+    ban = BannedIP.query.get(ban_id)
+    if not ban:
+        return jsonify({'error': 'Не найдено'}), 404
+    db.session.delete(ban)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/admin/dialogs', methods=['GET'])
 def admin_get_dialogs():
@@ -892,6 +971,7 @@ def index():
 
 # Регистрация
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("10 per minute; 3 per second")
 def register():
     if request.method == 'POST':
         username = request.form['username'].strip().lower()
@@ -930,6 +1010,7 @@ def register():
 
 # Вход
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("20 per minute; 5 per second")
 def login():
     if request.method == 'POST':
         username = request.form['username'].strip().lower()
