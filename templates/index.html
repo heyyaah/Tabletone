@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Tabletone - {{ user.username }}{% endblock %}
+
+{% block body_attrs %}data-user-id="{{ user.id }}" data-username="{{ user.username }}" data-theme="{{ user.theme }}" data-timezone="{{ user.timezone or 'Europe/Moscow' }}" data-is-premium="{{ 'true' if user.is_premium else 'false' }}" data-is-admin="{{ 'true' if user.is_admin else 'false' }}" class="messenger-page"{% endblock %}
+
+{% block content %}
+<div class="messenger-container">
+    <!-- Боковая панель -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="header-with-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-logo">
+                <div class="user-info" onclick="window.location.href='/profile'" style="cursor: pointer; flex: 1; min-width: 0;">
+                    <div class="avatar" style="background: {{ user.avatar_color }}; position: relative; flex-shrink: 0;">
+                        {{ user.get_avatar_letter() }}
+                        <div class="online-indicator"></div>
+                    </div>
+                    <div class="user-details" style="min-width: 0; overflow: hidden;">
+                        <h3 style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ user.display_name or user.username }}
+                            {% if user.is_verified %}
+                                <span class="verified-badge"><i class="fas fa-check-circle"></i></span>
+                            {% endif %}
+                            {% if user.is_premium %}
+                                <span class="premium-badge"><i class="fas fa-crown"></i> PRO</span>
+                            {% endif %}
+                            {% if user.premium_emoji %}
+                                <span class="premium-emoji">{{ user.premium_emoji }}</span>
+                            {% endif %}
+                        </h3>
+                        <p class="user-status online">Online</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="/bots" class="icon-btn" title="Мои боты">
+                    <i class="fas fa-robot"></i>
+                </a>
+                {% if user.is_admin %}
+                <a href="/admin" class="icon-btn" title="Админ панель">
+                    <i class="fas fa-shield-alt"></i>
+                </a>
+                {% endif %}
+                <a href="/logout" class="icon-btn logout-btn" title="Выйти">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+        
+        <div class="search-container">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Поиск...">
+            </div>
+            <div id="search-results" class="search-results"></div>
+        </div>
+        
+        <!-- Заголовок с кнопкой создания -->
+        <div class="tabs-container">
+            <button class="tab-btn active">
+                <i class="fas fa-comments"></i> Все чаты
+            </button>
+            <button class="icon-btn" onclick="showCreateGroupModal()" title="Создать группу" style="margin-left: auto;">
+                <i class="fas fa-plus-circle"></i>
+            </button>
+        </div>
+        
+        <!-- Объединенный список чатов и групп -->
+        <div class="tab-content active" id="chats-tab">
+            <div class="chats-list" id="chats-list">
+                <!-- Список чатов и групп будет загружен через JavaScript -->
+                <div class="loading-chats">
+                    <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Основная область чата -->
+    <div class="chat-area" id="chat-area">
+        <div class="chat-welcome" id="chat-welcome">
+            <div class="welcome-content">
+                <i class="fas fa-comments fa-4x"></i>
+                <h2>Добро пожаловать, {{ user.username }}!</h2>
+                <p>Выберите чат из списка слева или найдите пользователя для начала общения.</p>
+                <p class="hint"><i class="fas fa-lightbulb"></i> Используйте поиск для нахождения пользователей по username</p>
+            </div>
+        </div>
+        
+        <div class="chat-active" id="chat-active" style="display: none;">
+            <div class="chat-header">
+                <button class="icon-btn back-btn" id="back-to-chats-btn" onclick="backToChats()" title="Назад" style="display: none;">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="chat-user-info" style="cursor: pointer;" onclick="viewChatInfo()">
+                    <div class="chat-avatar" id="chat-header-avatar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    </div>
+                    <div>
+                        <h3 id="chat-username"></h3>
+                        <p class="chat-status" id="chat-status" style="color: #a0aec0;">Offline</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="add-to-chat-btn" onclick="showAddToChatModal()" title="Добавить в чат" style="display: none;">
+                    <i class="fas fa-user-plus"></i>
+                </button>
+                <button class="icon-btn" onclick="viewChatInfo()" title="Информация">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+                <button class="icon-btn"    onclick="showReportModal()" title="Пожаловаться">
+                    <i class="fas fa-flag"></i>
+                </button>
+            </div>
+            
+            <div class="messages-container" id="messages-container">
+                <!-- Сообщения будут загружены здесь -->
+            </div>
+            
+            <div class="message-input-container">
+                <form id="message-form">
+                    <input type="file" id="image-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple style="display: none;" onchange="handleMultipleFilesSelect(event)">
+                    <button type="button" class="media-btn" id="image-btn" title="Отправить файлы" onclick="document.getElementById('image-input').click()">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <button type="button" class="media-btn" id="video-circle-btn" title="Видео кружочек">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <input type="text" id="message-input" 
+                           placeholder="Введите сообщение..." autocomplete="off">
+                    <button type="submit" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+                
+                <!-- Заглушка для каналов (для не-админов) -->
+                <div id="channel-mute-placeholder" style="display: none;">
+                    <button class="channel-mute-btn" id="channel-mute-btn" onclick="toggleChannelMute()">
+                        <i class="fas fa-bell-slash"></i>
+                        <span id="mute-text">Выключить звук</span>
+                    </button>
+                    <button class="icon-btn" onclick="window.open('https://t.me/share/url?url=' + encodeURIComponent(window.location.href), '_blank')" title="Поиск">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для жалобы -->
+<div id="report-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Пожаловаться</h3>
+            <button class="close-btn" onclick="closeReportModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Вы жалуетесь на <strong id="report-target-name"></strong></p>
+            <div class="form-group">
+                <label for="report-category">Категория жалобы:</label>
+                <select id="report-category" class="form-control">
+                    <option value="spam">Спам</option>
+                    <option value="abuse">Оскорбления</option>
+                    <option value="scam">Мошенничество</option>
+                    <option value="inappropriate">Неподходящий контент</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="report-details">Подробности (необязательно):</label>
+                <textarea id="report-details" class="form-control" rows="3" placeholder="Опишите проблему подробнее..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeReportModal()">Отмена</button>
+            <button class="btn btn-danger" onclick="submitReport()">Отправить жалобу</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно спам-блока -->
+<div id="spamblock-modal" class="modal">
+    <div class="modal-content" style="max-width:400px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-ban" style="color:#e53e3e;"></i> Ограничение аккаунта</h3>
+        </div>
+        <div class="modal-body">
+            <p>Вы не можете писать пользователям.</p>
+        </div>
+        <div class="modal-footer" style="gap:10px;">
+            <button class="btn btn-secondary" onclick="document.getElementById('spamblock-modal').classList.remove('active')">Ок</button>
+            <button class="btn btn-danger" onclick="showSpamblockDetails()">Узнать подробнее...</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно с подробностями спам-блока -->
+<div id="spamblock-details-modal" class="modal">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-info-circle"></i> Подробности ограничения</h3>
+            <button class="close-btn" onclick="document.getElementById('spamblock-details-modal').classList.remove('active')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="line-height:1.7;">К сожалению, кто-то из пользователей посчитал Ваши сообщения нежелательными и переслал их на проверку команде модераторов. Модераторы подтвердили, что жалоба была обоснованной.</p>
+            <p style="line-height:1.7; margin-top:12px;">Ваш аккаунт временно ограничен: Вы не можете писать пользователям, а также приглашать пользователей в группы или каналы. Если незнакомый пользователь напишет Вам первым, Вы сможете ему ответить.</p>
+            <p style="line-height:1.7; margin-top:12px;">Ограничения будут автоматически сняты <strong id="spamblock-until-text"></strong> (по московскому времени). Обратите внимание, что если пользователи будут жаловаться на новые нежелательные сообщения от Вас, в следующий раз аккаунт будет ограничен на больший срок.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="document.getElementById('spamblock-details-modal').classList.remove('active')">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/multiple-files.js') }}"></script>
+<script src="{{ url_for('static', filename='js/add-to-chat.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,1361 @@
+// Основные переменные
+let currentChatUserId = null;
+let searchTimeout = null;
+let socket = null;
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadChats();
+    setupEventListeners();
+    setupMobileNavigation();
+    connectSocketIO();
+});
+
+// Подключение к Socket.IO
+function connectSocketIO() {
+    try {
+        socket = io({
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
+        });
+        
+        socket.on('connect', function() {
+            console.log('Socket.IO connected');
+        });
+        
+        socket.on('online_users_list', function(data) {
+            console.log('Online users list:', data);
+            if (data.online_users) {
+                data.online_users.forEach(user => {
+                    updateUserOnlineStatus(user.user_id, true);
+                });
+            }
+        });
+        
+        socket.on('new_message', function(data) {
+            console.log('New message received:', data);
+            handleNewMessage(data);
+        });
+        
+        socket.on('profile_updated', function(data) {
+            console.log('Profile updated:', data);
+            handleProfileUpdate(data);
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Socket.IO disconnected');
+        });
+        
+        socket.on('connect_error', function(error) {
+            console.error('Socket.IO connection error:', error);
+        });
+        
+        socket.on('user_online', function(data) {
+            console.log('User online:', data);
+            updateUserOnlineStatus(data.user_id, true);
+        });
+        
+        socket.on('user_offline', function(data) {
+            console.log('User offline:', data);
+            updateUserOnlineStatus(data.user_id, false);
+        });
+        
+        socket.on('message_deleted', function(data) {
+            console.log('Message deleted:', data);
+            if (currentChatUserId === data.other_user_id) {
+                loadMessages(currentChatUserId);
+            }
+        });
+        
+        socket.on('message_edited', function(data) {
+            console.log('Message edited:', data);
+            updateMessageContent(data.message_id, data.content, data.edited_at);
+        });
+        
+        socket.on('theme_changed', function(data) {
+            console.log('Theme changed:', data);
+            if (data.user_id !== parseInt(document.body.getAttribute('data-user-id'))) {
+                setTheme(data.theme);
+            }
+        });
+    } catch (error) {
+        console.error('Failed to initialize Socket.IO:', error);
+    }
+}
+
+// Обработка обновления профиля
+function handleProfileUpdate(userInfo) {
+    // Обновляем в списке чатов
+    updateChatItemAvatar(userInfo);
+    
+    // Перезагружаем список чатов, чтобы обновить все данные
+    loadChats();
+    
+    // Если это текущий открытый чат, обновляем заголовок
+    if (currentChatUserId === userInfo.id) {
+        const chatUsername = document.getElementById('chat-username');
+        const chatAvatar = document.querySelector('.chat-header .chat-avatar');
+        
+        if (chatUsername) {
+            chatUsername.textContent = userInfo.display_name || userInfo.username;
+        }
+        
+        if (chatAvatar) {
+            chatAvatar.style.background = userInfo.avatar_color;
+            chatAvatar.textContent = userInfo.avatar_letter;
+        }
+    }
+}
+
+// Обработка нового сообщения через Socket.IO
+function handleNewMessage(data) {
+    const message = data.message;
+    const otherUserId = data.other_user_id;
+    
+    console.log('handleNewMessage - currentChatUserId:', currentChatUserId, 'otherUserId:', otherUserId, 'message:', message);
+    
+    // Если сообщение для текущего открытого чата
+    if (currentChatUserId === otherUserId) {
+        console.log('Adding message to current chat');
+        addMessageToChat(message);
+        scrollToBottom();
+    }
+    
+    // Обновляем список чатов
+    loadChats();
+    
+    // Обновляем аватарку отправителя в списке чатов
+    if (data.sender_info) {
+        updateChatItemAvatar(data.sender_info);
+    }
+}
+
+// Обновление аватарки в списке чатов
+function updateChatItemAvatar(userInfo) {
+    const chatItem = document.querySelector(`.chat-item[data-user-id="${userInfo.id}"]`);
+    if (chatItem) {
+        const avatar = chatItem.querySelector('.chat-avatar');
+        const username = chatItem.querySelector('.chat-username');
+        
+        if (avatar) {
+            avatar.style.background = userInfo.avatar_color;
+            avatar.textContent = userInfo.avatar_letter;
+        }
+        
+        if (username) {
+            username.textContent = userInfo.display_name || userInfo.username;
+        }
+    }
+}
+
+// Настройка обработчиков событий
+function setupEventListeners() {
+    // Поиск пользователей
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearch);
+    }
+    
+    // Отправка сообщения
+    const messageForm = document.getElementById('message-form');
+    if (messageForm) {
+        messageForm.addEventListener('submit', handleSendMessage);
+    }
+    
+    // Автофокус на поле ввода сообщения
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                messageForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    }
+}
+
+// Загрузка списка чатов
+async function loadChats() {
+    try {
+        const response = await fetch('/users');
+        if (!response.ok) throw new Error('Ошибка загрузки чатов');
+        
+        const data = await response.json();
+        displayChats(data.users);
+    } catch (error) {
+        console.error('Ошибка загрузки чатов:', error);
+        showError('Не удалось загрузить чаты');
+    }
+}
+
+// Отображение списка чатов
+function displayChats(users) {
+    const chatsList = document.getElementById('chats-list');
+    
+    if (!users || users.length === 0) {
+        chatsList.innerHTML = `
+            <div class="no-chats">
+                <i class="fas fa-comment-slash"></i>
+                <p>У вас пока нет чатов</p>
+                <p class="hint">Найдите пользователя для начала общения</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    users.forEach(user => {
+        html += `
+            <div class="chat-item" data-user-id="${user.id}" onclick="openChat(${user.id}, '${escapeHtml(user.display_name || user.username)}', '${user.avatar_color}', '${user.avatar_letter}')">
+                <div class="chat-avatar" style="background: ${user.avatar_color}">
+                    ${user.avatar_letter}
+                </div>
+                <div class="chat-info">
+                    <div class="chat-username">${escapeHtml(user.display_name || user.username)}</div>
+                    <div class="user-status offline" style="color: #a0aec0;">Offline</div>
+                </div>
+                <div class="chat-time"></div>
+            </div>
+        `;
+    });
+    
+    chatsList.innerHTML = html;
+}
+
+// Поиск пользователей
+async function handleSearch(e) {
+    const query = e.target.value.trim();
+    const resultsContainer = document.getElementById('search-results');
+    
+    // Очищаем предыдущий таймаут
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    
+    // Скрываем результаты если запрос пустой
+    if (!query) {
+        resultsContainer.style.display = 'none';
+        resultsContainer.innerHTML = '';
+        return;
+    }
+    
+    // Устанавливаем таймаут для предотвращения частых запросов
+    searchTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error('Ошибка поиска');
+            
+            const data = await response.json();
+            displaySearchResults(data.users);
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+            resultsContainer.innerHTML = '<div class="search-result-item">Ошибка поиска</div>';
+            resultsContainer.style.display = 'block';
+        }
+    }, 300);
+}
+
+// Отображение результатов поиска
+function displaySearchResults(users) {
+    const resultsContainer = document.getElementById('search-results');
+    
+    if (!users || users.length === 0) {
+        resultsContainer.innerHTML = '<div class="search-result-item">Пользователи не найдены</div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+    
+    let html = '';
+    users.forEach(user => {
+        html += `
+            <div class="search-result-item" onclick="openChat(${user.id}, '${escapeHtml(user.display_name || user.username)}', '${user.avatar_color}', '${user.avatar_letter}')">
+                <div class="search-result-avatar" style="background: ${user.avatar_color}">
+                    ${user.avatar_letter}
+                </div>
+                <div class="search-result-info">
+                    <h4>${escapeHtml(user.display_name || user.username)}</h4>
+                    <p>${user.bio ? escapeHtml(user.bio) : 'Нажмите для начала чата'}</p>
+                </div>
+            </div>
+        `;
+    });
+    
+    resultsContainer.innerHTML = html;
+    resultsContainer.style.display = 'block';
+    
+    // Скрываем результаты при клике вне
+    document.addEventListener('click', function hideResults(e) {
+        if (!resultsContainer.contains(e.target) && e.target.id !== 'search-input') {
+            resultsContainer.style.display = 'none';
+            document.removeEventListener('click', hideResults);
+        }
+    });
+}
+
+// Открытие чата с пользователем
+async function openChat(userId, username) {
+    currentChatUserId = userId;
+    
+    // Обновляем UI
+    document.getElementById('chat-welcome').style.display = 'none';
+    document.getElementById('chat-active').style.display = 'flex';
+    document.getElementById('chat-username').textContent = username;
+    
+    // Сбрасываем активный класс у всех чатов
+    document.querySelectorAll('.chat-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Добавляем активный класс к выбранному чату
+    const chatItem = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
+    if (chatItem) {
+        chatItem.classList.add('active');
+    }
+    
+    // Загружаем сообщения
+    await loadMessages(userId);
+    
+    // Фокус на поле ввода
+    document.getElementById('message-input').focus();
+    
+    // Скрываем результаты поиска
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('search-input').value = '';
+}
+
+// Загрузка сообщений
+async function loadMessages(userId) {
+    try {
+        const response = await fetch(`/chat/${userId}`);
+        if (!response.ok) throw new Error('Ошибка загрузки сообщений');
+        
+        const data = await response.json();
+        
+        // Обновляем информацию о пользователе в заголовке
+        if (data.other_user) {
+            const chatUsername = document.getElementById('chat-username');
+            const chatAvatar = document.querySelector('.chat-header .chat-avatar');
+            
+            if (chatUsername) {
+                chatUsername.textContent = data.other_user.display_name || data.other_user.username;
+            }
+            
+            if (chatAvatar) {
+                chatAvatar.style.background = data.other_user.avatar_color;
+                chatAvatar.textContent = data.other_user.avatar_letter;
+            }
+        }
+        
+        // Применяем обои текущего пользователя
+        applyWallpaper();
+        
+        displayMessages(data.messages);
+        
+        // Прокрутка вниз
+        scrollToBottom();
+    } catch (error) {
+        console.error('Ошибка загрузки сообщений:', error);
+        showError('Не удалось загрузить сообщения');
+    }
+}
+
+// Отображение сообщений
+function displayMessages(messages) {
+    const container = document.getElementById('messages-container');
+    
+    if (!messages || messages.length === 0) {
+        container.innerHTML = `
+            <div class="no-messages">
+                <i class="fas fa-comment-medical"></i>
+                <p>Начните общение с этим пользователем</p>
+                <p class="hint">Напишите первое сообщение</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    messages.forEach(msg => {
+        html += createMessageHTML(msg);
+    });
+    
+    container.innerHTML = html;
+}
+
+// Создание HTML для сообщения
+function createMessageHTML(msg) {
+    const messageClass = msg.is_mine ? 'sent' : 'received';
+    const menuBtn = msg.is_mine && !msg.is_deleted ? `
+        <div class="message-menu">
+            <button class="message-action-btn" onclick="showMessageMenu(${msg.id})">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+            <div class="message-actions" id="menu-${msg.id}" style="display: none;">
+                <button onclick="editMessage(${msg.id})">
+                    <i class="fas fa-edit"></i> Редактировать
+                </button>
+                <button onclick="deleteMessage(${msg.id})">
+                    <i class="fas fa-trash"></i> Удалить
+                </button>
+            </div>
+        </div>
+    ` : '';
+    
+    let content = '';
+    
+    // Видео кружочек
+    if (msg.message_type === 'video_note' && msg.media_url) {
+        content = `
+            <div class="video-message" onclick="playVideoMessage('${msg.media_url}')">
+                <video src="${msg.media_url}" preload="metadata"></video>
+                <div class="video-play-btn">
+                    <i class="fas fa-play"></i>
+                </div>
+            </div>
+        `;
+    }
+    // Изображение
+    else if (msg.message_type === 'image' && msg.media_url) {
+        content = `
+            <img src="${msg.media_url}" class="message-image" onclick="viewImage('${msg.media_url}')" alt="Изображение" loading="lazy">
+        `;
+    }
+    // Обычное текстовое сообщение
+    else {
+        const escapedContent = escapeHtml(msg.content);
+        const editedText = msg.edited_at ? ` <span class="edited-text">(изм.)</span>` : '';
+        content = `<div class="message-content">${escapedContent}${editedText}</div>`;
+    }
+    
+    return `
+        <div class="message ${messageClass}" data-message-id="${msg.id}">
+            ${content}
+            <div class="message-time">${msg.timestamp}</div>
+            ${menuBtn}
+        </div>
+    `;
+}
+
+// Прокрутка вниз
+function scrollToBottom() {
+    const container = document.getElementById('messages-container');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// Показ ошибки или уведомления
+function showError(message, type = 'error') {
+    // Удаляем предыдущие уведомления
+    document.querySelectorAll('.notification-toast').forEach(el => el.remove());
+    
+    // Создаем временное уведомление
+    const toast = document.createElement('div');
+    toast.className = `notification-toast ${type}`;
+    
+    const icon = type === 'error' ? 'exclamation-circle' : 
+                 type === 'success' ? 'check-circle' : 'info-circle';
+    
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> <span>${message}</span>`;
+    
+    document.body.appendChild(toast);
+    
+    // Удаляем через 4 секунды
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// Анимация для уведомлений
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideOutRight {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
+
+// Экранирование HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Fetch с timeout
+function fetchWithTimeout(url, options = {}, timeout = 10000) {
+    return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout')), timeout)
+        )
+    ]);
+}
+
+// Обновление содержимого сообщения (редактирование)
+function updateMessageContent(messageId, content, editedAt) {
+    const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!messageEl) return;
+    
+    const contentEl = messageEl.querySelector('.message-content');
+    if (contentEl) {
+        const escapedContent = escapeHtml(content);
+        const editedText = editedAt ? ` <span class="edited-text">(отредактировано)</span>` : '';
+        contentEl.innerHTML = `${escapedContent}${editedText}`;
+    }
+}
+
+// Обновление удаленного сообщения
+function updateMessageDeleted(messageId) {
+    const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!messageEl) return;
+    
+    const contentEl = messageEl.querySelector('.message-content');
+    if (contentEl) {
+        contentEl.textContent = '[Сообщение удалено]';
+    }
+    
+    // Удаляем меню
+    const menuEl = messageEl.querySelector('.message-menu');
+    if (menuEl) {
+        menuEl.remove();
+    }
+}
+
+// Экспорт функций в глобальную область видимости
+window.openChat = openChat;
+window.showMessageMenu = showMessageMenu;
+window.editMessage = editMessage;
+window.deleteMessage = deleteMessage;
+window.setTheme = setTheme;
+window.loadTheme = loadTheme;
+// Настройка мобильной навигации
+function setupMobileNavigation() {
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        // Добавляем кнопку назад, если её еще нет
+        const chatHeader = document.querySelector('.chat-header');
+        if (chatHeader && !chatHeader.querySelector('.mobile-back-btn')) {
+            const backButton = document.createElement('button');
+            backButton.className = 'mobile-back-btn';
+            backButton.innerHTML = '<i class="fas fa-arrow-left"></i>';
+            backButton.onclick = showChatList;
+            
+            const chatUserInfo = chatHeader.querySelector('.chat-user-info');
+            chatHeader.insertBefore(backButton, chatUserInfo);
+        }
+    }
+}
+
+// Показать список чатов на мобильных
+function showChatList() {
+    if (window.innerWidth <= 768) {
+        const sidebar = document.querySelector('.sidebar');
+        const chatArea = document.getElementById('chat-area');
+        
+        sidebar.classList.remove('mobile-hidden');
+        chatArea.classList.remove('mobile-active');
+        
+        currentChatUserId = null;
+    }
+}
+
+// Обновленная функция открытия чата для мобильных
+window.openChat = async function(userId, displayName, avatarColor, avatarLetter) {
+    currentChatUserId = userId;
+    
+    const isMobile = window.innerWidth <= 768;
+    
+    // Обновляем UI
+    document.getElementById('chat-welcome').style.display = 'none';
+    document.getElementById('chat-active').style.display = 'flex';
+    document.getElementById('chat-username').textContent = displayName;
+    
+    // Обновляем аватар в заголовке чата
+    const chatAvatar = document.querySelector('.chat-header .chat-avatar');
+    if (chatAvatar) {
+        chatAvatar.style.background = avatarColor;
+        chatAvatar.innerHTML = avatarLetter;
+    }
+    
+    // Сбрасываем активный класс у всех чатов
+    document.querySelectorAll('.chat-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Добавляем активный класс к выбранному чату
+    const chatItem = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
+    if (chatItem) {
+        chatItem.classList.add('active');
+        
+        // Получаем статус из списка чатов
+        const statusEl = chatItem.querySelector('.user-status');
+        if (statusEl) {
+            const isOnline = statusEl.classList.contains('online');
+            const chatStatus = document.getElementById('chat-status');
+            if (chatStatus) {
+                chatStatus.textContent = isOnline ? 'Online' : 'Offline';
+                chatStatus.style.color = isOnline ? '#38a169' : '#a0aec0';
+            }
+        }
+    }
+    
+    // На мобильных переключаем вид
+    if (isMobile) {
+        const sidebar = document.querySelector('.sidebar');
+        const chatArea = document.getElementById('chat-area');
+        
+        sidebar.classList.add('mobile-hidden');
+        chatArea.classList.add('mobile-active');
+        
+        // Настраиваем кнопку назад
+        setupMobileNavigation();
+    }
+    
+    // Загружаем сообщения
+    await loadMessages(userId);
+    
+    // Обновляем информацию о пользователе в списке чатов после загрузки сообщений
+    const chatItemInList = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
+    if (chatItemInList) {
+        const chatUsername = document.getElementById('chat-username');
+        if (chatUsername) {
+            // Обновляем имя в списке чатов
+            const username = chatItemInList.querySelector('.chat-username');
+            if (username) {
+                username.textContent = chatUsername.textContent;
+            }
+        }
+    }
+    
+    // Фокус на поле ввода
+    setTimeout(() => {
+        document.getElementById('message-input').focus();
+    }, 100);
+    
+    // Скрываем результаты поиска
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('search-input').value = '';
+}
+
+// Добавление сообщения в чат
+function addMessageToChat(message) {
+    const container = document.getElementById('messages-container');
+    
+    // Проверяем, не добавлено ли уже это сообщение
+    const existingMessage = container.querySelector(`[data-message-id="${message.id}"]`);
+    if (existingMessage) {
+        return;
+    }
+    
+    const noMessages = container.querySelector('.no-messages');
+    if (noMessages) {
+        container.innerHTML = '';
+    }
+    
+    const messageHtml = createMessageHTML(message);
+    container.insertAdjacentHTML('beforeend', messageHtml);
+    scrollToBottom();
+}
+
+// Проигрывание видео сообщения
+function playVideoMessage(videoUrl) {
+    // Создаем модальное окно для просмотра
+    const modal = document.createElement('div');
+    modal.className = 'video-modal active';
+    modal.innerHTML = `
+        <div class="video-container">
+            <video class="video-preview" src="${videoUrl}" autoplay controls playsinline></video>
+            <div class="video-controls">
+                <button class="cancel-btn" onclick="this.closest('.video-modal').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Закрытие по клику вне видео
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+window.playVideoMessage = playVideoMessage;
+
+// Отправка сообщения
+async function handleSendMessage(e) {
+    e.preventDefault();
+    
+    const messageInput = document.getElementById('message-input');
+    const content = messageInput.value.trim();
+    
+    if (!content || !currentChatUserId) return;
+    
+    try {
+        const response = await fetch('/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                receiver_id: currentChatUserId,
+                content: content
+            })
+        });
+        
+        if (!response.ok) throw new Error('Ошибка отправки сообщения');
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Очищаем поле ввода
+            messageInput.value = '';
+            
+            // Обновляем список чатов
+            loadChats();
+        }
+    } catch (error) {
+        console.error('Ошибка отправки сообщения:', error);
+        showError('Не удалось отправить сообщение');
+    }
+}
+
+// Обработка изменения размера окна
+window.addEventListener('resize', function() {
+    setupMobileNavigation();
+});
+
+// Показать меню сообщения
+function showMessageMenu(messageId) {
+    const menu = document.getElementById(`menu-${messageId}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    // Скрыть другие меню
+    document.querySelectorAll('.message-actions').forEach(m => {
+        if (m.id !== `menu-${messageId}`) {
+            m.style.display = 'none';
+        }
+    });
+}
+
+// Редактировать сообщение
+function editMessage(messageId) {
+    // Получаем текущее содержимое сообщения из DOM
+    const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (!messageEl) return;
+    
+    const contentEl = messageEl.querySelector('.message-content');
+    if (!contentEl) return;
+    
+    // Убираем текст "(отредактировано)" если есть
+    const currentContent = contentEl.textContent.replace('(отредактировано)', '').trim();
+    
+    const newContent = prompt('Отредактируйте сообщение:', currentContent);
+    if (newContent === null || newContent.trim() === '') return;
+    
+    fetchWithTimeout(`/message/${messageId}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Перезагружаем сообщения
+            loadMessages(currentChatUserId);
+        } else {
+            showError(data.error || 'Ошибка редактирования сообщения');
+        }
+    })
+    .catch(e => {
+        console.error('Ошибка редактирования:', e);
+        showError('Не удалось отредактировать сообщение');
+    });
+}
+
+// Удалить сообщение
+function deleteMessage(messageId) {
+    if (!confirm('Вы уверены? Сообщение будет удалено.')) return;
+    
+    fetchWithTimeout(`/message/${messageId}/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Отправляем событие через Socket.IO
+            if (socket && socket.connected) {
+                socket.emit('message_deleted', {
+                    message_id: messageId,
+                    other_user_id: currentChatUserId
+                });
+            }
+            loadMessages(currentChatUserId);
+        } else {
+            showError(data.error || 'Ошибка удаления сообщения');
+        }
+    })
+    .catch(e => {
+        console.error('Ошибка удаления:', e);
+        showError('Не удалось удалить сообщение');
+    });
+}
+
+// Изменение темы
+function setTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    
+    fetch('/theme/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: theme })
+    })
+    .catch(e => console.error('Ошибка изменения темы:', e));
+}
+
+// Загрузка сохраненной темы
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme') || document.body.getAttribute('data-theme') || 'light';
+    setTheme(savedTheme);
+}
+
+
+// Обновление статуса онлайн/офлайн
+function updateUserOnlineStatus(userId, isOnline) {
+    const chatItem = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
+    if (chatItem) {
+        const statusEl = chatItem.querySelector('.user-status');
+        if (statusEl) {
+            statusEl.textContent = isOnline ? 'Online' : 'Offline';
+            statusEl.style.color = isOnline ? '#38a169' : '#a0aec0';
+            
+            // Обновляем класс для стилизации
+            statusEl.classList.remove('online', 'offline');
+            statusEl.classList.add(isOnline ? 'online' : 'offline');
+        }
+    }
+    
+    // Если это текущий открытый чат, обновляем статус в заголовке
+    if (currentChatUserId === userId) {
+        const chatStatus = document.getElementById('chat-status');
+        if (chatStatus) {
+            chatStatus.textContent = isOnline ? 'Online' : 'Offline';
+            chatStatus.style.color = isOnline ? '#38a169' : '#a0aec0';
+        }
+    }
+}
+
+
+// Применение обоев при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserSettings();
+});
+
+// Загрузка настроек пользователя
+async function loadUserSettings() {
+    try {
+        const response = await fetch('/user/settings');
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        
+        // Применяем обои
+        if (data.chat_wallpaper) {
+            updateWallpaper(data.chat_wallpaper);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки настроек:', error);
+    }
+}
+
+// Функция применения обоев
+function applyWallpaper() {
+    // Обои уже применены через loadUserSettings
+    // Эта функция оставлена для совместимости
+}
+
+// Обновление обоев при изменении профиля
+function updateWallpaper(wallpaper) {
+    const messagesContainer = document.getElementById('messages-container');
+    if (messagesContainer) {
+        messagesContainer.setAttribute('data-wallpaper', wallpaper);
+        console.log('Обои обновлены:', wallpaper);
+    }
+}
+
+window.updateWallpaper = updateWallpaper;
+
+
+// ============================================
+// ВИДЕО КРУЖОЧКИ
+// ============================================
+
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingTimer = null;
+let recordingSeconds = 0;
+let videoStream = null;
+
+// Инициализация видео кружочков
+document.addEventListener('DOMContentLoaded', function() {
+    const videoBtn = document.getElementById('video-circle-btn');
+    if (videoBtn) {
+        videoBtn.addEventListener('click', openVideoRecorder);
+    }
+});
+
+// Открыть рекордер видео
+async function openVideoRecorder() {
+    if (!currentChatUserId) {
+        showError('Сначала выберите чат');
+        return;
+    }
+    
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.className = 'video-modal active';
+    modal.id = 'video-modal';
+    modal.innerHTML = `
+        <div class="video-container">
+            <video class="video-preview" id="video-preview" autoplay muted playsinline></video>
+            <div class="recording-timer" id="recording-timer">00:00</div>
+            <div class="video-controls">
+                <button class="cancel-btn" onclick="closeVideoRecorder()">
+                    <i class="fas fa-times"></i>
+                </button>
+                <button class="record-btn" id="record-btn" onclick="toggleRecording()">
+                    <i class="fas fa-circle"></i>
+                </button>
+                <button class="send-video-btn" id="send-video-btn" onclick="sendVideoCircle()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Запрашиваем доступ к камере
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 640 },
+                facingMode: 'user'
+            },
+            audio: true
+        });
+        
+        videoStream = stream;
+        const videoPreview = document.getElementById('video-preview');
+        videoPreview.srcObject = stream;
+        
+        console.log('Камера подключена, stream:', stream);
+    } catch (error) {
+        console.error('Ошибка доступа к камере:', error);
+        showError('Не удалось получить доступ к камере. Проверьте разрешения.');
+        closeVideoRecorder();
+    }
+}
+
+// Закрыть рекордер
+function closeVideoRecorder() {
+    // Останавливаем запись если идет
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    
+    // Останавливаем поток
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+    }
+    
+    // Очищаем таймер
+    if (recordingTimer) {
+        clearInterval(recordingTimer);
+        recordingTimer = null;
+    }
+    
+    // Удаляем модальное окно
+    const modal = document.querySelector('.video-modal');
+    if (modal) {
+        modal.remove();
+    }
+    
+    // Сбрасываем данные
+    recordedChunks = [];
+    recordingSeconds = 0;
+}
+
+// Переключить запись
+function toggleRecording() {
+    const recordBtn = document.getElementById('record-btn');
+    const timer = document.getElementById('recording-timer');
+    const sendBtn = document.getElementById('send-video-btn');
+    
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        // Начать запись
+        startRecording();
+        recordBtn.classList.add('recording');
+        recordBtn.innerHTML = '<i class="fas fa-stop"></i>';
+        timer.classList.add('active');
+        sendBtn.classList.remove('active');
+    } else {
+        // Остановить запись
+        stopRecording();
+        recordBtn.classList.remove('recording');
+        recordBtn.innerHTML = '<i class="fas fa-circle"></i>';
+        timer.classList.remove('active');
+        sendBtn.classList.add('active');
+    }
+}
+
+// Начать запись
+function startRecording() {
+    if (!videoStream) {
+        showError('Видео поток не инициализирован');
+        return;
+    }
+    
+    recordedChunks = [];
+    recordingSeconds = 0;
+    
+    try {
+        // Проверяем поддерживаемые типы
+        let mimeType = 'video/webm;codecs=vp9';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/webm;codecs=vp8';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/webm';
+            }
+        }
+        
+        console.log('Используем MIME тип:', mimeType);
+        
+        mediaRecorder = new MediaRecorder(videoStream, {
+            mimeType: mimeType
+        });
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                recordedChunks.push(event.data);
+                console.log('Получен chunk:', event.data.size, 'bytes');
+            }
+        };
+        
+        mediaRecorder.onstop = () => {
+            console.log('Запись остановлена, chunks:', recordedChunks.length);
+        };
+        
+        mediaRecorder.onerror = (event) => {
+            console.error('Ошибка MediaRecorder:', event.error);
+            showError('Ошибка записи видео');
+        };
+        
+        mediaRecorder.start(100); // Собираем данные каждые 100мс
+        console.log('Запись началась');
+        
+        // Запускаем таймер
+        recordingTimer = setInterval(() => {
+            recordingSeconds++;
+            const minutes = Math.floor(recordingSeconds / 60);
+            const seconds = recordingSeconds % 60;
+            const timerEl = document.getElementById('recording-timer');
+            if (timerEl) {
+                timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            
+            // Максимум 60 секунд
+            if (recordingSeconds >= 60) {
+                toggleRecording();
+            }
+        }, 1000);
+    } catch (error) {
+        console.error('Ошибка начала записи:', error);
+        showError('Не удалось начать запись: ' + error.message);
+    }
+}
+
+// Остановить запись
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    
+    if (recordingTimer) {
+        clearInterval(recordingTimer);
+        recordingTimer = null;
+    }
+}
+
+// Отправить видео кружочек
+async function sendVideoCircle() {
+    if (recordedChunks.length === 0) {
+        showError('Сначала запишите видео');
+        return;
+    }
+    
+    // Создаем blob из записанных данных
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    
+    // Создаем FormData
+    const formData = new FormData();
+    formData.append('video', blob, `video_${Date.now()}.webm`);
+    formData.append('receiver_id', currentChatUserId);
+    formData.append('duration', recordingSeconds);
+    
+    try {
+        const response = await fetch('/send/video-circle', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('Видео отправлено успешно:', data);
+            
+            // Добавляем сообщение локально (на случай если Socket.IO не сработает)
+            const message = {
+                id: data.message_id,
+                content: '[Видео кружочек]',
+                message_type: 'video_note',
+                media_url: data.media_url,
+                duration: recordingSeconds,
+                timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+                is_mine: true
+            };
+            
+            addMessageToChat(message);
+            closeVideoRecorder();
+        } else {
+            showError(data.error || 'Ошибка отправки видео');
+        }
+    } catch (error) {
+        console.error('Ошибка отправки видео:', error);
+        showError('Не удалось отправить видео');
+    }
+}
+
+// Экспорт функций
+window.closeVideoRecorder = closeVideoRecorder;
+window.toggleRecording = toggleRecording;
+window.sendVideoCircle = sendVideoCircle;
+
+
+// ============================================
+// ОТПРАВКА КАРТИНОК
+// ============================================
+
+// Обработка выбора картинки
+async function handleImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!currentChatUserId) {
+        showError('Сначала выберите чат');
+        return;
+    }
+    
+    // Проверка типа файла
+    if (!file.type.startsWith('image/')) {
+        showError('Можно отправлять только изображения');
+        return;
+    }
+    
+    // Проверка размера (макс 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        showError('Размер изображения не должен превышать 10MB');
+        return;
+    }
+    
+    // Создаем FormData
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('receiver_id', currentChatUserId);
+    
+    try {
+        const response = await fetch('/send/image', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('Картинка отправлена:', data);
+            
+            // Добавляем сообщение локально
+            const message = {
+                id: data.message_id,
+                content: '[Изображение]',
+                message_type: 'image',
+                media_url: data.media_url,
+                timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
+                is_mine: true
+            };
+            
+            addMessageToChat(message);
+        } else {
+            showError(data.error || 'Ошибка отправки изображения');
+        }
+    } catch (error) {
+        console.error('Ошибка отправки изображения:', error);
+        showError('Не удалось отправить изображение');
+    }
+    
+    // Очищаем input
+    event.target.value = '';
+}
+
+// Просмотр изображения
+function viewImage(imageUrl) {
+    const modal = document.createElement('div');
+    modal.className = 'image-preview-modal active';
+    modal.innerHTML = `
+        <div class="image-preview-container">
+            <button class="image-preview-close" onclick="this.closest('.image-preview-modal').remove()">
+                <i class="fas fa-times"></i>
+            </button>
+            <img src="${imageUrl}" alt="Изображение">
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Закрытие по клику вне изображения
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+window.handleImageSelect = handleImageSelect;
+window.viewImage = viewImage;
+
+
+// ============================================
+// ГРУППЫ И КАНАЛЫ
+// ============================================
+
+// Показать модальное окно создания группы
+function showCreateGroupModal() {
+    const modal = document.createElement('div');
+    modal.className = 'create-group-modal active';
+    modal.id = 'create-group-modal';
+    modal.innerHTML = `
+        <div class="create-group-form">
+            <h2><i class="fas fa-users"></i> Создать группу/канал</h2>
+            
+            <div class="group-type-selector">
+                <button class="group-type-btn active" data-type="group" onclick="selectGroupType('group')">
+                    <i class="fas fa-users"></i><br>Группа
+                </button>
+                <button class="group-type-btn" data-type="channel" onclick="selectGroupType('channel')">
+                    <i class="fas fa-bullhorn"></i><br>Канал
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-signature"></i> Название</label>
+                <input type="text" id="group-name" placeholder="Введите название" maxlength="100">
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-info-circle"></i> Описание</label>
+                <textarea id="group-description" placeholder="Описание группы/канала" maxlength="500" rows="3"></textarea>
+            </div>
+            
+            <input type="hidden" id="group-type" value="group">
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="createGroup()" style="flex: 1;">
+                    <i class="fas fa-check"></i> Создать
+                </button>
+                <button class="btn" onclick="closeCreateGroupModal()" style="flex: 1; background: #e2e8f0; color: #4a5568;">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Закрытие по клику вне формы
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeCreateGroupModal();
+        }
+    });
+}
+
+// Закрыть модальное окно
+function closeCreateGroupModal() {
+    const modal = document.getElementById('create-group-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Выбор типа группы
+function selectGroupType(type) {
+    document.querySelectorAll('.group-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-type="${type}"]`).classList.add('active');
+    document.getElementById('group-type').value = type;
+}
+
+// Создать группу
+async function createGroup() {
+    const name = document.getElementById('group-name').value.trim();
+    const description = document.getElementById('group-description').value.trim();
+    const isChannel = document.getElementById('group-type').value === 'channel';
+    
+    if (!name) {
+        showError('Введите название');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/group/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                description: description,
+                is_channel: isChannel
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            closeCreateGroupModal();
+            // Перезагружаем список чатов
+            loadChats();
+            showError('Группа создана успешно!'); // Используем showError как уведомление
+        } else {
+            showError(data.error || 'Ошибка создания группы');
+        }
+    } catch (error) {
+        console.error('Ошибка создания группы:', error);
+        showError('Не удалось создать группу');
+    }
+}
+
+window.showCreateGroupModal = showCreateGroupModal;
+window.closeCreateGroupModal = closeCreateGroupModal;
+window.selectGroupType = selectGroupType;
+window.createGroup = createGroup;

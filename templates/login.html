@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Вход - Tabletone{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1><i class="fas fa-comments"></i> Tabletone</h1>
+            <p class="auth-subtitle">Войдите в свой аккаунт</p>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i> Имя пользователя
+                </label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Введите ваш username" autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i> Пароль
+                </label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Введите ваш пароль">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-sign-in-alt"></i> Войти
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+            <p style="margin-top:8px;"><a href="#" onclick="showForgotModal(); return false;" style="color:#718096; font-size:14px;"><i class="fas fa-key"></i> Забыли пароль?</a></p>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка восстановления пароля -->
+<div id="forgot-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--bg-primary,white); color:var(--text-primary,#2d3748); border-radius:12px; padding:30px; max-width:440px; width:100%;">
+        <h3 style="margin-bottom:8px;"><i class="fas fa-key"></i> Восстановление аккаунта</h3>
+        <p style="color:#718096; font-size:14px; margin-bottom:16px;">Укажите ваш username и опишите ситуацию. Администрация рассмотрит заявку и свяжется с вами.</p>
+        <div id="forgot-success" style="display:none; background:#d1fae5; color:#065f46; border-radius:8px; padding:12px; margin-bottom:12px; font-size:14px;">
+            <i class="fas fa-check-circle"></i> Заявка отправлена! Ожидайте ответа от администрации.
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-size:14px; font-weight:500; display:block; margin-bottom:6px;"><i class="fas fa-user"></i> Username</label>
+            <input type="text" id="forgot-username" placeholder="Ваш username" style="width:100%; padding:10px 12px; border:2px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:14px; font-weight:500; display:block; margin-bottom:6px;"><i class="fas fa-comment"></i> Описание ситуации</label>
+            <textarea id="forgot-reason" rows="3" placeholder="Опишите проблему (например: потерял доступ к устройству с 2FA, забыл пароль и т.д.)" style="width:100%; padding:10px 12px; border:2px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button onclick="submitForgot()" class="btn btn-primary" style="flex:1;"><i class="fas fa-paper-plane"></i> Отправить</button>
+            <button onclick="closeForgotModal()" class="btn btn-secondary" style="flex:1;">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showForgotModal() {
+    const m = document.getElementById('forgot-modal');
+    m.style.display = 'flex';
+    document.getElementById('forgot-success').style.display = 'none';
+    document.getElementById('forgot-username').value = '';
+    document.getElementById('forgot-reason').value = '';
+}
+function closeForgotModal() {
+    document.getElementById('forgot-modal').style.display = 'none';
+}
+function submitForgot() {
+    const username = document.getElementById('forgot-username').value.trim();
+    const reason = document.getElementById('forgot-reason').value.trim();
+    if (!username || !reason) { alert('Заполните все поля'); return; }
+    fetch('/account/recovery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, reason })
+    }).then(r => r.json()).then(d => {
+        if (d.success) {
+            document.getElementById('forgot-success').style.display = 'block';
+            setTimeout(closeForgotModal, 3000);
+        } else {
+            alert(d.error || 'Ошибка');
+        }
+    });
+}
+window.addEventListener('click', e => {
+    const m = document.getElementById('forgot-modal');
+    if (e.target === m) closeForgotModal();
+});
+</script>
+{% endblock %}

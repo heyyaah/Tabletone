@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Регистрация - Tabletone{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1><i class="fas fa-user-plus"></i> Регистрация</h1>
+            <p class="auth-subtitle">Создайте новый аккаунт</p>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-at"></i> Имя пользователя (username)
+                </label>
+                <input type="text" id="username" name="username" 
+                       placeholder="username (только латиница)" required pattern="[a-zA-Z0-9_]+" 
+                       title="Только латинские буквы, цифры и подчеркивание">
+            </div>
+            
+            <div class="form-group">
+                <label for="display_name">
+                    <i class="fas fa-signature"></i> Отображаемое имя (необязательно)
+                </label>
+                <input type="text" id="display_name" name="display_name" 
+                       placeholder="Ваше имя для отображения">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i> Пароль
+                </label>
+                <input type="password" id="password" name="password" 
+                       placeholder="Придумайте пароль" required minlength="4">
+            </div>
+            
+            <div class="form-group">
+                <label for="timezone">
+                    <i class="fas fa-clock"></i> Ваш часовой пояс
+                </label>
+                <select id="timezone" name="timezone" class="form-control" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;">
+                    <option value="Europe/Moscow">Москва (UTC+3)</option>
+                    <option value="Europe/Kaliningrad">Калининград (UTC+2)</option>
+                    <option value="Europe/Samara">Самара (UTC+4)</option>
+                    <option value="Asia/Yekaterinburg">Екатеринбург (UTC+5)</option>
+                    <option value="Asia/Omsk">Омск (UTC+6)</option>
+                    <option value="Asia/Krasnoyarsk">Красноярск (UTC+7)</option>
+                    <option value="Asia/Irkutsk">Иркутск (UTC+8)</option>
+                    <option value="Asia/Yakutsk">Якутск (UTC+9)</option>
+                    <option value="Asia/Vladivostok">Владивосток (UTC+10)</option>
+                    <option value="Asia/Magadan">Магадан (UTC+11)</option>
+                    <option value="Asia/Kamchatka">Камчатка (UTC+12)</option>
+                    <option value="Europe/Kiev">Киев (UTC+2)</option>
+                    <option value="Europe/Minsk">Минск (UTC+3)</option>
+                    <option value="Asia/Almaty">Алматы (UTC+6)</option>
+                    <option value="Asia/Tashkent">Ташкент (UTC+5)</option>
+                    <option value="Europe/London">Лондон (UTC+0)</option>
+                    <option value="Europe/Berlin">Берлин (UTC+1)</option>
+                    <option value="America/New_York">Нью-Йорк (UTC-5)</option>
+                    <option value="America/Los_Angeles">Лос-Анджелес (UTC-8)</option>
+                    <option value="Asia/Tokyo">Токио (UTC+9)</option>
+                    <option value="Asia/Shanghai">Шанхай (UTC+8)</option>
+                    <option value="Asia/Dubai">Дубай (UTC+4)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-user-plus"></i> Зарегистрироваться
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Уже есть аккаунт? <a href="/login">Войти</a></p>
+        </div>
+    </div>
+</div>
+<script>
+    // Автоматически выбираем часовой пояс браузера
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sel = document.getElementById('timezone');
+    for (let opt of sel.options) {
+        if (opt.value === tz) { opt.selected = true; break; }
+    }
+</script>
+{% endblock %}

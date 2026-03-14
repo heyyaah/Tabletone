@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Двухэтапная аутентификация - Tabletone{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1><i class="fas fa-shield-alt"></i> Tabletone</h1>
+            <p class="auth-subtitle">Двухэтапная аутентификация</p>
+        </div>
+
+        <div style="text-align:center; margin-bottom:20px; color:#718096; font-size:14px;">
+            <i class="fas fa-robot" style="font-size:32px; color:#667eea; display:block; margin-bottom:10px;"></i>
+            Мы отправили код подтверждения через бота <strong>@tabletonebot</strong>.<br>
+            Откройте чат с ботом и введите полученный код.
+        </div>
+
+        {% if error %}
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="code">
+                    <i class="fas fa-key"></i> Код подтверждения
+                </label>
+                <input type="text" id="code" name="code" required
+                       placeholder="Введите 6-значный код"
+                       maxlength="6" pattern="[0-9]{6}"
+                       inputmode="numeric" autofocus
+                       style="text-align:center; font-size:24px; letter-spacing:8px;">
+            </div>
+
+            <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:12px; margin-bottom:16px; font-size:13px; color:#856404;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>НЕ ПЕРЕДАВАЙТЕ ЭТОТ КОД ТРЕТЬИМ ЛИЦАМ!</strong><br>
+                Администрация Tabletone никогда не запрашивает коды.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-check"></i> Подтвердить
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p><a href="/login">← Вернуться к входу</a></p>
+            <p style="margin-top:10px;">
+                <a href="#" onclick="showCannotLoginModal(); return false;" style="color:#e53e3e;">
+                    <i class="fas fa-question-circle"></i> Не можете войти?
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка "Не могу войти" -->
+<div id="cannot-login-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--bg-primary,white); color:var(--text-primary,#2d3748); border-radius:12px; padding:30px; max-width:440px; width:100%;">
+        <h3 style="margin-bottom:8px;"><i class="fas fa-lock-open" style="color:#e53e3e;"></i> Не могу войти</h3>
+        <p style="color:#718096; font-size:14px; margin-bottom:16px;">
+            Потеряли доступ к устройству с кодом? Опишите ситуацию — администрация рассмотрит заявку и поможет восстановить доступ.
+        </p>
+        <div id="cannot-login-success" style="display:none; background:#d1fae5; color:#065f46; border-radius:8px; padding:12px; margin-bottom:12px; font-size:14px;">
+            <i class="fas fa-check-circle"></i> Заявка отправлена! Ожидайте ответа от администрации.
+        </div>
+        <div id="cannot-login-error" style="display:none; background:#fee2e2; color:#991b1b; border-radius:8px; padding:12px; margin-bottom:12px; font-size:14px;"></div>
+        <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-size:14px; font-weight:500; display:block; margin-bottom:6px;"><i class="fas fa-user"></i> Username</label>
+            <input type="text" id="cannot-login-username" placeholder="Ваш username" style="width:100%; padding:10px 12px; border:2px solid #e2e8f0; border-radius:8px; font-size:14px; box-sizing:border-box;">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:14px; font-weight:500; display:block; margin-bottom:6px;"><i class="fas fa-comment"></i> Описание ситуации</label>
+            <textarea id="cannot-login-reason" rows="3" placeholder="Например: потерял телефон с кодом 2FA, не могу получить код от бота..." style="width:100%; padding:10px 12px; border:2px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button onclick="submitCannotLogin()" class="btn btn-primary" style="flex:1; background:#e53e3e; border-color:#e53e3e;"><i class="fas fa-paper-plane"></i> Отправить</button>
+            <button onclick="closeCannotLoginModal()" class="btn btn-secondary" style="flex:1;">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCannotLoginModal() {
+    const m = document.getElementById('cannot-login-modal');
+    m.style.display = 'flex';
+    document.getElementById('cannot-login-success').style.display = 'none';
+    document.getElementById('cannot-login-error').style.display = 'none';
+    document.getElementById('cannot-login-username').value = '';
+    document.getElementById('cannot-login-reason').value = '';
+}
+function closeCannotLoginModal() {
+    document.getElementById('cannot-login-modal').style.display = 'none';
+}
+function submitCannotLogin() {
+    const username = document.getElementById('cannot-login-username').value.trim();
+    const reason = document.getElementById('cannot-login-reason').value.trim();
+    const errEl = document.getElementById('cannot-login-error');
+    errEl.style.display = 'none';
+    if (!username || !reason) {
+        errEl.textContent = 'Заполните все поля';
+        errEl.style.display = 'block';
+        return;
+    }
+    fetch('/account/recovery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, reason, type: '2fa_lost' })
+    }).then(r => r.json()).then(d => {
+        if (d.success) {
+            document.getElementById('cannot-login-success').style.display = 'block';
+            setTimeout(closeCannotLoginModal, 3000);
+        } else {
+            errEl.textContent = d.error || 'Ошибка при отправке';
+            errEl.style.display = 'block';
+        }
+    });
+}
+window.addEventListener('click', e => {
+    const m = document.getElementById('cannot-login-modal');
+    if (e.target === m) closeCannotLoginModal();
+});
+</script>
+{% endblock %}

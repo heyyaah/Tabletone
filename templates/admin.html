@@ -1,0 +1,1178 @@
+{% extends "base.html" %}
+
+{% block title %}Админ панель{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <div class="admin-header">
+        <h1><i class="fas fa-shield-alt"></i> Админ панель</h1>
+        <a href="/" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Назад
+        </a>
+    </div>
+    
+    <div class="admin-tabs">
+        <button class="tab-btn active" onclick="switchTab('users')">
+            <i class="fas fa-users"></i> Пользователи
+        </button>
+        <button class="tab-btn" onclick="switchTab('verification')">
+            <i class="fas fa-check-circle"></i> Верификация
+        </button>
+        <button class="tab-btn" onclick="switchTab('reports')">
+            <i class="fas fa-flag"></i> Жалобы
+        </button>
+        <button class="tab-btn" onclick="switchTab('spamblock')">
+            <i class="fas fa-ban"></i> Спам-блок
+        </button>
+        <button class="tab-btn tab-admin-only" onclick="switchTab('bots')" style="display:none;">
+            <i class="fas fa-robot"></i> Боты
+        </button>
+        <button class="tab-btn tab-admin-only" onclick="switchTab('recovery')" style="display:none;">
+            <i class="fas fa-key"></i> Восстановление
+        </button>
+        {% if admin_role == 'owner' %}
+        <button class="tab-btn" onclick="switchTab('applications')">
+            <i class="fas fa-user-tie"></i> Заявки в адм.
+        </button>
+        <button class="tab-btn" onclick="switchTab('dialogs')">
+            <i class="fas fa-comments"></i> Все диалоги
+        </button>
+        {% endif %}
+    </div>
+    
+    <!-- Вкладка пользователей -->
+    <div id="users-tab" class="admin-tab active">
+        <h2>Управление пользователями</h2>
+        <div class="users-list" id="users-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Вкладка верификации -->
+    <div id="verification-tab" class="admin-tab">
+        <h2>Запросы на верификацию</h2>
+        <div class="verification-list" id="verification-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+    
+    <!-- Вкладка спам-блока -->
+    <div id="spamblock-tab" class="admin-tab">
+        <h2>Спам-блок</h2>
+        <div class="users-list" id="spamblock-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладка жалоб -->
+    <div id="reports-tab" class="admin-tab">
+        <h2>Жалобы пользователей</h2>
+        <div class="reports-list" id="reports-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладка ботов -->
+    <div id="bots-tab" class="admin-tab">
+        <h2>Модерация ботов</h2>
+        <div class="users-list" id="admin-bots-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладка восстановления аккаунтов -->
+    <div id="recovery-tab" class="admin-tab">
+        <h2>Заявки на восстановление аккаунта</h2>
+        <div class="users-list" id="recovery-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладка заявок в администрацию (только owner) -->
+    {% if admin_role == 'owner' %}
+    <div id="applications-tab" class="admin-tab">
+        <h2>Заявки на вступление в администрацию</h2>
+        <div class="users-list" id="applications-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладка всех диалогов (только owner) -->
+    <div id="dialogs-tab" class="admin-tab">
+        <h2>Все диалоги мессенджера</h2>
+        <div class="users-list" id="dialogs-list">
+            <div class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+/* Наследуем CSS-переменные темы */
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --text-primary: #2d3748;
+    --text-secondary: #718096;
+    --border-color: #e2e8f0;
+}
+body[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --text-primary: #ffffff;
+    --text-secondary: #b0b0b0;
+    --border-color: #404040;
+}
+
+.admin-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 20px;
+}
+
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color, #e2e8f0);
+}
+
+.admin-header h1 {
+    color: var(--text-primary, #2d3748);
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tab-btn {
+    padding: 12px 20px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #718096;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tab-btn:hover {
+    color: #667eea;
+}
+
+.tab-btn.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+}
+
+.admin-tab {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.admin-tab.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.admin-tab h2 {
+    color: var(--text-primary, #2d3748);
+    margin-bottom: 20px;
+    font-size: 20px;
+}
+
+.users-list, .verification-list, .reports-list {
+    background: var(--bg-primary, white);
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.user-item, .verification-item, .report-item {
+    padding: 20px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.user-item:last-child, .verification-item:last-child, .report-item:last-child {
+    border-bottom: none;
+}
+
+.user-info {
+    flex: 1;
+}
+
+.user-info h3 {
+    color: var(--text-primary, #2d3748);
+    margin-bottom: 5px;
+}
+
+.user-info p {
+    color: #718096;
+    font-size: 14px;
+}
+
+.user-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.action-btn.verify {
+    background: #38a169;
+    color: white;
+}
+
+.action-btn.verify:hover {
+    background: #2f855a;
+}
+
+.action-btn.ban {
+    background: #ed8936;
+    color: white;
+}
+
+.action-btn.ban:hover {
+    background: #dd6b20;
+}
+
+.action-btn.unban {
+    background: #4299e1;
+    color: white;
+}
+
+.action-btn.unban:hover {
+    background: #3182ce;
+}
+
+.action-btn.remove {
+    background: #f56565;
+    color: white;
+}
+
+.action-btn.remove:hover {
+    background: #e53e3e;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #718096;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #a0aec0;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.report-info {
+    flex: 1;
+    margin-right: 20px;
+}
+
+.report-info h3 {
+    color: var(--text-primary, #2d3748);
+    margin-bottom: 8px;
+}
+
+.report-info p {
+    color: var(--text-secondary, #4a5568);
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.report-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 120px;
+}
+</style>
+
+<script>
+const MY_ROLE = '{{ admin_role }}';
+const ROLE_LEVELS = { moderator: 1, admin: 2, senior_admin: 3, owner: 4 };
+const ROLE_LABELS = { moderator: 'Модератор', admin: 'Администратор', senior_admin: 'Ст. администратор', owner: 'Владелец' };
+const ROLE_COLORS = { moderator: '#3730a3', admin: '#065f46', senior_admin: '#92400e', owner: '#7c3aed' };
+const ROLE_BG = { moderator: '#e0e7ff', admin: '#d1fae5', senior_admin: '#fef3c7', owner: '#ede9fe' };
+
+function hasRole(minRole) {
+    return (ROLE_LEVELS[MY_ROLE] || 0) >= (ROLE_LEVELS[minRole] || 99);
+}
+
+// Скрываем вкладки по роли
+document.addEventListener('DOMContentLoaded', () => {
+    if (hasRole('admin')) {
+        document.querySelectorAll('.tab-admin-only').forEach(b => b.style.display = '');
+    }
+    loadUsers();
+});
+
+function switchTab(tabName) {
+    // Скрываем все вкладки
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Убираем активный класс со всех кнопок
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Показываем выбранную вкладку
+    document.getElementById(tabName + '-tab').classList.add('active');
+    event.target.closest('.tab-btn').classList.add('active');
+    
+    // Загружаем данные
+    if (tabName === 'users') {
+        loadUsers();
+    } else if (tabName === 'verification') {
+        loadVerificationRequests();
+    } else if (tabName === 'reports') {
+        loadReports();
+    } else if (tabName === 'bots') {
+        loadAdminBots();
+    } else if (tabName === 'spamblock') {
+        loadSpamblockCandidates();
+    } else if (tabName === 'recovery') {
+        loadRecoveryRequests();
+    } else if (tabName === 'applications') {
+        loadApplications();
+    } else if (tabName === 'dialogs') {
+        loadAllDialogs();
+    }
+}
+
+function loadUsers() {
+    fetch('/admin/users')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('users-list');
+            if (data.users.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>Нет пользователей</p></div>';
+                return;
+            }
+            
+            list.innerHTML = data.users.map(user => {
+                const roleBadge = user.admin_role
+                    ? `<span style="background:${ROLE_BG[user.admin_role]||'#e2e8f0'};color:${ROLE_COLORS[user.admin_role]||'#4a5568'};padding:1px 8px;border-radius:8px;font-size:11px;font-weight:600;margin-left:6px;">${ROLE_LABELS[user.admin_role]||user.admin_role}</span>`
+                    : '';
+                return `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>${user.display_name} ${user.is_verified ? '<i class="fas fa-check-circle" style="color: #38a169;"></i>' : ''}${roleBadge}</h3>
+                        <p>@${user.username} ${user.two_fa_enabled ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 7px;border-radius:8px;font-size:11px;font-weight:600;margin-left:4px;"><i class="fas fa-shield-alt"></i> 2FA</span>' : ''}</p>
+                        <p>Зарегистрирован: ${user.created_at}</p>
+                    </div>
+                    <div class="user-actions" style="flex-wrap:wrap;gap:6px;">
+                        ${!user.is_verified ? `<button class="action-btn verify" onclick="verifyUser(${user.id})">Верифицировать</button>` : ''}
+                        ${hasRole('admin') ? (user.is_banned ? `<button class="action-btn unban" onclick="unbanUser(${user.id})">Разбанить</button>` : `<button class="action-btn ban" onclick="banUser(${user.id})">Забанить</button>`) : ''}
+                        ${hasRole('admin') && user.two_fa_enabled ? `<button class="action-btn" style="background:#ed8936;color:white;" onclick="adminDisable2FA(${user.id})"><i class="fas fa-shield-alt"></i> Откл. 2FA</button>` : ''}
+                        ${hasRole('senior_admin') ? `<button class="action-btn remove" onclick="removeUser(${user.id})">Удалить</button>` : ''}
+                        ${hasRole('owner') ? `<button class="action-btn" style="background:#7c3aed;color:white;" onclick="setUserRole(${user.id}, '${user.admin_role||''}')"><i class="fas fa-user-shield"></i> Роль</button>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        });
+}
+
+function loadVerificationRequests() {
+    fetch('/admin/verification-requests')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('verification-list');
+            if (data.requests.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><p>Нет запросов на верификацию</p></div>';
+                return;
+            }
+            list.innerHTML = data.requests.map(req => `
+                <div class="verification-item">
+                    <div class="user-info">
+                        <h3>${req.display_name} <span style="color:#718096; font-weight:400;">@${req.username}</span></h3>
+                        <p><strong>Причина:</strong> ${req.reason}</p>
+                        <p><small>Подано: ${req.created_at}</small></p>
+                        <div class="status-badge ${req.status}">${getVerifStatusText(req.status)}</div>
+                    </div>
+                    <div class="user-actions">
+                        ${req.status === 'pending' ? `
+                            <button class="action-btn verify" onclick="approveVerification(${req.id})">
+                                <i class="fas fa-check"></i> Одобрить
+                            </button>
+                            <button class="action-btn remove" onclick="rejectVerification(${req.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+            addStatusStyles();
+        });
+}
+
+function getVerifStatusText(status) {
+    return { pending: 'Ожидает', approved: 'Одобрено', rejected: 'Отклонено' }[status] || status;
+}
+
+function approveVerification(reqId) {
+    if (!confirm('Одобрить заявку на верификацию?')) return;
+    fetch(`/admin/verification/${reqId}/approve`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (data.success) loadVerificationRequests(); });
+}
+
+function rejectVerification(reqId) {
+    if (!confirm('Отклонить заявку на верификацию?')) return;
+    fetch(`/admin/verification/${reqId}/reject`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (data.success) loadVerificationRequests(); });
+}
+
+function loadReports() {
+    fetch('/admin/reports')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('reports-list');
+            if (data.reports.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-flag"></i><p>Нет жалоб</p></div>';
+                return;
+            }
+
+            list.innerHTML = data.reports.map(report => `
+                <div class="report-item">
+                    <div class="report-info">
+                        <h3>Жалоба на @${report.reported_user}</h3>
+                        <p><strong>Категория:</strong> ${report.category}</p>
+                        <p><strong>Детали:</strong> ${report.details}</p>
+                        <p><small>От: ${report.reporter} • ${new Date(report.created_at).toLocaleString()}</small></p>
+                        <div class="status-badge ${report.status}">
+                            ${getStatusText(report.status)}
+                        </div>
+                    </div>
+                    <div class="report-actions">
+                        ${report.status === 'new' ? `
+                            <button class="action-btn resolve" onclick="resolveReport(${report.id})">
+                                <i class="fas fa-check"></i> Решить
+                            </button>
+                            <button class="action-btn reject" onclick="rejectReport(${report.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            // Добавим стили для статусов
+            addStatusStyles();
+        });
+}
+
+function getStatusText(status) {
+    const statuses = {
+        'new': 'Новая',
+        'in_progress': 'В процессе',
+        'resolved': 'Решена',
+        'rejected': 'Отклонена'
+    };
+    return statuses[status] || status;
+}
+
+function addStatusStyles() {
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .status-badge.new {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .status-badge.in_progress {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .status-badge.resolved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-badge.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .action-btn.resolve {
+            background: #10b981;
+            color: white;
+        }
+        .action-btn.resolve:hover {
+            background: #059669;
+        }
+        .action-btn.reject {
+            background: #ef4444;
+            color: white;
+        }
+        .action-btn.reject:hover {
+            background: #dc2626;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function resolveReport(reportId) {
+    if (!confirm('Пометить жалобу как решенную?')) return;
+
+    fetch(`/admin/report/${reportId}/resolve`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadReports();
+            }
+        });
+}
+
+function rejectReport(reportId) {
+    if (!confirm('Отклонить эту жалобу?')) return;
+
+    fetch(`/admin/report/${reportId}/reject`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadReports();
+            }
+        });
+}
+
+function verifyUser(userId) {
+    if (!confirm('Верифицировать этого пользователя?')) return;
+    
+    fetch(`/admin/verify/${userId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+            }
+        });
+}
+
+function removeUser(userId) {
+    if (!confirm('Удалить этого пользователя? Это действие необратимо!')) return;
+    
+    fetch(`/admin/remove/${userId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+            }
+        });
+}
+
+function banUser(userId) {
+    if (!confirm('Забанить этого пользователя?')) return;
+    
+    fetch(`/admin/ban/${userId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+            }
+        });
+}
+
+function unbanUser(userId) {
+    if (!confirm('Разбанить этого пользователя?')) return;
+    
+    fetch(`/admin/unban/${userId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+            }
+        });
+}
+
+function loadReports() {
+    fetch('/admin/reports')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('reports-list');
+            if (data.reports.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-flag"></i><p>Нет жалоб</p></div>';
+                return;
+            }
+
+            list.innerHTML = data.reports.map(report => `
+                <div class="report-item">
+                    <div class="report-info">
+                        <h3>
+                            Жалоба на ${report.target_type === 'group' ? 'группу' : 'пользователя'}
+                            <strong>${report.reported_user}</strong>
+                        </h3>
+                        <p><strong>Категория:</strong> ${getCategoryText(report.category)}</p>
+                        ${report.details ? `<p><strong>Детали:</strong> ${report.details}</p>` : ''}
+                        <p><small>От: ${report.reporter} • ${new Date(report.created_at).toLocaleString()}</small></p>
+                        <div class="status-badge ${report.status}">
+                            ${getStatusText(report.status)}
+                        </div>
+                    </div>
+                    <div class="report-actions">
+                        ${report.status === 'new' ? `
+                            <button class="action-btn resolve" onclick="resolveReport(${report.id})">
+                                <i class="fas fa-check"></i> Решить
+                            </button>
+                            <button class="action-btn reject" onclick="rejectReport(${report.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            addStatusStyles();
+        });
+}
+
+function getCategoryText(category) {
+    const categories = {
+        'spam': 'Спам',
+        'abuse': 'Оскорбления',
+        'scam': 'Мошенничество',
+        'inappropriate': 'Неподходящий контент',
+        'other': 'Другое'
+    };
+    return categories[category] || category;
+}
+
+function loadSpamblockCandidates() {
+    fetch('/admin/spamblock-candidates')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('spamblock-list');
+            if (!data.candidates || data.candidates.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-ban"></i><p>Нет кандидатов на спам-блок</p></div>';
+                return;
+            }
+            list.innerHTML = data.candidates.map(u => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>${u.display_name} <span style="color:#718096; font-weight:400;">@${u.username}</span>
+                            ${u.is_spam_blocked ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:8px;">Заблокирован</span>' : ''}
+                        </h3>
+                        <p>Жалоб: <strong>${u.report_count}</strong></p>
+                        ${u.spam_block_until ? `<p>Блок до: ${u.spam_block_until} (МСК)</p>` : ''}
+                    </div>
+                    <div class="user-actions">
+                        ${!u.is_spam_blocked ? `
+                            <button class="action-btn ban" onclick="giveSpamblock(${u.id})">
+                                <i class="fas fa-ban"></i> Дать спам-блок
+                            </button>
+                        ` : `
+                            <button class="action-btn unban" onclick="removeSpamblock(${u.id})">
+                                <i class="fas fa-check"></i> Снять блок
+                            </button>
+                        `}
+                        <button class="action-btn" style="background:#718096;color:white;" onclick="cancelSpamCandidate(${u.id})">
+                            Отменить
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        });
+}
+
+function giveSpamblock(userId) {
+    if (!confirm('Выдать спам-блок этому пользователю на 24 часа?')) return;
+    fetch(`/admin/spamblock/${userId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (data.success) loadSpamblockCandidates(); });
+}
+
+function removeSpamblock(userId) {
+    if (!confirm('Снять спам-блок с этого пользователя?')) return;
+    fetch(`/admin/spamblock/${userId}/remove`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (data.success) loadSpamblockCandidates(); });
+}
+
+function cancelSpamCandidate(userId) {
+    // Просто убираем из списка визуально (жалобы остаются, но блок не выдаётся)
+    if (!confirm('Отклонить кандидата? Жалобы останутся, но блок не будет выдан.')) return;
+    fetch(`/admin/spamblock/${userId}/remove`, { method: 'POST' })
+        .then(() => loadSpamblockCandidates());
+}
+
+// Загружаем пользователей при загрузке страницы
+// (инициализация перенесена в блок DOMContentLoaded вверху)
+
+function loadAdminBots() {
+    fetch('/admin/bots')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('admin-bots-list');
+            if (!data.bots || data.bots.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-robot"></i><p>Нет ботов</p></div>';
+                return;
+            }
+            const statusLabel = { pending: 'На проверке', approved: 'Одобрен', rejected: 'Отклонён' };
+            const statusColor = { pending: '#92400e', approved: '#065f46', rejected: '#991b1b' };
+            const statusBg   = { pending: '#fef3c7', approved: '#d1fae5', rejected: '#fee2e2' };
+            list.innerHTML = data.bots.map(bot => `
+                <div class="user-item" id="admin-bot-row-${bot.id}">
+                    <div class="user-info">
+                        <h3>
+                            <i class="fas fa-robot" style="color:#667eea;margin-right:6px;"></i>
+                            ${bot.name}
+                            <span style="color:#718096;font-weight:400;font-size:14px;">@${bot.username}</span>
+                            <span style="background:${statusBg[bot.review_status]};color:${statusColor[bot.review_status]};padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;margin-left:8px;">${statusLabel[bot.review_status] || bot.review_status}</span>
+                            ${!bot.is_active ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:4px;">Неактивен</span>' : ''}
+                        </h3>
+                        <p><strong>Владелец:</strong> ${bot.owner_display_name} (@${bot.owner_username})</p>
+                        ${bot.description ? `<p><strong>Описание:</strong> ${bot.description}</p>` : ''}
+                        ${bot.webhook_url ? `<p><strong>Webhook:</strong> <code style="font-size:12px;">${bot.webhook_url}</code></p>` : ''}
+                        ${bot.review_note ? `<p><strong>Комментарий модератора:</strong> <em>${bot.review_note}</em></p>` : ''}
+                        <p><small>Создан: ${bot.created_at}</small></p>
+                    </div>
+                    <div class="user-actions" style="flex-direction:column;gap:8px;min-width:160px;">
+                        <button class="action-btn" style="background:#667eea;color:white;" onclick="viewBotMessages(${bot.id}, '${bot.name}')">
+                            <i class="fas fa-comments"></i> Сообщения
+                        </button>
+                        ${bot.review_status !== 'approved' ? `
+                            <button class="action-btn verify" onclick="adminApproveBot(${bot.id})">
+                                <i class="fas fa-check"></i> Одобрить
+                            </button>
+                        ` : ''}
+                        ${bot.review_status !== 'rejected' ? `
+                            <button class="action-btn remove" onclick="adminRejectBot(${bot.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : `
+                            <button class="action-btn verify" onclick="adminApproveBot(${bot.id})">
+                                <i class="fas fa-undo"></i> Восстановить
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `).join('');
+        });
+}
+
+function viewBotMessages(botId, botName) {
+    // Создаём модальное окно
+    let modal = document.getElementById('bot-messages-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'bot-messages-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);border-radius:12px;width:90%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e2e8f0;">
+                <h3 style="margin:0;font-size:16px;"><i class="fas fa-comments" style="color:#667eea;margin-right:8px;"></i>Сообщения бота @${botName}</h3>
+                <button onclick="this.closest('#bot-messages-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">&times;</button>
+            </div>
+            <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#718096;">
+                <i class="fas fa-info-circle"></i> Последние 150 сообщений. Проверьте на наличие запрещённого контента.
+            </div>
+            <div id="bot-messages-list" style="overflow-y:auto;flex:1;padding:8px 0;">
+                <div style="text-align:center;padding:30px;color:#718096;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    fetch(`/admin/bots/${botId}/messages`)
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('bot-messages-list');
+            if (!data.messages || data.messages.length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:#718096;"><i class="fas fa-comment-slash"></i><p>Сообщений нет</p></div>';
+                return;
+            }
+            list.innerHTML = data.messages.map(m => {
+                const isSent = m.direction === 'sent';
+                const dirIcon = isSent ? 'fa-arrow-right' : 'fa-arrow-left';
+                const dirColor = isSent ? '#667eea' : '#38a169';
+                const dirLabel = isSent ? `→ @${m.other_username}` : `← @${m.other_username}`;
+                const typeIcon = m.message_type === 'text' ? '' : `<span style="background:#e2e8f0;padding:1px 6px;border-radius:4px;font-size:11px;margin-left:6px;">${m.message_type}</span>`;
+                return `
+                <div style="padding:10px 16px;border-bottom:1px solid #f0f0f0;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span style="font-size:12px;color:${dirColor};font-weight:600;"><i class="fas ${dirIcon}"></i> ${dirLabel}${typeIcon}</span>
+                        <span style="font-size:11px;color:#a0aec0;">${m.timestamp}</span>
+                    </div>
+                    <div style="font-size:14px;word-break:break-word;">${escapeHtml(m.content)}</div>
+                </div>`;
+            }).join('');
+        })
+        .catch(() => {
+            document.getElementById('bot-messages-list').innerHTML = '<div style="text-align:center;padding:30px;color:#e53e3e;">Ошибка загрузки</div>';
+        });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+
+function adminApproveBot(botId) {
+    const note = prompt('Комментарий для владельца (необязательно):');
+    if (note === null) return;
+    fetch(`/admin/bots/${botId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note.trim() })
+    }).then(r => r.json()).then(d => { if (d.success) loadAdminBots(); });
+}
+
+function adminRejectBot(botId) {
+    const note = prompt('Причина отклонения (обязательно):');
+    if (note === null) return;
+    if (!note.trim()) { alert('Укажите причину отклонения'); return; }
+    fetch(`/admin/bots/${botId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note.trim() })
+    }).then(r => r.json()).then(d => { if (d.success) loadAdminBots(); });
+}
+
+function adminDisable2FA(userId) {
+    if (!confirm('Отключить двухэтапную аутентификацию для этого пользователя?')) return;
+    fetch(`/admin/users/${userId}/disable_2fa`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.success) loadUsers(); else alert(d.error); });
+}
+
+function loadRecoveryRequests() {
+    fetch('/admin/recovery-requests')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('recovery-list');
+            if (!data.requests || data.requests.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-key"></i><p>Нет заявок на восстановление</p></div>';
+                return;
+            }
+            const statusLabel = { pending: 'Ожидает', resolved: 'Решена', rejected: 'Отклонена' };
+            const statusBg = { pending: '#fef3c7', resolved: '#d1fae5', rejected: '#fee2e2' };
+            const statusColor = { pending: '#92400e', resolved: '#065f46', rejected: '#991b1b' };
+            list.innerHTML = data.requests.map(r => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>@${r.username}
+                            <span style="background:${statusBg[r.status]};color:${statusColor[r.status]};padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;margin-left:8px;">${statusLabel[r.status] || r.status}</span>
+                            <span style="background:${r.request_type === '2fa_lost' ? '#fde8d8' : '#e0e7ff'};color:${r.request_type === '2fa_lost' ? '#9a3412' : '#3730a3'};padding:2px 8px;border-radius:8px;font-size:11px;margin-left:4px;">${r.request_type === '2fa_lost' ? '🔐 Потерян 2FA' : '🔑 Забыл пароль'}</span>
+                        </h3>
+                        <p><strong>Причина:</strong> ${r.reason}</p>
+                        ${r.admin_note ? `<p><strong>Комментарий:</strong> ${r.admin_note}</p>` : ''}
+                        <p><small>Подано: ${r.created_at}${r.reviewed_at ? ' • Рассмотрено: ' + r.reviewed_at : ''}</small></p>
+                    </div>
+                    <div class="user-actions" style="flex-direction:column;gap:8px;min-width:140px;">
+                        ${r.status === 'pending' ? `
+                            <button class="action-btn verify" onclick="resolveRecovery(${r.id})">
+                                <i class="fas fa-check"></i> Решить
+                            </button>
+                            <button class="action-btn remove" onclick="rejectRecovery(${r.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        });
+}
+
+function resolveRecovery(reqId) {
+    const note = prompt('Комментарий для пользователя (необязательно):') ?? '';
+    fetch(`/admin/recovery-requests/${reqId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note })
+    }).then(r => r.json()).then(d => { if (d.success) loadRecoveryRequests(); });
+}
+
+function rejectRecovery(reqId) {
+    const note = prompt('Причина отклонения:') ?? '';
+    fetch(`/admin/recovery-requests/${reqId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note })
+    }).then(r => r.json()).then(d => { if (d.success) loadRecoveryRequests(); });
+}
+
+{% if admin_role == 'owner' %}
+function setUserRole(userId, currentRole) {
+    const roles = [
+        { value: '', label: '— Убрать роль (обычный пользователь)' },
+        { value: 'moderator', label: 'Модератор' },
+        { value: 'admin', label: 'Администратор' },
+        { value: 'senior_admin', label: 'Ст. администратор' },
+        { value: 'owner', label: 'Владелец' },
+    ];
+    // Создаём модальное окно выбора роли
+    let modal = document.getElementById('role-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'role-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);border-radius:12px;width:360px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 16px;font-size:16px;"><i class="fas fa-user-shield" style="color:#7c3aed;margin-right:8px;"></i>Изменить роль</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                ${roles.map(r => `
+                    <button onclick="confirmSetRole(${userId}, '${r.value}')"
+                        style="padding:10px 14px;border:2px solid ${r.value && r.value === currentRole ? '#7c3aed' : '#e2e8f0'};border-radius:8px;background:${r.value && r.value === currentRole ? '#ede9fe' : 'transparent'};cursor:pointer;text-align:left;font-size:14px;color:var(--text-primary,#2d3748);transition:all 0.2s;">
+                        ${r.value ? `<span style="background:${ROLE_BG[r.value]};color:${ROLE_COLORS[r.value]};padding:1px 8px;border-radius:6px;font-size:11px;font-weight:600;margin-right:8px;">${ROLE_LABELS[r.value]}</span>` : ''}${r.label}
+                    </button>
+                `).join('')}
+            </div>
+            <button onclick="this.closest('#role-modal').remove()" style="margin-top:16px;width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:none;cursor:pointer;color:#718096;">Отмена</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function confirmSetRole(userId, role) {
+    document.getElementById('role-modal')?.remove();
+    fetch(`/admin/users/${userId}/set_role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: role || null })
+    }).then(r => r.json()).then(d => {
+        if (d.success) loadUsers();
+        else alert(d.error || 'Ошибка');
+    });
+}
+
+// ── Заявки в администрацию ───────────────────────────────────────────────────
+
+function loadApplications() {
+    fetch('/admin/applications')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('applications-list');
+            if (!data.applications || data.applications.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-user-tie"></i><p>Нет заявок</p></div>';
+                return;
+            }
+            const statusLabel = { pending: 'Ожидает', approved: 'Одобрена', rejected: 'Отклонена' };
+            const statusBg = { pending: '#fef3c7', approved: '#d1fae5', rejected: '#fee2e2' };
+            const statusColor = { pending: '#92400e', approved: '#065f46', rejected: '#991b1b' };
+            list.innerHTML = data.applications.map(a => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>${a.display_name} <span style="color:#718096;font-weight:400;">@${a.username}</span>
+                            <span style="background:${statusBg[a.status]};color:${statusColor[a.status]};padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;margin-left:8px;">${statusLabel[a.status]||a.status}</span>
+                        </h3>
+                        <p><strong>Причина:</strong> ${a.reason}</p>
+                        ${a.experience ? `<p><strong>Опыт:</strong> ${a.experience}</p>` : ''}
+                        ${a.admin_note ? `<p><strong>Комментарий:</strong> ${a.admin_note}</p>` : ''}
+                        <p><small>Подано: ${a.created_at}${a.reviewed_at ? ' • Рассмотрено: ' + a.reviewed_at : ''}</small></p>
+                    </div>
+                    <div class="user-actions" style="flex-direction:column;gap:8px;min-width:160px;">
+                        ${a.status === 'pending' ? `
+                            <button class="action-btn verify" onclick="approveApplication(${a.id})">
+                                <i class="fas fa-check"></i> Одобрить
+                            </button>
+                            <button class="action-btn remove" onclick="rejectApplication(${a.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        })
+        .catch(() => {
+            document.getElementById('applications-list').innerHTML = '<div class="empty-state"><i class="fas fa-lock"></i><p>Нет доступа</p></div>';
+        });
+}
+
+function approveApplication(appId) {
+    // Выбор роли при одобрении
+    let modal = document.getElementById('approve-app-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'approve-app-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);border-radius:12px;width:360px;padding:24px;">
+            <h3 style="margin:0 0 16px;font-size:16px;"><i class="fas fa-user-check" style="color:#38a169;margin-right:8px;"></i>Одобрить заявку</h3>
+            <p style="color:#718096;font-size:14px;margin-bottom:12px;">Выберите начальную роль:</p>
+            <select id="app-role-select" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:12px;">
+                <option value="moderator">Модератор</option>
+                <option value="admin">Администратор</option>
+                <option value="senior_admin">Ст. администратор</option>
+            </select>
+            <input id="app-note-input" type="text" placeholder="Комментарий (необязательно)" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;margin-bottom:16px;box-sizing:border-box;">
+            <div style="display:flex;gap:8px;">
+                <button onclick="submitApproveApp(${appId})" style="flex:1;padding:10px;background:#38a169;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Одобрить</button>
+                <button onclick="this.closest('#approve-app-modal').remove()" style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:none;cursor:pointer;font-size:14px;color:#718096;">Отмена</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function submitApproveApp(appId) {
+    const role = document.getElementById('app-role-select').value;
+    const note = document.getElementById('app-note-input').value.trim();
+    document.getElementById('approve-app-modal')?.remove();
+    fetch(`/admin/applications/${appId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, note })
+    }).then(r => r.json()).then(d => {
+        if (d.success) loadApplications();
+        else alert(d.error || 'Ошибка');
+    });
+}
+
+function rejectApplication(appId) {
+    const note = prompt('Причина отклонения (необязательно):') ?? '';
+    if (note === null) return;
+    fetch(`/admin/applications/${appId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note })
+    }).then(r => r.json()).then(d => {
+        if (d.success) loadApplications();
+        else alert(d.error || 'Ошибка');
+    });
+}
+
+// ── Все диалоги (только owner) ───────────────────────────────────────────────
+
+function loadAllDialogs() {
+    fetch('/admin/dialogs')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('dialogs-list');
+            if (!data.dialogs || data.dialogs.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>Нет диалогов</p></div>';
+                return;
+            }
+            list.innerHTML = data.dialogs.map(d => `
+                <div class="user-item" style="cursor:pointer;" onclick="openDialogViewer(${d.user1.id}, ${d.user2.id}, '${escapeHtml(d.user1.display_name)}', '${escapeHtml(d.user2.display_name)}')">
+                    <div class="user-info">
+                        <h3>
+                            <i class="fas fa-user" style="color:#667eea;font-size:12px;margin-right:4px;"></i>${d.user1.display_name} <span style="color:#718096;font-weight:400;">@${d.user1.username}</span>
+                            <span style="color:#a0aec0;margin:0 8px;">↔</span>
+                            <i class="fas fa-user" style="color:#667eea;font-size:12px;margin-right:4px;"></i>${d.user2.display_name} <span style="color:#718096;font-weight:400;">@${d.user2.username}</span>
+                        </h3>
+                        <p style="color:#718096;font-size:13px;">${escapeHtml(d.last_message)}</p>
+                        <p><small>${d.msg_count} сообщ. • ${d.last_time}</small></p>
+                    </div>
+                    <div style="color:#667eea;font-size:13px;white-space:nowrap;">
+                        <i class="fas fa-eye"></i> Просмотр
+                    </div>
+                </div>
+            `).join('');
+        })
+        .catch(() => {
+            document.getElementById('dialogs-list').innerHTML = '<div class="empty-state"><i class="fas fa-lock"></i><p>Нет доступа</p></div>';
+        });
+}
+
+function openDialogViewer(u1, u2, name1, name2) {
+    let modal = document.getElementById('dialog-viewer-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'dialog-viewer-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:#ffffff;border-radius:12px;width:92%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e2e8f0;">
+                <h3 style="margin:0;font-size:15px;color:#2d3748;"><i class="fas fa-comments" style="color:#667eea;margin-right:8px;"></i>${name1} ↔ ${name2}</h3>
+                <button onclick="this.closest('#dialog-viewer-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">&times;</button>
+            </div>
+            <div id="dialog-messages-body" style="overflow-y:auto;flex:1;padding:12px 16px;background:#f8fafc;">
+                <div style="text-align:center;padding:30px;color:#718096;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    fetch(`/admin/dialogs/${u1}/${u2}`)
+        .then(r => r.json())
+        .then(data => {
+            const body = document.getElementById('dialog-messages-body');
+            if (!data.messages || data.messages.length === 0) {
+                body.innerHTML = '<div style="text-align:center;padding:30px;color:#718096;">Нет сообщений</div>';
+                return;
+            }
+            body.innerHTML = data.messages.map(m => {
+                const isU1 = m.sender_id === u1;
+                const senderName = isU1 ? data.user1.display_name : data.user2.display_name;
+                const align = isU1 ? 'flex-start' : 'flex-end';
+                const bg = isU1 ? '#dbeafe' : '#dcfce7';
+                const typeIcon = m.message_type !== 'text' ? `<span style="font-size:11px;color:#4a5568;margin-left:4px;">[${m.message_type}]</span>` : '';
+                return `
+                <div style="display:flex;justify-content:${align};margin-bottom:8px;">
+                    <div style="max-width:70%;background:${bg};border-radius:10px;padding:8px 12px;">
+                        <div style="font-size:11px;color:#4a5568;margin-bottom:3px;font-weight:600;">${senderName}${typeIcon}</div>
+                        <div style="font-size:14px;word-break:break-word;color:#1a202c;">${m.is_deleted ? '<em style="color:#718096;">[удалено]</em>' : escapeHtml(m.content)}</div>
+                        <div style="font-size:10px;color:#718096;margin-top:3px;text-align:right;">${m.timestamp}${m.edited_at ? ' (ред.)' : ''}</div>
+                    </div>
+                </div>`;
+            }).join('');
+            body.scrollTop = body.scrollHeight;
+        });
+}
+{% endif %}
+</script>
+{% endblock %}

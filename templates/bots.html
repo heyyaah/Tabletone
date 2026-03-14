@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+{% block title %}Мои боты{% endblock %}
+{% block body_attrs %}data-theme="{{ user.theme }}"{% endblock %}
+{% block content %}
+<div class="profile-container">
+  <div class="profile-card" style="max-width:700px;">
+    <div class="profile-header">
+      <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Назад</a>
+      <h1><i class="fas fa-robot"></i> Мои боты</h1>
+    </div>
+    <div class="profile-content">
+
+      <!-- Список ботов -->
+      <div id="bots-list">
+        {% if bots %}
+          {% for bot in bots %}
+          <div class="bot-card" id="bot-card-{{ bot.id }}">
+            <div class="bot-card-header">
+              <div class="bot-avatar" style="background:{{ bot.bot_user.avatar_color }};">
+                {{ bot.bot_user.get_avatar_letter() }}
+              </div>
+              <div class="bot-card-info">
+                <div class="bot-name">{{ bot.bot_user.display_name }}
+                  <span class="bot-badge"><i class="fas fa-robot"></i> BOT</span>
+                  {% if bot.review_status == 'approved' %}
+                    <span style="background:#d1fae5;color:#065f46;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;"><i class="fas fa-check"></i> Одобрен</span>
+                  {% elif bot.review_status == 'rejected' %}
+                    <span style="background:#fee2e2;color:#991b1b;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;"><i class="fas fa-times"></i> Отклонён</span>
+                  {% else %}
+                    <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;"><i class="fas fa-clock"></i> На проверке</span>
+                  {% endif %}
+                </div>
+                <div class="bot-username">@{{ bot.bot_user.username }}</div>
+                {% if bot.review_status == 'rejected' and bot.review_note %}
+                  <div style="color:#e53e3e;font-size:12px;margin-top:4px;"><i class="fas fa-exclamation-circle"></i> {{ bot.review_note }}</div>
+                {% endif %}
+              </div>
+              <div class="bot-card-actions">
+                <button class="btn btn-primary" style="padding:6px 14px;font-size:13px;" onclick="editBot({{ bot.id }})">
+                  <i class="fas fa-cog"></i> Настройки
+                </button>
+                <button class="btn btn-danger" style="padding:6px 14px;font-size:13px;" onclick="deleteBot({{ bot.id }})">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            {% if bot.description %}
+            <div style="color:var(--text-secondary);font-size:13px;margin-top:8px;">{{ bot.description }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="no-chats" id="no-bots-msg">
+            <i class="fas fa-robot"></i>
+            <p>У вас пока нет ботов</p>
+            <p class="hint">Создайте своего первого бота</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;margin-top:20px;" onclick="showCreateBotModal()">
+        <i class="fas fa-plus"></i> Создать бота
+      </button>
+
+      <!-- Документация API -->
+      <div class="profile-section" style="margin-top:30px;">
+        <h3><i class="fas fa-book"></i> Bot API</h3>
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">
+          Используйте HTTP API для управления ботом из своего приложения.
+        </p>
+        <div class="api-doc">
+          <div class="api-method">
+            <span class="api-badge post">POST</span>
+            <code>/bot/sendMessage</code>
+            <p>Отправить сообщение пользователю</p>
+            <pre>{
+  "token": "ВАШ_ТОКЕН",
+  "chat_id": 123,
+  "text": "Привет!"
+}</pre>
+          </div>
+          <div class="api-method">
+            <span class="api-badge get">GET</span>
+            <code>/bot/getMe?token=ВАШ_ТОКЕН</code>
+            <p>Получить информацию о боте</p>
+          </div>
+          <div class="api-method">
+            <span class="api-badge post">POST</span>
+            <code>/bot/setWebhook</code>
+            <p>Установить webhook для получения сообщений</p>
+            <pre>{
+  "token": "ВАШ_ТОКЕН",
+  "url": "https://yourserver.com/webhook"
+}</pre>
+          </div>
+        </div>
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:14px;margin-top:12px;font-size:13px;color:var(--text-secondary);">
+          <i class="fas fa-info-circle" style="color:#667eea;"></i>
+          Webhook получает POST-запрос с JSON при каждом новом сообщении боту.
+          Бот может ответить через <code>/bot/sendMessage</code>.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Модалка создания бота -->
+<div id="create-bot-modal" class="modal">
+  <div class="modal-content" style="max-width:460px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-robot"></i> Создать бота</h3>
+      <button class="close-btn" onclick="closeCreateBotModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Имя бота</label>
+        <input type="text" id="bot-name" class="form-control" placeholder="Мой бот" maxlength="100">
+      </div>
+      <div class="form-group">
+        <label>Username <span style="color:#a0aec0;font-size:12px;">(должен заканчиваться на «bot»)</span></label>
+        <input type="text" id="bot-username" class="form-control" placeholder="mybot" maxlength="80">
+      </div>
+      <div class="form-group">
+        <label>Описание <span style="color:#a0aec0;font-size:12px;">(необязательно)</span></label>
+        <textarea id="bot-description" class="form-control" rows="2" maxlength="500" placeholder="Что умеет ваш бот?"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCreateBotModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="createBot()"><i class="fas fa-check"></i> Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка настроек бота -->
+<div id="edit-bot-modal" class="modal">
+  <div class="modal-content" style="max-width:560px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-cog"></i> Настройки бота</h3>
+      <button class="close-btn" onclick="closeEditBotModal()">&times;</button>
+    </div>
+    <!-- Вкладки -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border-color);padding:0 24px;">
+      <button class="bot-tab active" id="tab-settings" onclick="switchBotTab('settings')">Основные</button>
+      <button class="bot-tab" id="tab-constructor" onclick="switchBotTab('constructor')">Конструктор</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-bot-id">
+
+      <!-- Вкладка: Основные -->
+      <div id="bot-tab-settings">
+        <div class="form-group">
+          <label>Имя бота</label>
+          <input type="text" id="edit-bot-name" class="form-control" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Описание</label>
+          <textarea id="edit-bot-description" class="form-control" rows="2" maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Webhook URL <span style="color:#a0aec0;font-size:12px;">(необязательно — если задан, команды конструктора не используются)</span></label>
+          <input type="url" id="edit-bot-webhook" class="form-control" placeholder="https://yourserver.com/webhook">
+        </div>
+        <div class="form-group">
+          <label>API токен</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="edit-bot-token" class="form-control" readonly style="font-family:monospace;font-size:12px;">
+            <button class="btn" style="padding:8px 12px;background:var(--bg-secondary);color:var(--text-primary);flex-shrink:0;" onclick="copyToken()" title="Копировать">
+              <i class="fas fa-copy"></i>
+            </button>
+            <button class="btn btn-danger" style="padding:8px 12px;flex-shrink:0;" onclick="regenerateToken()" title="Перегенерировать">
+              <i class="fas fa-sync"></i>
+            </button>
+          </div>
+          <small style="color:#a0aec0;">Не передавайте токен третьим лицам</small>
+        </div>
+      </div>
+
+      <!-- Вкладка: Конструктор -->
+      <div id="bot-tab-constructor" style="display:none;">
+        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+          Команды работают только если webhook не задан. Бот автоматически отвечает на совпадающий текст.
+          Триггер <code>*</code> — ответ на любое сообщение.
+        </p>
+        <div id="commands-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:320px;overflow-y:auto;"></div>
+        <button class="btn btn-primary" style="width:100%;" onclick="showAddCommand()">
+          <i class="fas fa-plus"></i> Добавить команду
+        </button>
+
+        <!-- Форма добавления/редактирования команды -->
+        <div id="cmd-form" style="display:none;margin-top:16px;background:var(--bg-secondary);border-radius:12px;padding:14px;">
+          <input type="hidden" id="cmd-edit-id">
+          <div class="form-group">
+            <label>Триггер <span style="color:#a0aec0;font-size:12px;">(например /start, привет, *)</span></label>
+            <input type="text" id="cmd-trigger" class="form-control" placeholder="/start">
+          </div>
+          <div class="form-group">
+            <label>Текст ответа</label>
+            <textarea id="cmd-response" class="form-control" rows="3" placeholder="Привет! Я бот."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Кнопки <span style="color:#a0aec0;font-size:12px;">(отображаются как подсказки в ответе)</span></label>
+            <div id="buttons-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+            <button class="btn" style="padding:6px 12px;background:var(--bg-primary);color:var(--text-primary);font-size:13px;border:1px solid var(--border-color);" onclick="addButton()">
+              <i class="fas fa-plus"></i> Добавить кнопку
+            </button>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="cancelCmdForm()">Отмена</button>
+            <button class="btn btn-primary" onclick="saveCommand()"><i class="fas fa-save"></i> Сохранить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="bot-modal-footer">
+      <button class="btn btn-secondary" onclick="closeEditBotModal()">Закрыть</button>
+      <button class="btn btn-primary" id="btn-save-bot" onclick="saveBot()"><i class="fas fa-save"></i> Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка токена после создания -->
+<div id="token-modal" class="modal">
+  <div class="modal-content" style="max-width:460px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-check-circle" style="color:#38a169;"></i> Бот создан!</h3>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;">Сохраните токен — он показывается только один раз.</p>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="new-bot-token" class="form-control" readonly style="font-family:monospace;font-size:12px;">
+        <button class="btn" style="padding:8px 12px;background:var(--bg-secondary);color:var(--text-primary);flex-shrink:0;" onclick="copyNewToken()">
+          <i class="fas fa-copy"></i>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeTokenModal()">Готово</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.bot-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s;
+}
+.bot-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.bot-card-header { display: flex; align-items: center; gap: 12px; }
+.bot-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 20px; font-weight: 700; flex-shrink: 0;
+}
+.bot-card-info { flex: 1; min-width: 0; }
+.bot-name { font-weight: 600; font-size: 15px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.bot-username { color: var(--text-secondary); font-size: 13px; }
+.bot-badge {
+  background: linear-gradient(135deg,#667eea,#764ba2);
+  color: white; font-size: 10px; padding: 2px 8px;
+  border-radius: 10px; font-weight: 600;
+}
+.bot-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.api-doc { display: flex; flex-direction: column; gap: 14px; }
+.api-method { background: var(--bg-secondary); border-radius: 10px; padding: 12px 14px; }
+.api-method p { color: var(--text-secondary); font-size: 13px; margin: 6px 0 8px; }
+.api-method pre {
+  background: var(--bg-primary); border: 1px solid var(--border-color);
+  border-radius: 8px; padding: 10px; font-size: 12px; overflow-x: auto;
+  color: var(--text-primary); margin: 0;
+}
+.api-method code { font-family: monospace; font-size: 13px; color: #667eea; }
+.api-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; margin-right: 8px;
+}
+.api-badge.post { background: #667eea; color: white; }
+.api-badge.get { background: #38a169; color: white; }
+.bot-tab {
+  background: none; border: none; padding: 10px 18px; font-size: 14px;
+  font-weight: 500; cursor: pointer; color: var(--text-secondary);
+  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+}
+.bot-tab.active { color: #667eea; border-bottom-color: #667eea; }
+.cmd-item {
+  background: var(--bg-primary); border: 1px solid var(--border-color);
+  border-radius: 10px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 10px;
+}
+.cmd-item-info { flex: 1; min-width: 0; }
+.cmd-trigger { font-family: monospace; font-size: 13px; color: #667eea; font-weight: 600; }
+.cmd-response { font-size: 12px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-btns-preview { font-size: 11px; color: #38a169; margin-top: 2px; }
+.btn-row { display: flex; gap: 6px; align-items: center; }
+.btn-icon { background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+.btn-icon:hover { background: var(--bg-secondary); }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; }
+.modal.active { display: flex; }
+.modal-content { background: var(--bg-primary); color: var(--text-primary); border-radius: 16px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.modal-header h3 { font-size: 18px; font-weight: 600; }
+.modal-body { padding: 20px 24px; }
+.modal-footer { padding: 0 24px 20px; display: flex; justify-content: flex-end; gap: 10px; }
+.close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-secondary); }
+.form-control { width: 100%; padding: 10px 14px; border: 2px solid var(--border-color); border-radius: 10px; font-size: 14px; background: var(--bg-secondary); color: var(--text-primary); }
+.form-control:focus { outline: none; border-color: #667eea; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
+</style>
+
+<script>
+function showCreateBotModal() {
+  document.getElementById('create-bot-modal').classList.add('active');
+}
+function closeCreateBotModal() {
+  document.getElementById('create-bot-modal').classList.remove('active');
+  document.getElementById('bot-name').value = '';
+  document.getElementById('bot-username').value = '';
+  document.getElementById('bot-description').value = '';
+}
+
+async function createBot() {
+  const name = document.getElementById('bot-name').value.trim();
+  let username = document.getElementById('bot-username').value.trim().toLowerCase();
+  const description = document.getElementById('bot-description').value.trim();
+  if (!name || !username) { alert('Заполните имя и username'); return; }
+  if (!username.endsWith('bot')) username += 'bot';
+
+  const res = await fetch('/bots/create', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, username, description})
+  });
+  const data = await res.json();
+  if (!data.success) {
+    if (data.error === 'premium_required') {
+      showPremiumModal(data.message);
+      return;
+    }
+    alert(data.error || 'Ошибка'); return;
+  }
+
+  closeCreateBotModal();
+  document.getElementById('new-bot-token').value = data.token;
+  document.getElementById('token-modal').classList.add('active');
+  setTimeout(() => location.reload(), 100);
+}
+
+function closeTokenModal() {
+  document.getElementById('token-modal').classList.remove('active');
+}
+
+function copyNewToken() {
+  const t = document.getElementById('new-bot-token');
+  t.select(); document.execCommand('copy');
+  alert('Токен скопирован!');
+}
+
+// ── Настройки бота ──────────────────────────────────────────────────────────
+
+async function editBot(botId) {
+  const res = await fetch(`/bots/${botId}`);
+  const data = await res.json();
+  if (data.error) { alert(data.error); return; }
+  document.getElementById('edit-bot-id').value = botId;
+  document.getElementById('edit-bot-name').value = data.name;
+  document.getElementById('edit-bot-description').value = data.description || '';
+  document.getElementById('edit-bot-webhook').value = data.webhook_url || '';
+  document.getElementById('edit-bot-token').value = data.token;
+  switchBotTab('settings');
+  document.getElementById('edit-bot-modal').classList.add('active');
+}
+
+function closeEditBotModal() {
+  document.getElementById('edit-bot-modal').classList.remove('active');
+  cancelCmdForm();
+}
+
+function switchBotTab(tab) {
+  document.getElementById('bot-tab-settings').style.display = tab === 'settings' ? '' : 'none';
+  document.getElementById('bot-tab-constructor').style.display = tab === 'constructor' ? '' : 'none';
+  document.getElementById('tab-settings').classList.toggle('active', tab === 'settings');
+  document.getElementById('tab-constructor').classList.toggle('active', tab === 'constructor');
+  document.getElementById('btn-save-bot').style.display = tab === 'settings' ? '' : 'none';
+  if (tab === 'constructor') loadCommands();
+}
+
+async function saveBot() {
+  const botId = document.getElementById('edit-bot-id').value;
+  const res = await fetch(`/bots/${botId}/update`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      name: document.getElementById('edit-bot-name').value.trim(),
+      description: document.getElementById('edit-bot-description').value.trim(),
+      webhook_url: document.getElementById('edit-bot-webhook').value.trim()
+    })
+  });
+  const data = await res.json();
+  if (data.success) { closeEditBotModal(); location.reload(); }
+  else alert(data.error || 'Ошибка');
+}
+
+function copyToken() {
+  const t = document.getElementById('edit-bot-token');
+  t.select(); document.execCommand('copy');
+  alert('Токен скопирован!');
+}
+
+async function regenerateToken() {
+  if (!confirm('Старый токен перестанет работать. Продолжить?')) return;
+  const botId = document.getElementById('edit-bot-id').value;
+  const res = await fetch(`/bots/${botId}/regenerate_token`, {method: 'POST'});
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('edit-bot-token').value = data.token;
+    alert('Токен обновлён!');
+  }
+}
+
+async function deleteBot(botId) {
+  if (!confirm('Удалить бота? Это действие необратимо.')) return;
+  const res = await fetch(`/bots/${botId}/delete`, {method: 'POST'});
+  const data = await res.json();
+  if (data.success) location.reload();
+  else alert(data.error || 'Ошибка');
+}
+
+// ── Конструктор команд ──────────────────────────────────────────────────────
+
+async function loadCommands() {
+  const botId = document.getElementById('edit-bot-id').value;
+  const res = await fetch(`/bots/${botId}/commands`);
+  const data = await res.json();
+  renderCommands(data.commands || []);
+}
+
+function renderCommands(commands) {
+  const list = document.getElementById('commands-list');
+  if (!commands.length) {
+    list.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:16px;">Команд пока нет</div>';
+    return;
+  }
+  list.innerHTML = commands.map(c => {
+    const btnsPreview = c.buttons && c.buttons.length
+      ? `<div class="cmd-btns-preview"><i class="fas fa-th-large"></i> ${c.buttons.map(b => b.label).join(', ')}</div>` : '';
+    return `<div class="cmd-item">
+      <div class="cmd-item-info">
+        <div class="cmd-trigger">${escHtml(c.trigger)}</div>
+        <div class="cmd-response">${escHtml(c.response_text)}</div>
+        ${btnsPreview}
+      </div>
+      <div class="btn-row">
+        <button class="btn-icon" onclick="editCommand(${c.id},'${escHtml(c.trigger)}',${JSON.stringify(c.response_text).replace(/'/g,"\\'")},'${JSON.stringify(c.buttons).replace(/'/g,"\\'")}')" title="Редактировать"><i class="fas fa-pen"></i></button>
+        <button class="btn-icon" onclick="deleteCommand(${c.id})" title="Удалить" style="color:#e53e3e;"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showAddCommand() {
+  document.getElementById('cmd-edit-id').value = '';
+  document.getElementById('cmd-trigger').value = '';
+  document.getElementById('cmd-response').value = '';
+  document.getElementById('buttons-list').innerHTML = '';
+  document.getElementById('cmd-form').style.display = '';
+}
+
+function editCommand(id, trigger, responseText, buttonsJson) {
+  document.getElementById('cmd-edit-id').value = id;
+  document.getElementById('cmd-trigger').value = trigger;
+  document.getElementById('cmd-response').value = responseText;
+  document.getElementById('cmd-form').style.display = '';
+  const buttons = JSON.parse(buttonsJson);
+  document.getElementById('buttons-list').innerHTML = '';
+  buttons.forEach(b => addButton(b.label, b.reply || ''));
+}
+
+function cancelCmdForm() {
+  document.getElementById('cmd-form').style.display = 'none';
+}
+
+function addButton(label = '', reply = '') {
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `
+    <input type="text" class="form-control btn-label" placeholder="Текст кнопки" value="${escHtml(label)}" style="flex:1;">
+    <input type="text" class="form-control btn-reply" placeholder="Ответ (необяз.)" value="${escHtml(reply)}" style="flex:1;">
+    <button class="btn-icon" onclick="this.parentElement.remove()" style="color:#e53e3e;flex-shrink:0;"><i class="fas fa-times"></i></button>
+  `;
+  document.getElementById('buttons-list').appendChild(row);
+}
+
+async function saveCommand() {
+  const botId = document.getElementById('edit-bot-id').value;
+  const cmdId = document.getElementById('cmd-edit-id').value;
+  const trigger = document.getElementById('cmd-trigger').value.trim();
+  const response_text = document.getElementById('cmd-response').value.trim();
+  if (!trigger || !response_text) { alert('Заполните триггер и текст ответа'); return; }
+
+  const buttons = [];
+  document.querySelectorAll('#buttons-list > div').forEach(row => {
+    const label = row.querySelector('.btn-label').value.trim();
+    const reply = row.querySelector('.btn-reply').value.trim();
+    if (label) buttons.push({label, reply});
+  });
+
+  const url = cmdId
+    ? `/bots/${botId}/commands/${cmdId}/update`
+    : `/bots/${botId}/commands`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({trigger, response_text, buttons})
+  });
+  const data = await res.json();
+  if (data.success || data.id) {
+    cancelCmdForm();
+    loadCommands();
+  } else {
+    alert(data.error || 'Ошибка');
+  }
+}
+
+async function deleteCommand(cmdId) {
+  if (!confirm('Удалить команду?')) return;
+  const botId = document.getElementById('edit-bot-id').value;
+  const res = await fetch(`/bots/${botId}/commands/${cmdId}/delete`, {method: 'POST'});
+  const data = await res.json();
+  if (data.success) loadCommands();
+  else alert(data.error || 'Ошибка');
+}
+
+// Закрытие модалок по клику вне
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+});
+
+function showPremiumModal(message) {
+  let modal = document.getElementById('premium-required-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'premium-required-modal';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:28px 24px;max-width:360px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="font-size:40px;margin-bottom:12px;">👑</div>
+        <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Требуется Premium</h3>
+        <p id="premium-modal-msg" style="color:#718096;font-size:14px;margin-bottom:20px;"></p>
+        <button onclick="document.getElementById('premium-required-modal').style.display='none';" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;padding:10px 28px;font-size:15px;font-weight:600;cursor:pointer;">Понятно</button>
+      </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+    document.body.appendChild(modal);
+  }
+  document.getElementById('premium-modal-msg').textContent = message || 'Эта функция доступна только для Premium пользователей.';
+  modal.style.display = 'flex';
+}
+</script>
+{% endblock %}
