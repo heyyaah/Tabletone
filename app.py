@@ -2887,10 +2887,11 @@ def get_users():
         for user_id in user_ids:
             user = User.query.get(user_id)
             if user:
-                # Находим последнее сообщение с этим пользователем
+                # Находим последнее НЕудалённое сообщение с этим пользователем
                 last_message = Message.query.filter(
                     ((Message.sender_id == session['user_id']) & (Message.receiver_id == user_id)) |
-                    ((Message.sender_id == user_id) & (Message.receiver_id == session['user_id']))
+                    ((Message.sender_id == user_id) & (Message.receiver_id == session['user_id'])),
+                    Message.is_deleted == False
                 ).order_by(Message.timestamp.desc()).first()
                 
                 # Используем timestamp последнего сообщения или время создания пользователя
@@ -4326,8 +4327,8 @@ def get_groups():
         for membership in memberships:
             group = membership.group
             
-            # Получаем последнее сообщение
-            last_message = GroupMessage.query.filter_by(group_id=group.id).order_by(GroupMessage.timestamp.desc()).first()
+            # Получаем последнее НЕудалённое сообщение
+            last_message = GroupMessage.query.filter_by(group_id=group.id, is_deleted=False).order_by(GroupMessage.timestamp.desc()).first()
             
             # Считаем участников
             members_count = GroupMember.query.filter_by(group_id=group.id).count()
