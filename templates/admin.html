@@ -1444,6 +1444,9 @@ function loadChannels() {
                             <i class="fas fa-${g.is_verified ? 'times' : 'check'}"></i>
                             ${g.is_verified ? 'Снять верификацию' : 'Верифицировать'}
                         </button>
+                        <button class="action-btn ban" onclick="adminDeleteGroup(${g.id})" style="margin-top:6px;">
+                            <i class="fas fa-trash"></i> Удалить
+                        </button>
                     </div>
                 </div>
             `).join('');
@@ -1454,6 +1457,13 @@ function toggleGroupVerify(groupId, btn) {
     fetch(`/admin/groups/${groupId}/verify`, { method: 'POST' })
         .then(r => r.json())
         .then(d => { if (d.success) loadChannels(); });
+}
+
+function adminDeleteGroup(groupId) {
+    if (!confirm('Удалить эту группу/канал? Это действие необратимо.')) return;
+    fetch(`/admin/groups/${groupId}/delete`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.success) loadChannels(); else alert(d.error || 'Ошибка'); });
 }
 
 // ── Заявки на удаление аккаунтов ─────────────────────────────────────────

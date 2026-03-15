@@ -584,6 +584,21 @@ function _attachSwipeReplyEl(el) {
     let triggered = false;
     const THRESHOLD = 60; // px to trigger reply
 
+    // Double-tap for quick 👍 reaction
+    let lastTap = 0;
+    el.addEventListener('touchend', function(tapEv) {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+            // Double tap detected
+            const msgId = parseInt(el.getAttribute('data-message-id'));
+            const isGroup = el.dataset.isGroup === '1';
+            sendReaction(msgId, '👍', isGroup);
+            if (navigator.vibrate) navigator.vibrate(20);
+            tapEv.preventDefault();
+        }
+        lastTap = now;
+    }, { passive: false });
+
     el.addEventListener('touchstart', function(e) {
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
@@ -617,7 +632,6 @@ function _attachSwipeReplyEl(el) {
             const contentEl = el.querySelector('.message-content');
             const text = contentEl ? contentEl.textContent.trim() : '';
             const isMine = el.getAttribute('data-is-mine') === '1';
-            // Get sender name
             let senderName = isMine ? (document.getElementById('current-user-display-name')?.textContent || 'Вы') : (document.querySelector('.chat-username')?.textContent || '');
             _startReply(msgId, text, senderName);
         }

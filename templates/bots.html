@@ -628,6 +628,8 @@ function openStickersBotChat() {
         alert('Бот @stickers не найден');
       }
     })
+    .catch(() => alert('Ошибка поиска бота'));
+}
 
 function openPremiumSupportChat() {
   fetch('/search?q=premium_support')
@@ -640,8 +642,7 @@ function openPremiumSupportChat() {
       } else {
         alert('Бот @premium_support не найден');
       }
-    });
-}
+    })
     .catch(() => alert('Ошибка поиска бота'));
 }
 

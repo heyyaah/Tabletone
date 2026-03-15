@@ -3971,6 +3971,22 @@ def admin_verify_group(group_id):
     db.session.commit()
     return jsonify({'success': True, 'is_verified': group.is_verified})
 
+@app.route('/admin/groups/<int:group_id>/delete', methods=['POST'])
+def admin_delete_group(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or admin.admin_role != 'owner':
+        return jsonify({'error': 'Только owner'}), 403
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({'error': 'Не найдено'}), 404
+    GroupMember.query.filter_by(group_id=group_id).delete()
+    GroupMessage.query.filter_by(group_id=group_id).delete()
+    db.session.delete(group)
+    db.session.commit()
+    return jsonify({'success': True})
+
 # Обновление темы
 @app.route('/theme/update', methods=['POST'])
 def update_theme():
