@@ -2891,7 +2891,8 @@ def get_users():
                 last_message = Message.query.filter(
                     ((Message.sender_id == session['user_id']) & (Message.receiver_id == user_id)) |
                     ((Message.sender_id == user_id) & (Message.receiver_id == session['user_id'])),
-                    Message.is_deleted == False
+                    Message.is_deleted == False,
+                    Message.content != '[Сообщение удалено]'
                 ).order_by(Message.timestamp.desc()).first()
                 
                 # Используем timestamp последнего сообщения или время создания пользователя
@@ -3347,7 +3348,6 @@ def delete_message(message_id):
         return jsonify({'error': 'Вы не можете удалить это сообщение'}), 403
     
     message.is_deleted = True
-    message.content = '[Сообщение удалено]'
     db.session.commit()
     
     # Отправляем событие через Socket.IO обоим пользователям
@@ -4588,7 +4588,6 @@ def delete_group_message(group_id, message_id):
     if msg.sender_id != session['user_id'] and not membership.is_admin:
         return jsonify({'error': 'Нет прав'}), 403
     msg.is_deleted = True
-    msg.content = '[Сообщение удалено]'
     db.session.commit()
     return jsonify({'success': True})
 
