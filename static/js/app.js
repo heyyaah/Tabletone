@@ -1169,9 +1169,22 @@ function displaySearchResults(data) {
 
 // Открытие чата с пользователем
 async function openChat(userId, username) {
+    console.log('[openChat] called, userId=', userId, 'username=', username);
     currentChatUserId = userId;
     _favoritesOpen = false;
     openedChats.add(userId);
+
+    // Принудительно показываем кнопки личного чата
+    ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.setAttribute('data-visible', '1');
+            el.style.setProperty('display', 'flex', 'important');
+            console.log('[openChat] showing button:', id);
+        } else {
+            console.warn('[openChat] button NOT FOUND:', id);
+        }
+    });
 
     // Сразу показываем форму ввода (личный чат — не канал)
     updateMessageInputVisibility(false, true);
@@ -1191,12 +1204,9 @@ async function openChat(userId, username) {
     document.getElementById('chat-active').style.display = 'flex';
     document.getElementById('chat-username').textContent = username;
 
-    // Показываем кнопки личного чата
+    // Показываем кнопки личного чата (уже показаны в начале функции)
     const _chatArea = document.getElementById('chat-area');
     if (_chatArea) _chatArea.classList.add('personal-chat-open');
-    document.getElementById('call-btn')?.setAttribute('data-visible', '1');
-    document.getElementById('video-call-btn')?.setAttribute('data-visible', '1');
-    document.getElementById('clear-history-btn')?.setAttribute('data-visible', '1');
     // На мобильных устройствах скрываем sidebar и показываем chat-area
     const sidebar = document.getElementById('sidebar');
     const chatArea = document.getElementById('chat-area');
@@ -4780,6 +4790,7 @@ function setupTypingIndicator() {
 }
 
 function showTypingIndicator(name) {
+    console.log('[typing] showTypingIndicator called, name=', name);
     let el = document.getElementById('typing-indicator');
     if (!el) {
         el = document.createElement('div');
