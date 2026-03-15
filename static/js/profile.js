@@ -5,6 +5,17 @@ document.addEventListener('DOMContentLoaded', function() {
     setupProfileForm();
     loadSessions();
     setupAvatarUpload();
+    // Синхронизируем выбранные обои с localStorage
+    const savedWallpaper = localStorage.getItem('chat_wallpaper');
+    if (savedWallpaper) {
+        const input = document.getElementById('chat_wallpaper');
+        const option = document.querySelector(`[data-wallpaper="${savedWallpaper}"]`);
+        if (input && option) {
+            document.querySelectorAll('.wallpaper-option').forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+            input.value = savedWallpaper;
+        }
+    }
 });
 
 function showPremiumModal(message) {
@@ -118,8 +129,9 @@ function showSuccessMessage() {
     const message = document.getElementById('success-message');
     message.style.display = 'flex';
     
-    // Обновляем обои в главном окне если оно открыто
+    // Сохраняем обои в localStorage и применяем в главном окне
     const wallpaper = document.getElementById('chat_wallpaper').value;
+    localStorage.setItem('chat_wallpaper', wallpaper);
     if (window.opener && window.opener.updateWallpaper) {
         window.opener.updateWallpaper(wallpaper);
     }
@@ -169,6 +181,8 @@ function selectWallpaper(wallpaper) {
     });
     document.querySelector(`[data-wallpaper="${wallpaper}"]`).classList.add('selected');
     document.getElementById('chat_wallpaper').value = wallpaper;
+    // Сохраняем в localStorage для немедленного применения
+    localStorage.setItem('chat_wallpaper', wallpaper);
 }
 
 // Экспорт функций в глобальную область

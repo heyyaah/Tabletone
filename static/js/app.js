@@ -62,7 +62,11 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('open_chat_on_load');
         try {
             const _c = JSON.parse(_pendingChat);
-            setTimeout(() => openChat(_c.id, _c.name), 800);
+            if (_c.byUsername) {
+                setTimeout(() => openChatByUsername(_c.id), 800);
+            } else {
+                setTimeout(() => openChat(_c.id, _c.name), 800);
+            }
         } catch(e) {}
     }
 });
@@ -1970,12 +1974,14 @@ async function loadUserSettings() {
         
         const data = await response.json();
         
-        // Применяем обои
-        if (data.chat_wallpaper) {
-            updateWallpaper(data.chat_wallpaper);
-        }
+        // Применяем обои: приоритет у сервера, fallback — localStorage
+        const wallpaper = data.chat_wallpaper || localStorage.getItem('chat_wallpaper') || 'default';
+        updateWallpaper(wallpaper);
     } catch (error) {
         console.error('Ошибка загрузки настроек:', error);
+        // Применяем из localStorage если сервер недоступен
+        const wallpaper = localStorage.getItem('chat_wallpaper');
+        if (wallpaper) updateWallpaper(wallpaper);
     }
 }
 
