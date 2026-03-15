@@ -62,7 +62,11 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('open_chat_on_load');
         try {
             const _c = JSON.parse(_pendingChat);
-            setTimeout(() => openChat(_c.id, _c.name), 800);
+            if (_c.byUsername) {
+                setTimeout(() => openChatByUsername(_c.id), 800);
+            } else {
+                setTimeout(() => openChat(_c.id, _c.name), 800);
+            }
         } catch(e) {}
     }
 });
