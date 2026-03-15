@@ -2443,12 +2443,10 @@ async function joinGroupFromSearch(groupId) {
             if (!data.already_member) {
                 showError('Вы успешно вступили в группу!', 'success');
             }
-            openGroupChat(groupId);
-        } else if (data.error && data.error.includes('уже состоите')) {
-            // Уже в группе — просто открываем её
-            document.getElementById('search-results').style.display = 'none';
-            document.getElementById('search-input').value = '';
-            openGroupChat(groupId);
+            // Открываем группу — берём имя из уже загруженного списка
+            const groupItem = document.querySelector(`.chat-item[data-group-id="${groupId}"]`);
+            const groupName = groupItem ? groupItem.querySelector('.chat-username')?.textContent?.trim() : '';
+            openGroup(groupId, groupName || '');
         } else {
             showError(data.error || 'Не удалось вступить в группу');
         }
