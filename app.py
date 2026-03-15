@@ -7695,6 +7695,15 @@ class PushSubscription(db.Model):
 
 with app.app_context():
     db.create_all()
+    # Auto-migrate: expand column types
+    try:
+        from sqlalchemy import text as _text
+        with db.engine.connect() as _conn:
+            _conn.execute(_text('ALTER TABLE sticker ALTER COLUMN image_url TYPE TEXT'))
+            _conn.execute(_text('ALTER TABLE sticker_pack ALTER COLUMN cover_url TYPE TEXT'))
+            _conn.commit()
+    except Exception:
+        pass
 
 @app.route('/push/vapid-key')
 def push_vapid_key():
