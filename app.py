@@ -691,6 +691,8 @@ with app.app_context():
             'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS admin_permissions TEXT DEFAULT \'{}\'',
             'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS member_restrictions TEXT DEFAULT \'{}\'',
             'ALTER TABLE message_reaction ALTER COLUMN emoji TYPE VARCHAR(500)',
+            'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN DEFAULT FALSE',
+            'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_receiver BOOLEAN DEFAULT FALSE',
         ]
     else:
         migrations = [
@@ -722,6 +724,8 @@ with app.app_context():
             "ALTER TABLE 'group' ADD COLUMN is_verified BOOLEAN DEFAULT 0",
             "ALTER TABLE group_member ADD COLUMN admin_permissions TEXT DEFAULT '{}'",
             "ALTER TABLE group_member ADD COLUMN member_restrictions TEXT DEFAULT '{}'",
+            "ALTER TABLE message ADD COLUMN hidden_for_sender BOOLEAN DEFAULT 0",
+            "ALTER TABLE message ADD COLUMN hidden_for_receiver BOOLEAN DEFAULT 0",
         ]
 
     with db.engine.connect() as conn:
