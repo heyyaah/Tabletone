@@ -52,15 +52,6 @@
                               placeholder="Расскажите о себе..." maxlength="200">{{ user.bio or '' }}</textarea>
                     <small class="char-count"><span id="bio-count">{{ (user.bio or '')|length }}</span>/200</small>
                 </div>
-
-                <div class="form-group">
-                    <label for="email">
-                        <i class="fas fa-envelope"></i> Email (для 2FA кодов)
-                    </label>
-                    <input type="email" id="email" name="email"
-                           value="{{ user.email or '' }}"
-                           placeholder="your@email.com">
-                </div>
                 
                 <div class="form-group">
                     <label>

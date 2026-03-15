@@ -77,8 +77,6 @@ function setupProfileForm() {
         const avatarColor = document.getElementById('avatar_color').value;
         const chatWallpaper = document.getElementById('chat_wallpaper').value;
         const timezone = document.getElementById('timezone').value;
-        const emailEl = document.getElementById('email');
-        const email = emailEl ? emailEl.value.trim() : undefined;
         
         try {
             const response = await fetch('/profile/update', {
@@ -91,8 +89,7 @@ function setupProfileForm() {
                     bio: bio,
                     avatar_color: avatarColor,
                     chat_wallpaper: chatWallpaper,
-                    timezone: timezone,
-                    ...(email !== undefined && { email })
+                    timezone: timezone
                 })
             });
             

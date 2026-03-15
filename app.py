@@ -4229,14 +4229,6 @@ def _send_2fa_code(user_id, code):
     if bot_user:
         _bot_send_message(bot_user.id, user_id, text)
 
-    # Отправка на email
-    user = User.query.get(user_id)
-    if user and user.email:
-        try:
-            _send_email_2fa(user.email, code)
-        except Exception as e:
-            print(f"Email 2FA error: {e}")
-
     # Отправка в Telegram
     if user and user.telegram_chat_id:
         try:
