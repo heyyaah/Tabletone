@@ -4185,16 +4185,34 @@ function showSpamblockDetails() {
 const REACTION_EMOJIS = ['👍','❤️','😂','😮','😢','🔥','👏','🎉'];
 
 function showReactionPicker(msgId, isGroup) {
-    // Убираем старый picker
     document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
-    const msgEl = document.querySelector(`[data-message-id="${msgId}"]`);
-    if (!msgEl) return;
+    // Ищем кнопку реакции или само сообщение
+    const triggerEl = document.querySelector(`[data-message-id="${msgId}"] .reaction-trigger`)
+                   || document.querySelector(`[data-message-id="${msgId}"]`);
+    if (!triggerEl) return;
+
     const picker = document.createElement('div');
     picker.className = 'reaction-picker';
+    picker.style.cssText = 'position:fixed;z-index:9999;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:24px;padding:6px 10px;display:flex;gap:4px;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
     picker.innerHTML = REACTION_EMOJIS.map(e =>
-        `<button class="reaction-emoji-btn" onclick="sendReaction('${msgId}','${e}',${isGroup})">${e}</button>`
+        `<button class="reaction-emoji-btn" onclick="sendReaction('${msgId}','${e}',${isGroup})" style="background:none;border:none;cursor:pointer;font-size:22px;padding:2px 3px;border-radius:8px;transition:transform .1s;" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'">${e}</button>`
     ).join('');
-    msgEl.appendChild(picker);
+
+    const rect = triggerEl.getBoundingClientRect();
+    document.body.appendChild(picker);
+    // Даём браузеру отрендерить для получения размеров
+    requestAnimationFrame(() => {
+        const pw = picker.offsetWidth || 320;
+        const ph = picker.offsetHeight || 48;
+        let left = rect.left;
+        let top = rect.top - ph - 8;
+        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+        if (left < 8) left = 8;
+        if (top < 8) top = rect.bottom + 8;
+        picker.style.left = left + 'px';
+        picker.style.top = top + 'px';
+    });
+
     setTimeout(() => document.addEventListener('click', function h(ev) {
         if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('click', h); }
     }), 50);

@@ -5520,6 +5520,10 @@ def react_message(msg_id):
         db.session.commit()
         action = 'removed'
     else:
+        user = User.query.get(uid)
+        # Обычный пользователь — только одна реакция (заменяем старую)
+        if not user.is_premium:
+            MessageReaction.query.filter_by(user_id=uid, message_id=msg_id).delete()
         r = MessageReaction(user_id=uid, message_id=msg_id, emoji=emoji)
         db.session.add(r)
         db.session.commit()
@@ -5560,6 +5564,10 @@ def react_group_message(msg_id):
         db.session.commit()
         action = 'removed'
     else:
+        user = User.query.get(uid)
+        # Обычный пользователь — только одна реакция (заменяем старую)
+        if not user.is_premium:
+            MessageReaction.query.filter_by(user_id=uid, group_message_id=msg_id).delete()
         r = MessageReaction(user_id=uid, group_message_id=msg_id, emoji=emoji)
         db.session.add(r)
         db.session.commit()
