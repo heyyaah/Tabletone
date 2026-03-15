@@ -724,6 +724,16 @@ window.sendBotCommand = sendBotCommand;
 async function _doSendText(content) {
     if (!content || (!currentChatUserId && !currentGroupId)) return;
     const input = document.getElementById('message-input');
+    // Сбрасываем typing
+    hideTypingIndicator();
+    if (_isTyping) {
+        _isTyping = false;
+        clearTimeout(_typingTimer);
+        if (socket && socket.connected) {
+            if (currentChatUserId) socket.emit('typing_stop', {to_user_id: currentChatUserId});
+            else if (currentGroupId) socket.emit('typing_stop', {group_id: currentGroupId});
+        }
+    }
     try {
         if (currentGroupId) {
             const res = await fetch(`/groups/${currentGroupId}/send`, {
@@ -4806,17 +4816,18 @@ function setupTypingIndicator() {
 }
 
 function showTypingIndicator(name) {
-    console.log('[typing] showTypingIndicator called, name=', name);
+    const container = document.getElementById('messages-container');
+    if (!container) return;
     let el = document.getElementById('typing-indicator');
     if (!el) {
         el = document.createElement('div');
         el.id = 'typing-indicator';
         el.className = 'typing-indicator';
-        const container = document.getElementById('messages-container');
-        if (container) container.appendChild(el);
     }
     el.innerHTML = `<div class="typing-bubble"><span class="typing-dots"><span></span><span></span><span></span></span></div>`;
     el.style.display = 'flex';
+    // Всегда в конце контейнера
+    container.appendChild(el);
     scrollToBottom();
 }
 
