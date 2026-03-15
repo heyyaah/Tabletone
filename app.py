@@ -2181,6 +2181,7 @@ def get_chat(user_id):
             'edited_at': msg.edited_at.strftime('%H:%M %d.%m') if msg.edited_at else None,
             'is_deleted': msg.is_deleted,
             'is_mine': msg.sender_id == session['user_id'],
+            'is_read': msg.is_read,
             'reply_to': {
                 'id': msg.reply_to.id,
                 'content': msg.reply_to.content if not msg.reply_to.is_deleted else '[удалено]',
@@ -2400,7 +2401,8 @@ def send_message():
                 'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
                 'timestamp_iso': message.timestamp.isoformat() + 'Z',
                 'reply_to': reply_to_data,
-                'is_mine': True
+                'is_mine': True,
+                'is_read': False
             },
             'other_user_id': receiver_id,
             'sender_info': sender_info
