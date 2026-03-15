@@ -5195,17 +5195,11 @@ def enable_2fa():
     user = User.query.get(session['user_id'])
     if user.two_fa_enabled:
         return jsonify({'error': 'Уже включено'}), 400
-    code = str(random.randint(100000, 999999))
-    from datetime import timedelta
-    user.two_fa_code = code
-    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=10)
     user.two_fa_enabled = True
+    user.two_fa_code = None
+    user.two_fa_code_expires = None
     db.session.commit()
-    try:
-        _send_2fa_code(user.id, code)
-    except Exception as e:
-        print(f"2FA enable send error: {e}")
-    return jsonify({'success': True, 'message': 'Код отправлен через бота Tabletone'})
+    return jsonify({'success': True, 'message': '2FA включена. Код будет отправлен при следующем входе.'})
 
 
 @app.route('/profile/2fa/disable', methods=['POST'])
