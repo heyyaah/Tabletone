@@ -124,6 +124,8 @@ class User(db.Model):
     two_fa_code = db.Column(db.String(8))           # Текущий код 2FA
     two_fa_code_expires = db.Column(db.DateTime)    # Срок действия кода
     email = db.Column(db.String(200), nullable=True)  # Email для 2FA
+    telegram_chat_id = db.Column(db.String(50), nullable=True)  # Telegram chat_id для 2FA
+    telegram_link_code = db.Column(db.String(20), nullable=True)  # Код привязки Telegram
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -936,6 +938,8 @@ def admin_run_migrations():
     results = []
     migrations = [
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email VARCHAR(200)',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)',
+        'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(20)',
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -946,6 +950,117 @@ def admin_run_migrations():
             except Exception as e:
                 results.append(f'SKIP: {e}')
     return jsonify({'results': results})
+
+
+# ── Telegram 2FA привязка ─────────────────────────────────────────────────────
+
+# Хранилище кодов привязки: code -> user_id
+_tg_link_codes = {}
+
+@app.route('/profile/telegram-link-code', methods=['POST'])
+def generate_telegram_link_code():
+    """Генерирует код привязки Telegram для текущего пользователя."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    code = 'TG-' + str(random.randint(100000, 999999))
+    _tg_link_codes[code] = user.id
+    # Код живёт 10 минут
+    import threading
+    def _expire():
+        import time; time.sleep(600)
+        _tg_link_codes.pop(code, None)
+    threading.Thread(target=_expire, daemon=True).start()
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    bot_username = ''
+    if token:
+        try:
+            import urllib.request as _ur
+            r = _ur.urlopen(f"https://api.telegram.org/bot{token}/getMe", timeout=5)
+            info = json.loads(r.read())
+            bot_username = info.get('result', {}).get('username', '')
+        except Exception:
+            pass
+    return jsonify({'code': code, 'bot_username': bot_username})
+
+
+@app.route('/profile/telegram-unlink', methods=['POST'])
+def telegram_unlink():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    user.telegram_chat_id = None
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/admin/setup-telegram-webhook', methods=['POST'])
+def setup_telegram_webhook():
+    """Регистрирует webhook Telegram бота — только owner."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not _has_role(admin, 'owner'):
+        return jsonify({'error': 'Нет доступа'}), 403
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    if not token:
+        return jsonify({'error': 'TELEGRAM_BOT_TOKEN не задан'}), 400
+    site_url = request.host_url.rstrip('/')
+    webhook_url = f"{site_url}/telegram/webhook"
+    import urllib.request as _ur
+    url = f"https://api.telegram.org/bot{token}/setWebhook"
+    data = json.dumps({'url': webhook_url}).encode()
+    req = _ur.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    try:
+        resp = json.loads(_ur.urlopen(req, timeout=10).read())
+        return jsonify(resp)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/telegram/webhook', methods=['POST'])
+def telegram_webhook():
+    """Webhook от Telegram — обрабатывает привязку 2FA."""
+    data = request.get_json(silent=True) or {}
+    message = data.get('message', {})
+    text = message.get('text', '').strip()
+    chat_id = str(message.get('chat', {}).get('id', ''))
+    if not chat_id:
+        return jsonify({'ok': True})
+
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+
+    def tg_reply(msg):
+        if not token:
+            return
+        import urllib.request as _ur
+        payload = json.dumps({'chat_id': chat_id, 'text': msg, 'parse_mode': 'HTML'}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload, headers={'Content-Type': 'application/json'}
+        )
+        try:
+            _ur.urlopen(req, timeout=5)
+        except Exception:
+            pass
+
+    # Команда /start с кодом привязки
+    if text.startswith('/start'):
+        parts = text.split()
+        code = parts[1] if len(parts) > 1 else ''
+        if code in _tg_link_codes:
+            user_id = _tg_link_codes.pop(code)
+            with app.app_context():
+                u = User.query.get(user_id)
+                if u:
+                    u.telegram_chat_id = chat_id
+                    db.session.commit()
+                    tg_reply(f"✅ Telegram успешно привязан к аккаунту <b>@{u.username}</b> в Tabletone!\n\nТеперь коды входа будут приходить сюда.")
+                else:
+                    tg_reply("❌ Пользователь не найден.")
+        else:
+            tg_reply("👋 Привет! Чтобы привязать Telegram к Tabletone, перейди в профиль мессенджера и нажми «Привязать Telegram».")
+    return jsonify({'ok': True})
 
 @app.route('/admin/dialogs', methods=['GET'])
 def admin_get_dialogs():
@@ -4122,6 +4237,13 @@ def _send_2fa_code(user_id, code):
         except Exception as e:
             print(f"Email 2FA error: {e}")
 
+    # Отправка в Telegram
+    if user and user.telegram_chat_id:
+        try:
+            _send_telegram_2fa(user.telegram_chat_id, code)
+        except Exception as e:
+            print(f"Telegram 2FA error: {e}")
+
 
 def _send_email_2fa(to_email, code):
     """Отправляет код 2FA на email через Gmail SMTP."""
@@ -4154,6 +4276,24 @@ def _send_email_2fa(to_email, code):
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_user, to_email, msg.as_string())
+
+
+def _send_telegram_2fa(chat_id, code):
+    """Отправляет код 2FA через Telegram бота."""
+    import urllib.request
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    if not token:
+        return
+    text = (
+        f"🔐 Код входа в Tabletone:\n\n"
+        f"<b>{code}</b>\n\n"
+        f"⏱ Действителен 10 минут.\n"
+        f"⚠️ Никому не передавайте этот код."
+    )
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = json.dumps({'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'}).encode()
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    urllib.request.urlopen(req, timeout=5)
 
 
 def _notify_admin_support(admin_user_id):

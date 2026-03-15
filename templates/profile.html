@@ -221,6 +221,25 @@
                     <i class="fas fa-times-circle" style="color:#e53e3e;"></i> Отключена
                     {% endif %}
                 </div>
+
+                <!-- Привязка Telegram для 2FA -->
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
+                    <strong>Telegram для 2FA кодов</strong>
+                    {% if user.telegram_chat_id %}
+                    <p style="color:#38a169; font-size:13px; margin:6px 0;">
+                        <i class="fas fa-check-circle"></i> Telegram привязан
+                    </p>
+                    <button type="button" class="btn" onclick="unlinkTelegram()" style="font-size:12px; padding:6px 12px; background:#e53e3e; color:white; margin-top:4px;">
+                        <i class="fab fa-telegram"></i> Отвязать
+                    </button>
+                    {% else %}
+                    <p style="color:#718096; font-size:13px; margin:6px 0;">Привяжите Telegram чтобы получать коды входа там.</p>
+                    <button type="button" class="btn btn-primary" onclick="linkTelegram()" style="font-size:13px; padding:8px 16px; margin-top:4px;">
+                        <i class="fab fa-telegram"></i> Привязать Telegram
+                    </button>
+                    {% endif %}
+                    <div id="tg-link-status" style="margin-top:8px; font-size:13px;"></div>
+                </div>
             </div>
 
             <!-- Активные сессии -->
@@ -328,6 +347,36 @@ function toggle2FA(checkbox) {
             checkbox.checked = !checkbox.checked;
             alert(data.error || 'Ошибка');
         }
+    });
+}
+
+function linkTelegram() {
+    const statusEl = document.getElementById('tg-link-status');
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Генерируем код...';
+    fetch('/profile/telegram-link-code', {method:'POST', headers:{'Content-Type':'application/json'}})
+    .then(r => r.json())
+    .then(data => {
+        if (data.code) {
+            const botUrl = data.bot_username ? `https://t.me/${data.bot_username}?start=${data.code}` : '';
+            statusEl.innerHTML = `
+                <p style="color:#2d3748;margin:8px 0 4px;">Твой код привязки: <b style="font-size:18px;letter-spacing:2px;">${data.code}</b></p>
+                <p style="color:#718096;font-size:12px;margin-bottom:8px;">Код действителен 10 минут</p>
+                ${botUrl ? `<a href="${botUrl}" target="_blank" class="btn btn-primary" style="font-size:13px;padding:8px 16px;display:inline-block;text-decoration:none;">
+                    <i class="fab fa-telegram"></i> Открыть бота и привязать
+                </a>` : `<p style="color:#718096;font-size:12px;">Напиши боту: <b>/start ${data.code}</b></p>`}
+            `;
+        } else {
+            statusEl.innerHTML = '<p style="color:#e53e3e;">Ошибка генерации кода</p>';
+        }
+    });
+}
+
+function unlinkTelegram() {
+    if (!confirm('Отвязать Telegram от 2FA?')) return;
+    fetch('/profile/telegram-unlink', {method:'POST', headers:{'Content-Type':'application/json'}})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) location.reload();
     });
 }
 
