@@ -4443,7 +4443,7 @@ def get_group(group_id):
                 'content': msg.reply_to.content if not msg.reply_to.is_deleted else '[удалено]',
                 'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
             } if msg.reply_to_id and msg.reply_to else None,
-            'sticker_pack_id': _get_sticker_pack_id(msg.content) if (msg.content and (msg.content.startswith('[sticker]') or msg.content.startswith('/static/media/stickers/'))) else None,
+            'sticker_pack_id': _get_sticker_pack_id(msg.content) if (msg.content and msg.content.startswith('[sticker]')) else None,
             'message_type': msg.message_type if msg.message_type else ('sticker' if (msg.content and msg.content.startswith('[sticker]')) else 'text'),
         })
     
@@ -5129,6 +5129,10 @@ def _get_sticker_pack_id(content):
     if not content:
         return None
     url = content.replace('[sticker]', '')
+    # Если data URL — ищем стикер в БД по image_url
+    if url.startswith('data:'):
+        s = Sticker.query.filter_by(image_url=url).first()
+        return s.pack_id if s else None
     # URL вида /static/media/stickers/{pack_id}/...
     try:
         parts = url.split('/')
@@ -5270,12 +5274,23 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
             ext = text.rsplit('.', 1)[-1].lower() if '.' in text else ''
             if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
                 count = state.get('count', 0)
-                sticker = Sticker(pack_id=pack_id, image_url=text, order_index=count)
+                # Конвертируем файл в base64 чтобы не зависеть от ephemeral filesystem
+                try:
+                    import base64
+                    fpath = os.path.join(os.getcwd(), text.lstrip('/').replace('/', os.sep))
+                    mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                            'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
+                    with open(fpath, 'rb') as fh:
+                        b64 = base64.b64encode(fh.read()).decode('utf-8')
+                    image_url = f"data:{mime};base64,{b64}"
+                except Exception:
+                    image_url = text  # fallback на URL если файл недоступен
+                sticker = Sticker(pack_id=pack_id, image_url=image_url, order_index=count)
                 db.session.add(sticker)
                 if count == 0:
                     pack = StickerPack.query.get(pack_id)
                     if pack:
-                        pack.cover_url = text
+                        pack.cover_url = image_url
                 db.session.commit()
                 _sticker_states[sender_id]['count'] = count + 1
                 reply(f"✅ Стикер {count + 1} добавлен! Отправляй ещё или напиши /done")
@@ -7249,17 +7264,15 @@ def sticker_pack_create():
     db.session.add(pack)
     db.session.flush()
 
-    upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'stickers', str(pack.id))
-    os.makedirs(upload_dir, exist_ok=True)
-
     for i, f in enumerate(files[:20]):
         if not allowed_file(f.filename, ALLOWED_IMAGES):
             continue
         ext = f.filename.rsplit('.', 1)[1].lower()
-        fname = f"{secrets.token_hex(8)}.{ext}"
-        fpath = os.path.join(upload_dir, fname)
-        f.save(fpath)
-        url = f"/static/media/stickers/{pack.id}/{fname}"
+        mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
+        import base64
+        data = base64.b64encode(f.read()).decode('utf-8')
+        url = f"data:{mime};base64,{data}"
         sticker = Sticker(pack_id=pack.id, image_url=url, order_index=i)
         db.session.add(sticker)
         if i == 0:
