@@ -249,6 +249,20 @@ function handleNewMessage(data) {
         // Не вызываем loadAllChats() — только обновляем конкретный элемент
         openedChats.delete(otherUserId); // этот чат теперь имеет непрочитанные
         updateChatItemBadge(otherUserId, message);
+
+        // Всплывающее уведомление (не для своих сообщений)
+        const _myId = parseInt(document.body.getAttribute('data-user-id'));
+        if (message.sender_id !== _myId) {
+            const si = data.sender_info || {};
+            showMessageNotification({
+                name: si.display_name || si.username || 'Новое сообщение',
+                text: message.content || '',
+                avatarUrl: si.avatar_url || null,
+                avatarColor: si.avatar_color || '#667eea',
+                avatarLetter: si.avatar_letter || '?',
+                onClick: () => openChat(otherUserId, si.display_name || si.username || ''),
+            });
+        }
     }
     
     // Обновляем аватарку отправителя в списке чатов
@@ -1544,6 +1558,94 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Запрашиваем разрешение на браузерные уведомления
+if ('Notification' in window && Notification.permission === 'default') {
+    document.addEventListener('click', function _reqNotif() {
+        Notification.requestPermission();
+        document.removeEventListener('click', _reqNotif);
+    }, { once: true });
+}
+
+// Стек тостов о новых сообщениях
+const _msgToasts = [];
+
+function showMessageNotification({ name, text, avatarUrl, avatarColor, avatarLetter, onClick }) {
+    // Не показываем если вкладка активна и чат открыт — уже видно
+    // (вызывающий код сам решает показывать или нет)
+
+    // Браузерное уведомление (если вкладка не активна)
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        const n = new Notification(name, {
+            body: text,
+            icon: avatarUrl || '/static/images/logo.png',
+            tag: 'msg-' + name,
+            renotify: true,
+        });
+        n.onclick = () => { window.focus(); n.close(); if (onClick) onClick(); };
+    }
+
+    // Убираем старые если больше 3
+    while (_msgToasts.length >= 3) {
+        const old = _msgToasts.shift();
+        if (old && old.parentNode) old.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'msg-toast';
+
+    // Позиционируем с учётом уже существующих
+    const offset = _msgToasts.length * 80;
+    toast.style.top = (16 + offset) + 'px';
+
+    // Аватарка
+    let avatarHtml;
+    if (avatarUrl) {
+        avatarHtml = `<div class="msg-toast-avatar"><img src="${avatarUrl}" alt=""></div>`;
+    } else {
+        avatarHtml = `<div class="msg-toast-avatar" style="background:${avatarColor || '#667eea'}">${escapeHtml(avatarLetter || '?')}</div>`;
+    }
+
+    // Превью текста
+    const preview = text ? escapeHtml(text.substring(0, 60)) : '📎 Вложение';
+
+    toast.innerHTML = `
+        ${avatarHtml}
+        <div class="msg-toast-body">
+            <div class="msg-toast-name">${escapeHtml(name)}</div>
+            <div class="msg-toast-text">${preview}</div>
+        </div>
+        <button class="msg-toast-close" title="Закрыть">✕</button>
+    `;
+
+    toast.querySelector('.msg-toast-close').addEventListener('click', e => {
+        e.stopPropagation();
+        _dismissMsgToast(toast);
+    });
+
+    toast.addEventListener('click', () => {
+        _dismissMsgToast(toast);
+        if (onClick) onClick();
+    });
+
+    document.body.appendChild(toast);
+    _msgToasts.push(toast);
+
+    // Автоудаление через 5 сек
+    setTimeout(() => _dismissMsgToast(toast), 5000);
+}
+
+function _dismissMsgToast(toast) {
+    const idx = _msgToasts.indexOf(toast);
+    if (idx !== -1) _msgToasts.splice(idx, 1);
+    if (!toast.parentNode) return;
+    toast.style.animation = 'msgToastOut 0.3s ease forwards';
+    setTimeout(() => { toast.remove(); _repositionMsgToasts(); }, 300);
+}
+
+function _repositionMsgToasts() {
+    _msgToasts.forEach((t, i) => { t.style.top = (16 + i * 80) + 'px'; });
+}
 
 // Экранирование HTML
 function escapeHtml(text) {
@@ -3201,6 +3303,24 @@ function setupGroupSocketHandlers() {
                 }
             } else {
                 loadAllChats();
+            }
+
+            // Всплывающее уведомление для группы/канала (не для своих сообщений)
+            const currentUserId = parseInt(document.body.getAttribute('data-user-id'));
+            if (data.message.sender_id !== currentUserId) {
+                const grpItem = document.querySelector(`.chat-item[data-group-id="${data.group_id}"]`);
+                const grpName = grpItem ? (grpItem.querySelector('.chat-name')?.textContent || 'Группа') : (data.group_name || 'Группа');
+                const grpAvatar = grpItem ? grpItem.querySelector('.chat-avatar') : null;
+                const grpColor = grpAvatar ? grpAvatar.style.backgroundColor : '#667eea';
+                const grpLetter = grpAvatar ? (grpAvatar.textContent.trim() || grpName[0]) : grpName[0];
+                showMessageNotification({
+                    name: grpName,
+                    text: (data.message.sender_name ? data.message.sender_name + ': ' : '') + (data.message.content || ''),
+                    avatarUrl: grpAvatar && grpAvatar.style.backgroundImage ? grpAvatar.style.backgroundImage.replace(/url\(['"]?(.*?)['"]?\)/, '$1') : null,
+                    avatarColor: grpColor,
+                    avatarLetter: grpLetter,
+                    onClick: () => openGroup(data.group_id, grpName),
+                });
             }
         }
     });

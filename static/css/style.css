@@ -1950,6 +1950,61 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
     font-weight: 500;
 }
 
+/* Уведомление о новом сообщении */
+.msg-toast {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10001;
+    animation: msgToastIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    max-width: 320px;
+    min-width: 240px;
+    padding: 10px 14px 10px 10px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.msg-toast:hover { transform: scale(1.02); box-shadow: 0 12px 40px rgba(0,0,0,0.22); }
+.msg-toast + .msg-toast { top: auto; margin-top: 8px; }
+.msg-toast-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: #fff;
+    flex-shrink: 0; overflow: hidden; background: #667eea;
+}
+.msg-toast-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.msg-toast-body { flex: 1; min-width: 0; }
+.msg-toast-name {
+    font-size: 13px; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+.msg-toast-text {
+    font-size: 12px; color: var(--text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.msg-toast-close {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 14px; padding: 2px 4px; flex-shrink: 0;
+    line-height: 1;
+}
+.msg-toast-close:hover { color: var(--text-primary); }
+@keyframes msgToastIn {
+    from { transform: translateX(110%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes msgToastOut {
+    from { transform: translateX(0);    opacity: 1; }
+    to   { transform: translateX(110%); opacity: 0; }
+}
+
 .notification-toast.success { border-left: 4px solid #22c55e; }
 .notification-toast.success i { color: #22c55e; }
 .notification-toast.error { border-left: 4px solid #ef4444; }
