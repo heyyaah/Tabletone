@@ -101,6 +101,18 @@ function connectSocketIO() {
             console.log('Socket.IO connected');
             setupGroupSocketHandlers();
             initCallSocketHandlers(socket);
+            // Typing handlers
+            socket.on('user_typing', function(data) {
+                if (data.chat_type === 'private' && currentChatUserId) {
+                    showTypingIndicator(data.name);
+                } else if (data.chat_type === 'group' && currentGroupId === data.group_id) {
+                    showTypingIndicator(data.name);
+                }
+            });
+            socket.on('user_stop_typing', function(data) {
+                if (data.chat_type === 'private' && currentChatUserId) hideTypingIndicator();
+                else if (data.chat_type === 'group' && currentGroupId === data.group_id) hideTypingIndicator();
+            });
             // Reload messages on reconnect to catch anything missed while disconnected
             if (currentChatUserId) loadMessages(currentChatUserId);
             else if (currentGroupId) loadGroupMessages(currentGroupId);
@@ -1179,9 +1191,12 @@ async function openChat(userId, username) {
     document.getElementById('chat-active').style.display = 'flex';
     document.getElementById('chat-username').textContent = username;
 
-    // Показываем кнопки личного чата через CSS-класс
+    // Показываем кнопки личного чата
     const _chatArea = document.getElementById('chat-area');
     if (_chatArea) _chatArea.classList.add('personal-chat-open');
+    document.getElementById('call-btn')?.setAttribute('data-visible', '1');
+    document.getElementById('video-call-btn')?.setAttribute('data-visible', '1');
+    document.getElementById('clear-history-btn')?.setAttribute('data-visible', '1');
     // На мобильных устройствах скрываем sidebar и показываем chat-area
     const sidebar = document.getElementById('sidebar');
     const chatArea = document.getElementById('chat-area');
@@ -1257,13 +1272,15 @@ async function openChat(userId, username) {
 
             // Показываем кнопку звонка только для обычных пользователей (не ботов)
             if (userData.is_bot) {
+                document.getElementById('call-btn')?.removeAttribute('data-visible');
+                document.getElementById('video-call-btn')?.removeAttribute('data-visible');
                 document.getElementById('call-btn')?.classList.add('bot-hidden');
                 document.getElementById('video-call-btn')?.classList.add('bot-hidden');
             } else {
                 document.getElementById('call-btn')?.classList.remove('bot-hidden');
                 document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
             }
-            // Кнопка очистки истории — всегда видна в личных чатах (управляется CSS классом personal-chat-open)
+            // Кнопка очистки истории — всегда видна в личных чатах (управляется data-visible)
         }
     } catch (error) {
         console.error('Error loading user info:', error);
@@ -2963,6 +2980,9 @@ async function openGroup(groupId, groupName) {
     // Скрываем кнопки личного чата
     const _chatArea = document.getElementById('chat-area');
     if (_chatArea) _chatArea.classList.remove('personal-chat-open');
+    document.getElementById('call-btn')?.removeAttribute('data-visible');
+    document.getElementById('video-call-btn')?.removeAttribute('data-visible');
+    document.getElementById('clear-history-btn')?.removeAttribute('data-visible');
     
     // Загружаем данные группы
     try {
@@ -3365,6 +3385,9 @@ function backToChats() {
         document.getElementById('chat-active').style.display = 'none';
         document.getElementById('chat-welcome').style.display = 'flex';
         document.getElementById('chat-area')?.classList.remove('personal-chat-open');
+        document.getElementById('call-btn')?.removeAttribute('data-visible');
+        document.getElementById('video-call-btn')?.removeAttribute('data-visible');
+        document.getElementById('clear-history-btn')?.removeAttribute('data-visible');
 
         // Сбрасываем текущий чат
         currentChatUserId = null;
@@ -4777,23 +4800,7 @@ function hideTypingIndicator(userId) {
 
 document.addEventListener('DOMContentLoaded', function() {
     setupTypingIndicator();
-    // Socket.IO typing handlers
-    const waitForSocket = setInterval(() => {
-        if (window.socket) {
-            clearInterval(waitForSocket);
-            window.socket.on('user_typing', function(data) {
-                if (data.chat_type === 'private' && currentChatUserId) {
-                    showTypingIndicator(data.name);
-                } else if (data.chat_type === 'group' && currentGroupId === data.group_id) {
-                    showTypingIndicator(data.name);
-                }
-            });
-            window.socket.on('user_stop_typing', function(data) {
-                if (data.chat_type === 'private' && currentChatUserId) hideTypingIndicator();
-                else if (data.chat_type === 'group' && currentGroupId === data.group_id) hideTypingIndicator();
-            });
-        }
-    }, 500);
+    // Socket.IO typing handlers вешаем в connectSocketIO через initTypingSocketHandlers()
 });
 
 // ============================================
