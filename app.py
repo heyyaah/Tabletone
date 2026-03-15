@@ -7717,7 +7717,8 @@ def handle_call_offer(data):
         'from_name': caller.display_name or caller.username,
         'from_avatar_letter': caller.get_avatar_letter(),
         'from_avatar_color': caller.avatar_color,
-        'sdp': data.get('sdp')
+        'sdp': data.get('sdp'),
+        'is_video': data.get('is_video', False)
     }, room=f'user_{to_user_id}', namespace='/')
 
 @socketio.on('call_answer')
