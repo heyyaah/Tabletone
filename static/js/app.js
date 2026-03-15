@@ -1038,9 +1038,9 @@ async function openChat(userId, username) {
     
     if (sidebar && chatArea) {
         if (window.innerWidth <= 768) {
-            sidebar.style.display = 'none';
-            chatArea.classList.add('active');
-            if (backBtn) backBtn.style.display = 'block';
+            sidebar.classList.add('mobile-hidden');
+            chatArea.classList.add('mobile-active');
+            if (backBtn) backBtn.style.display = 'flex';
         } else {
             if (backBtn) backBtn.style.display = 'none';
         }

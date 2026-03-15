@@ -818,44 +818,7 @@ body {
     }
 }
 
-@media (max-width: 768px) {
-    body {
-        padding: 10px;
-    }
-    
-    .messenger-container {
-        height: 100vh;
-        border-radius: 0;
-    }
-    
-    .sidebar {
-        width: 100%;
-        position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        z-index: 1;
-    }
-    
-    .chat-area {
-        display: none;
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 2;
-    }
-    
-    .chat-area.active {
-        display: flex;
-    }
-    
-    .auth-card {
-        padding: 30px 20px;
-        margin: 0 10px;
-    }
-}
+
 
 /* Прокрутка */
 ::-webkit-scrollbar {
@@ -1083,6 +1046,60 @@ body {
     
     .messages-container {
         -webkit-overflow-scrolling: touch;
+    }
+
+    /* Шапка чата на мобильных */
+    .chat-header {
+        padding: 10px 12px;
+        gap: 4px;
+    }
+
+    /* Скрываем лишние кнопки в шапке чата на мобильных */
+    .chat-header .icon-btn:not(.back-btn):not(#add-to-chat-btn) {
+        display: none;
+    }
+
+    /* Показываем только: назад, инфо, флаг */
+    .chat-header .icon-btn[onclick="viewChatInfo()"],
+    .chat-header .icon-btn[onclick="showReportModal()"] {
+        display: flex;
+    }
+
+    .chat-user-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chat-user-info h3 {
+        font-size: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 160px;
+    }
+
+    /* Шапка сайдбара */
+    .sidebar-header {
+        padding: 12px 15px;
+    }
+
+    .header-actions {
+        gap: 2px;
+    }
+
+    .header-actions .icon-btn {
+        padding: 6px;
+        font-size: 18px;
+    }
+
+    /* Поле ввода */
+    .message-input-container {
+        padding: 10px 12px;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    #message-form {
+        gap: 6px;
     }
 }
 
