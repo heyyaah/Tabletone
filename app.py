@@ -6040,6 +6040,45 @@ def search_messages():
             results.append({'id': m.id, 'content': m.content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'private'})
     return jsonify({'results': results})
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAYMENT API (для Telegram-бота оплаты)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PAYMENT_SECRET = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
+
+@app.route('/api/payment/activate-premium', methods=['POST'])
+def payment_activate_premium():
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').strip().lstrip('@')
+    days = int(data.get('days', 30))
+    if not username or days <= 0:
+        return jsonify({'error': 'Bad request'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'Пользователь @{username} не найден'}), 404
+    user.is_premium = True
+    db.session.commit()
+    print(f"✅ Premium активирован для @{username} на {days} дней")
+    return jsonify({'success': True, 'username': username, 'days': days})
+
+@app.route('/api/payment/add-sparks', methods=['POST'])
+def payment_add_sparks():
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').strip().lstrip('@')
+    sparks = int(data.get('sparks', 0))
+    if not username or sparks <= 0:
+        return jsonify({'error': 'Bad request'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'Пользователь @{username} не найден'}), 404
+    _add_sparks(user.id, sparks, 'purchase', None)
+    print(f"✅ {sparks} искр зачислено @{username}")
+    return jsonify({'success': True, 'username': username, 'sparks': sparks})
+
 # Подавление ошибок разрыва соединения
 import logging
 import warnings
