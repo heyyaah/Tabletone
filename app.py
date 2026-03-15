@@ -202,6 +202,7 @@ class Group(db.Model):
     slow_mode_seconds = db.Column(db.Integer, default=0)       # 0 = выключен
     welcome_message = db.Column(db.String(500))                # Приветствие новых участников
     spam_keywords = db.Column(db.Text, default='[]')           # JSON список стоп-слов
+    is_verified = db.Column(db.Boolean, default=False)         # Верифицированный канал/группа
     
     creator = db.relationship('User', foreign_keys=[creator_id])
 
@@ -599,6 +600,7 @@ with app.app_context():
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS spam_keywords TEXT DEFAULT \'[]\'',
+            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE',
         ]
     else:
         migrations = [
@@ -625,6 +627,7 @@ with app.app_context():
             "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
             "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
             "ALTER TABLE 'group' ADD COLUMN spam_keywords TEXT DEFAULT '[]'",
+            "ALTER TABLE 'group' ADD COLUMN is_verified BOOLEAN DEFAULT 0",
         ]
 
     with db.engine.connect() as conn:
@@ -3160,6 +3163,78 @@ def unban_user(user_id):
     
     return jsonify({'success': True})
 
+# Owner: редактирование профиля любого пользователя
+@app.route('/admin/users/<int:user_id>/edit-profile', methods=['GET', 'POST'])
+def admin_edit_user_profile(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or admin.admin_role != 'owner':
+        return jsonify({'error': 'Только owner'}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    if request.method == 'GET':
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'display_name': user.display_name or '',
+            'bio': user.bio or '',
+            'is_verified': user.is_verified,
+            'is_premium': user.is_premium,
+            'avatar_color': user.avatar_color,
+        })
+    data = request.get_json()
+    if 'display_name' in data:
+        user.display_name = data['display_name'][:100]
+    if 'bio' in data:
+        user.bio = data['bio'][:200]
+    if 'is_verified' in data:
+        user.is_verified = bool(data['is_verified'])
+    if 'is_premium' in data:
+        user.is_premium = bool(data['is_premium'])
+        if user.is_premium and not user.premium_until:
+            user.premium_until = datetime.utcnow() + timedelta(days=30)
+        elif not user.is_premium:
+            user.premium_until = None
+    if 'avatar_color' in data:
+        user.avatar_color = data['avatar_color']
+    db.session.commit()
+    return jsonify({'success': True})
+
+# Owner: верификация каналов/групп
+@app.route('/admin/groups', methods=['GET'])
+def admin_get_groups():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or admin.admin_role != 'owner':
+        return jsonify({'error': 'Только owner'}), 403
+    groups = Group.query.order_by(Group.created_at.desc()).all()
+    return jsonify({'groups': [{
+        'id': g.id,
+        'name': g.name,
+        'username': g.username or '',
+        'is_channel': g.is_channel,
+        'is_verified': g.is_verified,
+        'creator': g.creator.username if g.creator else '?',
+        'created_at': g.created_at.strftime('%d.%m.%Y'),
+    } for g in groups]})
+
+@app.route('/admin/groups/<int:group_id>/verify', methods=['POST'])
+def admin_verify_group(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or admin.admin_role != 'owner':
+        return jsonify({'error': 'Только owner'}), 403
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({'error': 'Не найдено'}), 404
+    group.is_verified = not group.is_verified
+    db.session.commit()
+    return jsonify({'success': True, 'is_verified': group.is_verified})
+
 # Обновление темы
 @app.route('/theme/update', methods=['POST'])
 def update_theme():
@@ -3621,14 +3696,15 @@ def get_groups():
                 'username': group.username,
                 'description': group.description,
                 'is_channel': group.is_channel,
+                'is_verified': group.is_verified,
                 'avatar_color': group.avatar_color,
                 'avatar_url': group.avatar_url,
                 'avatar_letter': group.name[0].upper(),
                 'members_count': members_count,
                 'is_admin': membership.is_admin,
                 'last_message': last_message.content[:50] if last_message else None,
-                'last_message_time': sort_timestamp.isoformat() + 'Z',  # ISO формат UTC для клиента
-                'last_message_display': sort_timestamp.strftime('%H:%M') if last_message else None,  # Для отображения
+                'last_message_time': sort_timestamp.isoformat() + 'Z',
+                'last_message_display': sort_timestamp.strftime('%H:%M') if last_message else None,
                 'unread_count': unread_count
             })
         

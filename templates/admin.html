@@ -40,6 +40,9 @@
         <button class="tab-btn" onclick="switchTab('ipbans')">
             <i class="fas fa-ban"></i> IP-баны
         </button>
+        <button class="tab-btn" onclick="switchTab('channels')">
+            <i class="fas fa-check-circle"></i> Каналы
+        </button>
         {% endif %}
     </div>
     
@@ -130,7 +133,44 @@
             <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
     </div>
+    
+    <div id="channels-tab" class="admin-tab">
+        <h2>Верификация каналов и групп</h2>
+        <div class="users-list" id="channels-list">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+    </div>
     {% endif %}
+</div>
+
+<!-- Модалка редактирования профиля пользователя -->
+<div id="edit-profile-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:28px;width:90%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <h3 style="margin-bottom:20px;color:#2d3748;"><i class="fas fa-user-edit" style="color:#667eea;"></i> Редактировать профиль</h3>
+        <input type="hidden" id="edit-user-id">
+        <div style="margin-bottom:14px;">
+            <label style="font-size:13px;color:#718096;font-weight:500;">Отображаемое имя</label>
+            <input id="edit-display-name" type="text" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;margin-top:4px;">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="font-size:13px;color:#718096;font-weight:500;">Биография</label>
+            <textarea id="edit-bio" rows="3" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;margin-top:4px;resize:vertical;"></textarea>
+        </div>
+        <div style="margin-bottom:14px;display:flex;gap:20px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                <input type="checkbox" id="edit-is-verified" style="width:16px;height:16px;">
+                <i class="fas fa-check-circle" style="color:#667eea;"></i> Верифицирован
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+                <input type="checkbox" id="edit-is-premium" style="width:16px;height:16px;">
+                <i class="fas fa-crown" style="color:#f6ad55;"></i> Premium
+            </label>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button onclick="saveEditProfile()" style="flex:1;padding:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Сохранить</button>
+            <button onclick="closeEditProfile()" style="flex:1;padding:12px;background:#e2e8f0;color:#4a5568;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Отмена</button>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -452,6 +492,8 @@ function switchTab(tabName) {
         loadAllDialogs();
     } else if (tabName === 'ipbans') {
         loadIpBans();
+    } else if (tabName === 'channels') {
+        loadChannels();
     }
 }
 
@@ -482,6 +524,7 @@ function loadUsers() {
                         ${hasRole('admin') && user.two_fa_enabled ? `<button class="action-btn" style="background:#ed8936;color:white;" onclick="adminDisable2FA(${user.id})"><i class="fas fa-shield-alt"></i> Откл. 2FA</button>` : ''}
                         ${hasRole('senior_admin') ? `<button class="action-btn remove" onclick="removeUser(${user.id})">Удалить</button>` : ''}
                         ${hasRole('owner') ? `<button class="action-btn" style="background:#7c3aed;color:white;" onclick="setUserRole(${user.id}, '${user.admin_role||''}')"><i class="fas fa-user-shield"></i> Роль</button>` : ''}
+                        ${hasRole('owner') ? `<button class="action-btn" style="background:#0891b2;color:white;" onclick="openEditProfile(${user.id})"><i class="fas fa-user-edit"></i> Профиль</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -1285,6 +1328,83 @@ function removeIpBan(banId) {
     fetch(`/admin/ip-bans/${banId}/remove`, { method: 'POST' })
         .then(r => r.json())
         .then(d => { if (d.success) loadIpBans(); });
+}
+
+// ── Каналы / верификация групп ────────────────────────────────────────────
+function loadChannels() {
+    fetch('/admin/groups')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('channels-list');
+            if (!data.groups || data.groups.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>Нет каналов/групп</p></div>';
+                return;
+            }
+            list.innerHTML = data.groups.map(g => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>
+                            ${g.is_channel ? '<i class="fas fa-broadcast-tower" style="color:#667eea;margin-right:6px;"></i>' : '<i class="fas fa-users" style="color:#38a169;margin-right:6px;"></i>'}
+                            ${g.name}
+                            ${g.username ? `<span style="color:#718096;font-weight:400;font-size:13px;"> @${g.username}</span>` : ''}
+                            ${g.is_verified ? '<i class="fas fa-check-circle" style="color:#667eea;margin-left:6px;" title="Верифицирован"></i>' : ''}
+                        </h3>
+                        <p>Создатель: @${g.creator} • ${g.created_at}</p>
+                        <p>${g.is_channel ? 'Канал' : 'Группа'} ${g.is_verified ? '• <span style="color:#38a169;font-weight:600;">Верифицирован</span>' : '• <span style="color:#718096;">Не верифицирован</span>'}</p>
+                    </div>
+                    <div class="user-actions">
+                        <button class="action-btn ${g.is_verified ? 'ban' : 'verify'}" onclick="toggleGroupVerify(${g.id}, this)">
+                            <i class="fas fa-${g.is_verified ? 'times' : 'check'}"></i>
+                            ${g.is_verified ? 'Снять верификацию' : 'Верифицировать'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        });
+}
+
+function toggleGroupVerify(groupId, btn) {
+    fetch(`/admin/groups/${groupId}/verify`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.success) loadChannels(); });
+}
+
+// ── Редактирование профиля пользователя (owner) ───────────────────────────
+function openEditProfile(userId) {
+    fetch(`/admin/users/${userId}/edit-profile`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('edit-user-id').value = data.id;
+            document.getElementById('edit-display-name').value = data.display_name;
+            document.getElementById('edit-bio').value = data.bio;
+            document.getElementById('edit-is-verified').checked = data.is_verified;
+            document.getElementById('edit-is-premium').checked = data.is_premium;
+            const modal = document.getElementById('edit-profile-modal');
+            modal.style.display = 'flex';
+        });
+}
+
+function closeEditProfile() {
+    document.getElementById('edit-profile-modal').style.display = 'none';
+}
+
+function saveEditProfile() {
+    const userId = document.getElementById('edit-user-id').value;
+    fetch(`/admin/users/${userId}/edit-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            display_name: document.getElementById('edit-display-name').value,
+            bio: document.getElementById('edit-bio').value,
+            is_verified: document.getElementById('edit-is-verified').checked,
+            is_premium: document.getElementById('edit-is-premium').checked,
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) { closeEditProfile(); loadUsers(); }
+        else alert('Ошибка: ' + (d.error || 'неизвестно'));
+    });
 }
 {% endif %}
 </script>
