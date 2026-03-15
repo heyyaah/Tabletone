@@ -136,6 +136,9 @@ window.addEventListener('click', e => {
 // ── Повторная отправка кода ───────────────────────────────────────────────────
 let _resendTimer = null;
 
+// Код уже отправлен при переходе на эту страницу — блокируем кнопку на 30 сек
+document.addEventListener('DOMContentLoaded', () => startCooldown(30));
+
 function resendCode() {
     const btn = document.getElementById('resend-btn');
     const timerEl = document.getElementById('resend-timer');

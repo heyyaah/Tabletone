@@ -1803,6 +1803,8 @@ def login():
                     print(f"2FA send error: {e}")
                 # Сохраняем user_id во временной сессии для верификации
                 session['2fa_pending_user_id'] = user.id
+                session['2fa_resend_count'] = 0
+                session['2fa_last_resend'] = __import__('time').time()
                 return redirect(url_for('login_2fa'))
 
             session['user_id'] = user.id
