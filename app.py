@@ -2307,12 +2307,16 @@ def send_message():
     if receiver_id == session['user_id']:
         return jsonify({'error': 'Вы не можете отправить сообщение самому себе'}), 400
 
-    # Если в спам-блоке — можно писать только взаимным контактам
+    # Если в спам-блоке — можно писать взаимным контактам ИЛИ отвечать тем, кто написал первым
     if blocked:
         uid = session['user_id']
         i_added = Contact.query.filter_by(user_id=uid, contact_id=receiver_id).first() is not None
         they_added = Contact.query.filter_by(user_id=receiver_id, contact_id=uid).first() is not None
-        if not (i_added and they_added):
+        # Проверяем: получатель уже писал нам (инициировал переписку)
+        they_wrote_first = Message.query.filter_by(
+            sender_id=receiver_id, receiver_id=uid
+        ).first() is not None
+        if not (i_added and they_added) and not they_wrote_first:
             return jsonify({'error': 'spam_blocked', 'until': until_str}), 403
 
     # Premium Support доступен только для Premium пользователей
