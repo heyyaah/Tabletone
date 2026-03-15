@@ -578,7 +578,7 @@ class StickerPack(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    cover_url = db.Column(db.String(500))   # первый стикер как обложка
+    cover_url = db.Column(db.Text)   # первый стикер как обложка
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     creator = db.relationship('User', foreign_keys=[creator_id])
     stickers = db.relationship('Sticker', backref='pack', lazy=True, cascade='all, delete-orphan')
@@ -587,7 +587,7 @@ class Sticker(db.Model):
     """Один стикер в паке."""
     id = db.Column(db.Integer, primary_key=True)
     pack_id = db.Column(db.Integer, db.ForeignKey('sticker_pack.id'), nullable=False)
-    image_url = db.Column(db.String(500), nullable=False)
+    image_url = db.Column(db.Text, nullable=False)
     emoji_hint = db.Column(db.String(10), default='😊')  # связанный эмодзи
     order_index = db.Column(db.Integer, default=0)
 
@@ -1418,6 +1418,8 @@ def admin_run_migrations():
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(20)',
         # Новые таблицы создаются через db.create_all() — здесь только колонки
+        'ALTER TABLE sticker ALTER COLUMN image_url TYPE TEXT',
+        'ALTER TABLE sticker_pack ALTER COLUMN cover_url TYPE TEXT',
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -5423,16 +5425,7 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
             if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
                 count = state.get('count', 0)
                 # Конвертируем файл в base64 чтобы не зависеть от ephemeral filesystem
-                try:
-                    import base64
-                    fpath = os.path.join(os.getcwd(), text.lstrip('/').replace('/', os.sep))
-                    mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                            'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
-                    with open(fpath, 'rb') as fh:
-                        b64 = base64.b64encode(fh.read()).decode('utf-8')
-                    image_url = f"data:{mime};base64,{b64}"
-                except Exception:
-                    image_url = text  # fallback на URL если файл недоступен
+                image_url = text  # store URL path directly  # fallback на URL если файл недоступен
                 sticker = Sticker(pack_id=pack_id, image_url=image_url, order_index=count)
                 db.session.add(sticker)
                 if count == 0:
