@@ -2030,11 +2030,13 @@ window.playAlbumVideo = playAlbumVideo;
 // Отправка сообщения
 async function handleSendMessage(e) {
     e.preventDefault();
-    
+    if (_isSending) return;
+
     const messageInput = document.getElementById('message-input');
     const content = messageInput.value.trim();
-    
+
     if (!content) return;
+    _isSending = true;
 
     // Если открыто Избранное — сохраняем как заметку
     if (_favoritesOpen && !currentChatUserId && !currentGroupId) {
@@ -2065,14 +2067,16 @@ async function handleSendMessage(e) {
                 showError(d.error || 'Ошибка');
             }
         } catch (err) { showError('Ошибка'); }
+        _isSending = false;
         return;
     }
-    
+
     if (!currentChatUserId && !currentGroupId) {
         showError('Выберите чат для отправки сообщения');
+        _isSending = false;
         return;
     }
-    
+
     // Если открыта группа
     if (currentGroupId) {
         try {
@@ -2087,6 +2091,7 @@ async function handleSendMessage(e) {
         } catch (error) {
             showError('Не удалось отправить сообщение');
         }
+        _isSending = false;
         return;
     }
     
@@ -2112,6 +2117,8 @@ async function handleSendMessage(e) {
         }
     } catch (error) {
         showError('Не удалось отправить сообщение');
+    } finally {
+        _isSending = false;
     }
 }
 
