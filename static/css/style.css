@@ -424,11 +424,8 @@ body[data-theme="liquid"] .app-logo {
 .chat-area.personal-chat-open .chat-personal-btn { display: flex; }
 /* Скрыть кнопки звонка для ботов */
 .bot-hidden { display: none !important; }
-/* Принудительный показ кнопок личного чата через атрибут */
+/* Кнопки личного чата скрыты по умолчанию, показываются через JS (inline style) */
 #call-btn, #video-call-btn, #clear-history-btn { display: none; }
-#call-btn[data-visible="1"],
-#video-call-btn[data-visible="1"],
-#clear-history-btn[data-visible="1"] { display: flex !important; }
 
 .logout-btn:hover {
     background: #fef2f2;

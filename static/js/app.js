@@ -1188,11 +1188,9 @@ async function openChat(userId, username) {
     ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
+            el.classList.remove('bot-hidden');
             el.setAttribute('data-visible', '1');
-            el.style.setProperty('display', 'flex', 'important');
-            console.log('[openChat] showing button:', id);
-        } else {
-            console.warn('[openChat] button NOT FOUND:', id);
+            el.style.display = 'flex';
         }
     });
 
@@ -1825,7 +1823,11 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
     // Показываем кнопки личного чата
     ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) { el.setAttribute('data-visible', '1'); el.style.setProperty('display', 'flex', 'important'); }
+        if (el) {
+            el.classList.remove('bot-hidden');
+            el.setAttribute('data-visible', '1');
+            el.style.display = 'flex';
+        }
     });
     document.getElementById('chat-area')?.classList.add('personal-chat-open');
 
