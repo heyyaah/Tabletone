@@ -351,6 +351,25 @@
                 </button>
             </div>
 
+            <!-- Сменить аккаунт -->
+            <div class="profile-section">
+                <h3><i class="fas fa-exchange-alt"></i> Сменить аккаунт</h3>
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Войдите в другой аккаунт. Текущая сессия будет завершена.</p>
+                <a href="/logout" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:14px;">
+                    <i class="fas fa-sign-out-alt"></i> Войти в другой аккаунт
+                </a>
+            </div>
+
+            <!-- Удаление аккаунта -->
+            <div class="profile-section">
+                <h3><i class="fas fa-user-times" style="color:#e53e3e;"></i> Удаление аккаунта</h3>
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Подайте заявку на удаление аккаунта. Администратор рассмотрит её в течение нескольких дней.</p>
+                <div id="deletion-status"></div>
+                <button type="button" class="btn" onclick="showDeletionModal()" style="background:#e53e3e;color:white;padding:10px 20px;font-size:14px;">
+                    <i class="fas fa-trash-alt"></i> Подать заявку на удаление
+                </button>
+            </div>
+
             {% if not user.is_admin %}
             <!-- Заявка на вступление в администрацию -->
             <div class="profile-section">
@@ -377,6 +396,21 @@
     <i class="fas fa-check-circle"></i> Профиль успешно обновлен!
 </div>
 
+<!-- Модальное окно заявки на удаление аккаунта -->
+<div id="deletion-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--bg-primary, white); color:var(--text-primary, #2d3748); border-radius:12px; padding:30px; max-width:480px; width:100%;">
+        <h3 style="margin-bottom:15px; color:#e53e3e;"><i class="fas fa-trash-alt"></i> Заявка на удаление аккаунта</h3>
+        <p style="color:#718096; margin-bottom:15px; font-size:14px;">Укажите причину удаления. Ваш аккаунт не будет удалён сразу — заявку рассмотрит администратор.</p>
+        <textarea id="deletion-reason" rows="4" placeholder="Причина удаления аккаунта..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn" onclick="submitDeletionRequest()" style="flex:1; background:#e53e3e; color:white;">
+                <i class="fas fa-paper-plane"></i> Отправить заявку
+            </button>
+            <button class="btn btn-secondary" onclick="closeDeletionModal()" style="flex:1;">Отмена</button>
+        </div>
+    </div>
+</div>
+
 <!-- Модальное окно заявки на верификацию -->
 <div id="verification-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
     <div style="background:var(--bg-primary, white); color:var(--text-primary, #2d3748); border-radius:12px; padding:30px; max-width:480px; width:100%;">
@@ -395,6 +429,32 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 <script>
+function showDeletionModal() {
+    document.getElementById('deletion-modal').style.display = 'flex';
+}
+function closeDeletionModal() {
+    document.getElementById('deletion-modal').style.display = 'none';
+    document.getElementById('deletion-reason').value = '';
+}
+function submitDeletionRequest() {
+    const reason = document.getElementById('deletion-reason').value.trim();
+    if (!reason) { alert('Пожалуйста, укажите причину'); return; }
+    fetch('/profile/request-deletion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            closeDeletionModal();
+            document.getElementById('deletion-status').innerHTML = '<p style="color:#38a169;font-size:13px;"><i class="fas fa-check-circle"></i> Заявка отправлена. Администратор рассмотрит её в ближайшее время.</p>';
+        } else {
+            alert(data.error || 'Ошибка при отправке заявки');
+        }
+    });
+}
+
 function showVerificationModal() {
     const modal = document.getElementById('verification-modal');
     modal.style.display = 'flex';

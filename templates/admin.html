@@ -49,6 +49,9 @@
         <button class="tab-btn" onclick="switchTab('channels')">
             <i class="fas fa-check-circle"></i> Каналы
         </button>
+        <button class="tab-btn" onclick="switchTab('deletions')">
+            <i class="fas fa-user-times"></i> Удаление акк.
+        </button>
         {% endif %}
     </div>
     
@@ -143,6 +146,13 @@
     <div id="channels-tab" class="admin-tab">
         <h2>Верификация каналов и групп</h2>
         <div class="users-list" id="channels-list">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+    </div>
+
+    <div id="deletions-tab" class="admin-tab">
+        <h2>Заявки на удаление аккаунтов</h2>
+        <div class="users-list" id="deletions-list">
             <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
     </div>
@@ -566,6 +576,8 @@ function switchTab(tabName) {
         loadIpBans();
     } else if (tabName === 'channels') {
         loadChannels();
+    } else if (tabName === 'deletions') {
+        loadDeletionRequests();
     }
 }
 
@@ -1439,6 +1451,53 @@ function toggleGroupVerify(groupId, btn) {
     fetch(`/admin/groups/${groupId}/verify`, { method: 'POST' })
         .then(r => r.json())
         .then(d => { if (d.success) loadChannels(); });
+}
+
+// ── Заявки на удаление аккаунтов ─────────────────────────────────────────
+function loadDeletionRequests() {
+    fetch('/admin/deletion-requests')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('deletions-list');
+            if (!data.requests || data.requests.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-user-times"></i><p>Нет заявок на удаление</p></div>';
+                return;
+            }
+            list.innerHTML = data.requests.map(req => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>${req.display_name} <span style="color:#718096;font-weight:400;">@${req.username}</span></h3>
+                        <p><strong>Причина:</strong> ${req.reason}</p>
+                        <p><small>Подано: ${req.created_at}</small></p>
+                        <span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:8px;font-size:12px;font-weight:600;">${req.status === 'open' ? 'Ожидает' : 'Закрыта'}</span>
+                    </div>
+                    <div class="user-actions">
+                        ${req.status === 'open' ? `
+                            <button class="action-btn remove" onclick="approveDeletion(${req.id}, ${req.user_id})">
+                                <i class="fas fa-trash-alt"></i> Удалить аккаунт
+                            </button>
+                            <button class="action-btn unban" onclick="rejectDeletion(${req.id})">
+                                <i class="fas fa-times"></i> Отклонить
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        });
+}
+
+function approveDeletion(ticketId, userId) {
+    if (!confirm('Удалить аккаунт пользователя? Это действие необратимо!')) return;
+    fetch(`/admin/deletion-requests/${ticketId}/approve`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.success) loadDeletionRequests(); else alert(d.error || 'Ошибка'); });
+}
+
+function rejectDeletion(ticketId) {
+    if (!confirm('Отклонить заявку на удаление?')) return;
+    fetch(`/admin/deletion-requests/${ticketId}/reject`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => { if (d.success) loadDeletionRequests(); else alert(d.error || 'Ошибка'); });
 }
 
 // ── Редактирование профиля пользователя (owner) ───────────────────────────

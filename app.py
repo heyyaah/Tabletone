@@ -3372,6 +3372,75 @@ def request_verification():
     db.session.commit()
     return jsonify({'success': True})
 
+# Заявка на удаление аккаунта
+@app.route('/profile/request-deletion', methods=['POST'])
+def request_account_deletion():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    data = request.json or {}
+    reason = data.get('reason', '').strip()
+    if not reason:
+        return jsonify({'error': 'Укажите причину'}), 400
+    # Проверяем нет ли уже активной заявки
+    existing = SupportTicket.query.filter_by(user_id=user.id, status='open').filter(
+        SupportTicket.message_text.like('[УДАЛЕНИЕ]%')
+    ).first()
+    if existing:
+        return jsonify({'error': 'Заявка уже подана и ожидает рассмотрения'}), 400
+    ticket = SupportTicket(user_id=user.id, message_text=f'[УДАЛЕНИЕ] {reason}')
+    db.session.add(ticket)
+    db.session.commit()
+    return jsonify({'success': True})
+
+# Список заявок на удаление (для owner)
+@app.route('/admin/deletion-requests', methods=['GET'])
+def admin_get_deletion_requests():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    tickets = SupportTicket.query.filter(
+        SupportTicket.message_text.like('[УДАЛЕНИЕ]%')
+    ).order_by(SupportTicket.created_at.desc()).all()
+    return jsonify({'requests': [{
+        'id': t.id,
+        'user_id': t.user_id,
+        'username': t.user.username,
+        'display_name': t.user.display_name or t.user.username,
+        'reason': t.message_text.replace('[УДАЛЕНИЕ] ', '', 1),
+        'status': t.status,
+        'created_at': t.created_at.strftime('%d.%m.%Y %H:%M')
+    } for t in tickets]})
+
+@app.route('/admin/deletion-requests/<int:ticket_id>/approve', methods=['POST'])
+def admin_approve_deletion(ticket_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    ticket = SupportTicket.query.get_or_404(ticket_id)
+    target_user = User.query.get(ticket.user_id)
+    if target_user:
+        db.session.delete(target_user)
+    ticket.status = 'closed'
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/admin/deletion-requests/<int:ticket_id>/reject', methods=['POST'])
+def admin_reject_deletion(ticket_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    ticket = SupportTicket.query.get_or_404(ticket_id)
+    ticket.status = 'closed'
+    db.session.commit()
+    return jsonify({'success': True})
+
 # Список заявок на верификацию (для админа)
 @app.route('/admin/verification-requests', methods=['GET'])
 def get_verification_requests():
