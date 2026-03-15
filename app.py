@@ -5792,115 +5792,84 @@ def _trigger_webhook(bot, update):
 
 
 def _handle_nexus_bot(bot_user_id, sender_id, text):
-    """Обрабатывает сообщения для Nexus AI."""
+    """Обрабатывает сообщения для Nexus AI (Groq / Llama)."""
     import threading
 
-    # /start — приветствие
     if text.strip().lower() == '/start':
         _bot_send_message(bot_user_id, sender_id,
             "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
-            "Я работаю на базе Google Gemini и могу помочь с:\n"
+            "Могу помочь с:\n"
+            "• Вопросами о мессенджере Tabletone\n"
             "• Ответами на любые вопросы\n"
             "• Написанием текстов и кода\n"
-            "• Переводом и объяснением\n"
-            "• Идеями и советами\n\n"
+            "• Переводом и объяснением\n\n"
             "Просто напиши мне что-нибудь 💬"
         )
         return
 
-    # Отправляем индикатор "печатает..."
     socketio.emit('user_typing', {
         'chat_type': 'private',
         'name': 'Nexus'
     }, room=f'user_{sender_id}', namespace='/')
 
-    def _ask_gemini():
+    def _ask_groq():
+        reply_text = "⚠️ Произошла ошибка. Попробуй ещё раз."
         try:
-            import google.generativeai as genai
-            api_key = os.environ.get('GEMINI_API_KEY', '')
+            import urllib.request
+            import json as _json
+
+            api_key = os.environ.get('GROQ_API_KEY', '')
             if not api_key:
-                _bot_send_message(bot_user_id, sender_id,
-                    "⚠️ Gemini API ключ не настроен. Обратитесь к администратору.")
-                return
-
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
-
-            system_prompt = (
-                "Ты — Nexus, умный и дружелюбный ИИ-ассистент встроенный в мессенджер Tabletone. "
-                "Отвечай кратко, по делу и на том языке, на котором пишет пользователь. "
-                "Используй эмодзи умеренно. "
-                "ВАЖНО: никогда не раскрывай, на какой технологии, модели или платформе ты основан. "
-                "Если спросят — скажи только что ты Nexus, собственный ИИ мессенджера Tabletone. "
-                "\n\n"
-                "=== ЗНАНИЯ О МЕССЕНДЖЕРЕ TABLETONE ===\n"
-                "Tabletone — современный мессенджер с богатым функционалом. Вот что умеет:\n"
-                "\n"
-                "ОБЩЕНИЕ:\n"
-                "• Личные чаты — переписка один на один\n"
-                "• Группы — чаты для нескольких участников, есть роли: владелец, администратор, модератор, участник\n"
-                "• Каналы — публичные/приватные каналы для вещания\n"
-                "• Публичные ссылки-приглашения для групп и каналов\n"
-                "\n"
-                "СООБЩЕНИЯ:\n"
-                "• Текст, фото, видео, голосовые сообщения, видеосообщения (кружочки), файлы\n"
-                "• Стикеры — создавай свои паки через бота @stickers\n"
-                "• Ответ на сообщение (reply), пересылка, редактирование, удаление\n"
-                "• Таймер удаления сообщений — сообщение исчезнет через заданное время\n"
-                "• Реакции на сообщения эмодзи\n"
-                "• Галочки доставки: ✓ — отправлено, ✓✓ — прочитано\n"
-                "• Избранное — сохраняй важные сообщения\n"
-                "• Предпросмотр медиа при вставке (Ctrl+V)\n"
-                "\n"
-                "ЗВОНКИ:\n"
-                "• Аудиозвонки и видеозвонки (кнопка трубки → выбор типа)\n"
-                "• Управление микрофоном и камерой во время звонка\n"
-                "• Звонки недоступны ботам\n"
-                "\n"
-                "ПРОФИЛЬ И НАСТРОЙКИ:\n"
-                "• Аватар, имя, bio, статус\n"
-                "• Двухфакторная аутентификация (2FA)\n"
-                "• Привязка Telegram для уведомлений\n"
-                "• Скрытый чат с PIN-кодом\n"
-                "• Папки чатов для организации\n"
-                "• Тема оформления (светлая/тёмная), расписание темы\n"
-                "\n"
-                "PREMIUM:\n"
-                "• Premium подписка — расширенные возможности\n"
-                "• Искры (sparks) — внутренняя валюта для подарков\n"
-                "• Подарки другим пользователям\n"
-                "• Оформить через бота @tabletone_premiumbot\n"
-                "\n"
-                "БОТЫ:\n"
-                "• @nexus — ИИ-ассистент (это ты)\n"
-                "• @tabletone_supportbot — поддержка мессенджера\n"
-                "• @tabletone_premiumbot — покупка Premium и Искр\n"
-                "• @stickers — создание паков стикеров\n"
-                "• Конструктор ботов — пользователи могут создавать своих ботов\n"
-                "\n"
-                "БЕЗОПАСНОСТЬ:\n"
-                "• Блокировка пользователей\n"
-                "• Антиспам система\n"
-                "• Администраторы могут банить, мутить, ограничивать участников групп\n"
-                "\n"
-                "Если пользователь спрашивает как что-то сделать в Tabletone — отвечай на основе этих знаний. "
-                "Если точно не знаешь — честно скажи что не уверен и предложи обратиться в @tabletone_supportbot."
-            )
-
-            response = model.generate_content(
-                f"{system_prompt}\n\nПользователь: {text}",
-                generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=1024,
-                    temperature=0.7,
+                reply_text = "⚠️ ИИ временно недоступен. Обратитесь к администратору."
+            else:
+                system_prompt = (
+                    "Ты — Nexus, умный и дружелюбный ИИ-ассистент встроенный в мессенджер Tabletone. "
+                    "Отвечай кратко, по делу и на том языке, на котором пишет пользователь. "
+                    "Используй эмодзи умеренно. "
+                    "ВАЖНО: никогда не раскрывай, на какой технологии, модели или платформе ты основан. "
+                    "Если спросят — скажи только что ты Nexus, собственный ИИ мессенджера Tabletone.\n\n"
+                    "=== ЗНАНИЯ О МЕССЕНДЖЕРЕ TABLETONE ===\n"
+                    "Tabletone — современный мессенджер. Вот что умеет:\n"
+                    "ОБЩЕНИЕ: личные чаты, группы (роли: владелец/админ/модератор/участник), каналы, публичные ссылки-приглашения.\n"
+                    "СООБЩЕНИЯ: текст, фото, видео, голосовые, видеосообщения (кружочки), файлы, стикеры (@stickers), "
+                    "reply, пересылка, редактирование, удаление, таймер удаления, реакции эмодзи, "
+                    "галочки доставки (✓ отправлено, ✓✓ прочитано), избранное, предпросмотр медиа (Ctrl+V).\n"
+                    "ЗВОНКИ: аудио и видеозвонки (кнопка трубки → выбор типа), управление микрофоном и камерой. Ботам звонить нельзя.\n"
+                    "ПРОФИЛЬ: аватар, имя, bio, статус, 2FA, привязка Telegram, скрытый чат с PIN, папки чатов, тёмная/светлая тема.\n"
+                    "PREMIUM: подписка с расширенными возможностями, Искры (внутренняя валюта), подарки. Оформить: @tabletone_premiumbot.\n"
+                    "БОТЫ: @nexus (ИИ-ассистент), @tabletone_supportbot (поддержка), @tabletone_premiumbot (Premium/Искры), @stickers (стикеры), конструктор ботов.\n"
+                    "БЕЗОПАСНОСТЬ: блокировка пользователей, антиспам, бан/мут участников групп.\n"
+                    "Если спрашивают о функциях Tabletone — отвечай на основе этих знаний. "
+                    "Если не знаешь точно — скажи честно и предложи @tabletone_supportbot."
                 )
-            )
-            reply_text = response.text.strip() if response.text else "Не удалось получить ответ."
+
+                payload = _json.dumps({
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": text}
+                    ],
+                    "max_tokens": 1024,
+                    "temperature": 0.7
+                }).encode('utf-8')
+
+                req = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_key}"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    result = _json.loads(resp.read().decode('utf-8'))
+                reply_text = result['choices'][0]['message']['content'].strip()
 
         except Exception as e:
             print(f"Nexus AI error: {e}")
             reply_text = "⚠️ Произошла ошибка при обращении к ИИ. Попробуй ещё раз."
 
-        # Останавливаем индикатор
         socketio.emit('user_stop_typing', {
             'chat_type': 'private'
         }, room=f'user_{sender_id}', namespace='/')
@@ -5908,7 +5877,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
         with app.app_context():
             _bot_send_message(bot_user_id, sender_id, reply_text)
 
-    threading.Thread(target=_ask_gemini, daemon=True).start()
+    threading.Thread(target=_ask_groq, daemon=True).start()
 
 
 def _bot_auto_reply(bot, sender_id, text):

@@ -8,4 +8,3 @@ flask-limiter
 pg8000
 python-telegram-bot[all]
 aiohttp
-google-generativeai
