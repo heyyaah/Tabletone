@@ -607,6 +607,7 @@ async function _doSendText(content) {
             const d = await res.json();
             if (d.success && input) input.value = '';
             else if (d.error === 'spam_blocked') showSpamblockModal(d.until);
+            else if (d.error === 'premium_required') showPremiumModal(d.message);
         }
     } catch (err) {
         showError('Не удалось отправить сообщение');
@@ -1764,6 +1765,8 @@ async function handleSendMessage(e) {
             showSpamblockModal(data.until);
         } else if (data.error === 'contacts_required') {
             showContactsRequiredModal();
+        } else if (data.error === 'premium_required') {
+            showPremiumModal(data.message || 'Эта функция доступна только для Premium пользователей.');
         } else if (data.success) {
             messageInput.value = '';
             _cancelReply();

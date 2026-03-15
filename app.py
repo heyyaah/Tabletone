@@ -2230,6 +2230,10 @@ def send_message():
         they_added = Contact.query.filter_by(user_id=receiver_id, contact_id=uid).first() is not None
         if not (i_added and they_added):
             return jsonify({'error': 'spam_blocked', 'until': until_str}), 403
+
+    # Premium Support доступен только для Premium пользователей
+    if receiver.username == 'premium_support' and not sender.is_premium:
+        return jsonify({'error': 'premium_required', 'message': 'Premium Support доступен только для Premium пользователей'}), 403
     message = Message(
         sender_id=session['user_id'],
         receiver_id=receiver_id,
