@@ -40,13 +40,10 @@ function showFilesPreviewModal() {
                 </div>
                 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn" onclick="addMoreFiles()" style="flex: 1; background: var(--bg-secondary); color: var(--text-primary);">
+                    <button class="btn" onclick="document.getElementById('add-more-files-input').click()" style="flex: 1; background: var(--bg-secondary); color: var(--text-primary);">
                         <i class="fas fa-plus"></i> Добавить еще
-                    </button>
-                    <label class="btn" style="flex: 0; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0;">
-                        <i class="fas fa-folder-open"></i>
                         <input type="file" id="add-more-files-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple style="display: none;" onchange="handleAddMoreFiles(event)">
-                    </label>
+                    </button>
                 </div>
             </div>
             <div class="modal-footer" style="padding: 15px; border-top: 1px solid var(--border-color); display: flex; gap: 10px;">
