@@ -208,6 +208,75 @@
                 </p>
             </div>
 
+            <!-- QR-код профиля -->
+            <div class="profile-section">
+                <h3><i class="fas fa-qrcode"></i> QR-код профиля</h3>
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <img id="profile-qr-img" src="/profile/qr" alt="QR-код" style="width:120px;height:120px;border-radius:8px;border:2px solid #e2e8f0;">
+                    <div>
+                        <p style="color:#718096;font-size:13px;line-height:1.6;">Поделитесь QR-кодом, чтобы другие могли найти вас в Tabletone.</p>
+                        <a href="/profile/qr" download="tabletone_qr.png" class="btn btn-primary" style="display:inline-block;padding:8px 16px;font-size:13px;text-decoration:none;margin-top:8px;">
+                            <i class="fas fa-download"></i> Скачать
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Текстовый статус -->
+            <div class="profile-section">
+                <h3><i class="fas fa-comment-dots"></i> Текстовый статус</h3>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="status-text-input" value="{{ user.status_text or '' }}" placeholder="Что у вас происходит?" maxlength="100"
+                           style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <button class="btn btn-primary" onclick="saveStatusText()" style="padding:10px 16px;font-size:13px;white-space:nowrap;">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                </div>
+                <small style="color:#a0aec0;font-size:12px;margin-top:4px;display:block;">Отображается рядом с вашим именем</small>
+            </div>
+
+            <!-- Тема по расписанию -->
+            <div class="profile-section">
+                <h3><i class="fas fa-clock"></i> Тема по расписанию</h3>
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Автоматически переключать тему в заданное время</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                    <div>
+                        <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;"><i class="fas fa-sun"></i> Светлая с</label>
+                        <input type="time" id="schedule-light" value="08:00"
+                               style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;"><i class="fas fa-moon"></i> Тёмная с</label>
+                        <input type="time" id="schedule-dark" value="22:00"
+                               style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary" onclick="saveThemeSchedule()" style="padding:8px 16px;font-size:13px;">
+                        <i class="fas fa-save"></i> Сохранить расписание
+                    </button>
+                    <button class="btn" onclick="clearThemeSchedule()" style="padding:8px 16px;font-size:13px;background:#e2e8f0;color:#4a5568;">
+                        <i class="fas fa-times"></i> Отключить
+                    </button>
+                </div>
+            </div>
+
+            <!-- PIN скрытых чатов -->
+            <div class="profile-section">
+                <h3><i class="fas fa-lock"></i> Скрытые чаты</h3>
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Установите PIN для доступа к скрытым чатам</p>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="password" id="hidden-pin-input" placeholder="4-6 цифр" maxlength="6" pattern="\d{4,6}"
+                           style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <button class="btn btn-primary" onclick="saveHiddenPin()" style="padding:10px 16px;font-size:13px;white-space:nowrap;">
+                        <i class="fas fa-save"></i> Установить PIN
+                    </button>
+                </div>
+                {% if user.hidden_chat_pin %}
+                <p style="color:#38a169;font-size:12px;margin-top:6px;"><i class="fas fa-check-circle"></i> PIN установлен</p>
+                {% endif %}
+            </div>
+
             <!-- Подарки -->
             <div class="profile-section">
                 <h3><i class="fas fa-gift" style="color:#667eea;"></i> Подарки</h3>
@@ -434,6 +503,44 @@ function submitAdminApplication() {
             statusEl.innerHTML = `<p style="color:#e53e3e;font-size:13px;">${d.error || 'Ошибка'}</p>`;
         }
     });
+}
+
+// ── Статус, расписание темы, PIN ────────────────────────────────────────────
+async function saveStatusText() {
+    const text = document.getElementById('status-text-input').value.trim();
+    const r = await fetch('/profile/status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status_text: text }) });
+    const d = await r.json();
+    if (d.success) showToast('Статус сохранён');
+    else alert(d.error || 'Ошибка');
+}
+
+async function saveThemeSchedule() {
+    const light_from = document.getElementById('schedule-light').value;
+    const dark_from = document.getElementById('schedule-dark').value;
+    const r = await fetch('/profile/theme-schedule', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ light_from, dark_from }) });
+    const d = await r.json();
+    if (d.success) showToast('Расписание сохранено');
+    else alert(d.error || 'Ошибка');
+}
+
+async function clearThemeSchedule() {
+    const r = await fetch('/profile/theme-schedule', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ clear: true }) });
+    const d = await r.json();
+    if (d.success) showToast('Расписание отключено');
+}
+
+async function saveHiddenPin() {
+    const pin = document.getElementById('hidden-pin-input').value.trim();
+    if (!/^\d{4,6}$/.test(pin)) { alert('PIN должен быть 4-6 цифр'); return; }
+    const r = await fetch('/profile/hidden-chat-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin }) });
+    const d = await r.json();
+    if (d.success) showToast('PIN установлен');
+    else alert(d.error || 'Ошибка');
+}
+
+function showToast(msg) {
+    const t = document.getElementById('success-message');
+    if (t) { t.querySelector ? (t.innerHTML = `<i class="fas fa-check-circle"></i> ${msg}`) : null; t.style.display = 'flex'; setTimeout(() => t.style.display = 'none', 3000); }
 }
 
 // ── Искры ──────────────────────────────────────────────────────────────────

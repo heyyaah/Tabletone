@@ -128,7 +128,12 @@ class User(db.Model):
     telegram_link_code = db.Column(db.String(20), nullable=True)  # Код привязки Telegram
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    # Новые поля
+    status_text = db.Column(db.String(100))          # Текстовый статус
+    theme_schedule = db.Column(db.String(50))        # "08:00-22:00:light,22:00-08:00:dark"
+    hidden_chat_pin = db.Column(db.String(6))        # PIN для скрытого чата
+    chat_folders = db.Column(db.Text, default='[]')  # JSON папки чатов
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     
@@ -152,6 +157,8 @@ class Message(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     reply_to_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
     bot_buttons = db.Column(db.Text, default='[]')  # JSON кнопки бота
+    expires_at = db.Column(db.DateTime, nullable=True)  # Самоуничтожение
+    is_hidden_chat = db.Column(db.Boolean, default=False)  # Скрытый чат
     
     sender = db.relationship('User', foreign_keys=[sender_id])
     receiver = db.relationship('User', foreign_keys=[receiver_id])
@@ -190,6 +197,10 @@ class Group(db.Model):
     is_public = db.Column(db.Boolean, default=True)
     invite_link = db.Column(db.String(100), unique=True, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Новые поля
+    slow_mode_seconds = db.Column(db.Integer, default=0)       # 0 = выключен
+    welcome_message = db.Column(db.String(500))                # Приветствие новых участников
+    spam_keywords = db.Column(db.Text, default='[]')           # JSON список стоп-слов
     
     creator = db.relationship('User', foreign_keys=[creator_id])
 
@@ -522,6 +533,24 @@ class PaidPostPurchase(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
     paid_post = db.relationship('PaidPost', foreign_keys=[paid_post_id])
 
+# ── Скрытые чаты ─────────────────────────────────────────────────────────────
+class HiddenChat(db.Model):
+    """Чат скрыт за PIN-кодом."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    other_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'other_user_id', name='_hidden_chat_uc'),)
+
+# ── Медленный режим (last_message_time per user per group) ────────────────────
+class SlowModeTracker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    last_message_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('group_id', 'user_id', name='_slow_mode_uc'),)
+
 # ── Контакты ─────────────────────────────────────────────────────────────────
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -552,12 +581,21 @@ with app.app_context():
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_code VARCHAR(8)",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_code_expires TIMESTAMP",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_role VARCHAR(20)",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS status_text VARCHAR(100)",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS theme_schedule VARCHAR(50)",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS hidden_chat_pin VARCHAR(6)",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS chat_folders TEXT DEFAULT '[]'",
             "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
             "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
+            "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
+            "ALTER TABLE message ADD COLUMN IF NOT EXISTS is_hidden_chat BOOLEAN DEFAULT FALSE",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES group_message(id)",
-            "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS paid_price INTEGER DEFAULT 0",
+            "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
+            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
+            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
+            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS spam_keywords TEXT DEFAULT \'[]\'',
         ]
     else:
         migrations = [
@@ -566,12 +604,21 @@ with app.app_context():
             f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
             f"ALTER TABLE {user_table} ADD COLUMN admin_role VARCHAR(20)",
             f"ALTER TABLE {user_table} ADD COLUMN email VARCHAR(200)",
+            f"ALTER TABLE {user_table} ADD COLUMN status_text VARCHAR(100)",
+            f"ALTER TABLE {user_table} ADD COLUMN theme_schedule VARCHAR(50)",
+            f"ALTER TABLE {user_table} ADD COLUMN hidden_chat_pin VARCHAR(6)",
+            f"ALTER TABLE {user_table} ADD COLUMN chat_folders TEXT DEFAULT '[]'",
             "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
             "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
+            "ALTER TABLE message ADD COLUMN expires_at DATETIME",
+            "ALTER TABLE message ADD COLUMN is_hidden_chat BOOLEAN DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
-            "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
             "ALTER TABLE group_message ADD COLUMN is_paid BOOLEAN DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN paid_price INTEGER DEFAULT 0",
+            "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
+            "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
+            "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
+            "ALTER TABLE 'group' ADD COLUMN spam_keywords TEXT DEFAULT '[]'",
         ]
 
     with db.engine.connect() as conn:
@@ -624,28 +671,46 @@ with app.app_context():
         db.session.flush()
 
         _start_text = (
-            "👑 Привет! Я помогу оформить Premium подписку.\n\n"
-            "На какой срок хотите Premium?\n\n"
+            "👑 Привет! Я помогу оформить Premium подписку или купить Искры.\n\n"
+            "Что вас интересует?\n\n"
             "Выберите вариант ниже 👇"
         )
         _buttons = json.dumps([
+            {"label": "👑 Premium подписка", "reply": "/premium"},
+            {"label": "✨ Купить Искры", "reply": "/sparks"},
+        ])
+        _premium_buttons = json.dumps([
             {"label": "7 дней — 59 ₽", "reply": "/buy_7"},
             {"label": "14 дней — 99 ₽ (выгоднее!)", "reply": "/buy_14"},
             {"label": "30 дней — 149 ₽ (скидка 10%!)", "reply": "/buy_30"},
             {"label": "6 месяцев — 499 ₽ (скидка 30,7%!)", "reply": "/buy_180"},
             {"label": "Год — 799 ₽ (скидка 20%)", "reply": "/buy_365"},
         ])
+        _sparks_buttons = json.dumps([
+            {"label": "✨ 100 искр — 29 ₽", "reply": "/buy_sparks_100"},
+            {"label": "✨ 300 искр — 79 ₽ (выгоднее!)", "reply": "/buy_sparks_300"},
+            {"label": "✨ 700 искр — 149 ₽ (скидка 15%!)", "reply": "/buy_sparks_700"},
+            {"label": "✨ 1500 искр — 299 ₽ (скидка 20%!)", "reply": "/buy_sparks_1500"},
+            {"label": "✨ 5000 искр — 799 ₽ (скидка 36%!)", "reply": "/buy_sparks_5000"},
+        ])
         _buy_url = "https://t.me/kotakbaslife"
-        _buy_text = "💳 Для оплаты перейдите по ссылке:\n" + _buy_url + "\n\nПосле оплаты напишите нам — мы активируем Premium вручную."
+        _buy_text = "💳 Для оплаты перейдите по ссылке:\n" + _buy_url + "\n\nПосле оплаты напишите нам — мы активируем вручную."
 
         _cmds = [
             BotCommand(bot_id=_pbot.id, trigger='/start', response_text=_start_text, buttons=_buttons, order_index=1),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_7',   response_text=f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text}",   buttons='[]', order_index=2),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_14',  response_text=f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text}",  buttons='[]', order_index=3),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_30',  response_text=f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text}", buttons='[]', order_index=4),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_180', response_text=f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text}", buttons='[]', order_index=5),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_365', response_text=f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text}", buttons='[]', order_index=6),
-            BotCommand(bot_id=_pbot.id, trigger='*', response_text="Напишите /start чтобы увидеть варианты подписки 👑", buttons='[]', order_index=99),
+            BotCommand(bot_id=_pbot.id, trigger='/premium', response_text="👑 Выберите срок Premium подписки:", buttons=_premium_buttons, order_index=2),
+            BotCommand(bot_id=_pbot.id, trigger='/sparks', response_text="✨ Выберите количество Искр:", buttons=_sparks_buttons, order_index=3),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_7',   response_text=f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text}",   buttons='[]', order_index=4),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_14',  response_text=f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text}",  buttons='[]', order_index=5),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_30',  response_text=f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text}", buttons='[]', order_index=6),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_180', response_text=f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text}", buttons='[]', order_index=7),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_365', response_text=f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text}", buttons='[]', order_index=8),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_100',  response_text=f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text}",  buttons='[]', order_index=9),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_300',  response_text=f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text}",  buttons='[]', order_index=10),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_700',  response_text=f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text}", buttons='[]', order_index=11),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_1500', response_text=f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text}", buttons='[]', order_index=12),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_5000', response_text=f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text}", buttons='[]', order_index=13),
+            BotCommand(bot_id=_pbot.id, trigger='*', response_text="Напишите /start чтобы увидеть меню 👑", buttons='[]', order_index=99),
         ]
         for _c in _cmds:
             db.session.add(_c)
@@ -3690,7 +3755,27 @@ def send_group_message(group_id):
     
     if not content or len(content) > 4096:
         return jsonify({'error': 'Некорректное сообщение'}), 400
-    
+
+    # Slow mode проверка (не для админов)
+    if not membership.is_admin and group.slow_mode_seconds and group.slow_mode_seconds > 0:
+        tracker = SlowModeTracker.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+        if tracker:
+            elapsed = (datetime.utcnow() - tracker.last_message_at).total_seconds()
+            if elapsed < group.slow_mode_seconds:
+                wait = int(group.slow_mode_seconds - elapsed)
+                return jsonify({'error': f'Медленный режим: подождите ещё {wait} сек.'}), 429
+
+    # Антиспам по ключевым словам (не для админов)
+    if not membership.is_admin and group.spam_keywords:
+        try:
+            keywords = json.loads(group.spam_keywords)
+            content_lower = content.lower()
+            for kw in keywords:
+                if kw.strip().lower() in content_lower:
+                    return jsonify({'error': 'Сообщение содержит запрещённые слова'}), 400
+        except Exception:
+            pass
+
     # Создаем сообщение
     message = GroupMessage(
         group_id=group_id,
@@ -3700,6 +3785,15 @@ def send_group_message(group_id):
     )
     db.session.add(message)
     db.session.commit()
+
+    # Обновляем slow mode tracker
+    if not membership.is_admin and group.slow_mode_seconds and group.slow_mode_seconds > 0:
+        tracker = SlowModeTracker.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+        if tracker:
+            tracker.last_message_at = datetime.utcnow()
+        else:
+            db.session.add(SlowModeTracker(group_id=group_id, user_id=session['user_id'], last_message_at=datetime.utcnow()))
+        db.session.commit()
     
     sender = User.query.get(session['user_id'])
     
@@ -3767,6 +3861,28 @@ def join_group(group_id):
     )
     db.session.add(member)
     db.session.commit()
+
+    # Отправляем welcome message если настроено
+    if group.welcome_message:
+        joiner = User.query.get(session['user_id'])
+        wm_text = group.welcome_message.replace('{name}', joiner.display_name or joiner.username)
+        wm = GroupMessage(group_id=group_id, sender_id=session['user_id'], content=wm_text)
+        db.session.add(wm)
+        db.session.commit()
+        socketio.emit('new_group_message', {
+            'group_id': group_id,
+            'message': {
+                'id': wm.id, 'sender_id': joiner.id,
+                'sender_name': joiner.display_name or joiner.username,
+                'sender_avatar_color': joiner.avatar_color,
+                'sender_avatar_url': joiner.avatar_url,
+                'sender_avatar_letter': joiner.get_avatar_letter(),
+                'content': wm_text,
+                'timestamp': wm.timestamp.strftime('%H:%M %d.%m'),
+                'timestamp_iso': wm.timestamp.isoformat() + 'Z',
+                'media_files': []
+            }
+        }, room=f'group_{group_id}', include_self=True)
     
     return jsonify({'success': True})
 
@@ -5661,6 +5777,264 @@ def check_paid_post(post_id):
         return jsonify({'purchased': True})
     existing = PaidPostPurchase.query.filter_by(user_id=uid, paid_post_id=post_id).first()
     return jsonify({'purchased': bool(existing)})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QR-КОД ПРОФИЛЯ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/profile/qr')
+def profile_qr():
+    if 'user_id' not in session:
+        return redirect('/login')
+    user = User.query.get(session['user_id'])
+    base_url = request.host_url.rstrip('/')
+    profile_url = f"{base_url}/user/{user.username}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={profile_url}"
+    import urllib.request
+    try:
+        with urllib.request.urlopen(qr_url, timeout=5) as resp:
+            img_data = resp.read()
+        from flask import Response
+        return Response(img_data, mimetype='image/png')
+    except Exception:
+        return redirect(qr_url)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ТЕКСТОВЫЙ СТАТУС
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/profile/status', methods=['POST'])
+def update_status():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json() or {}
+    user = User.query.get(session['user_id'])
+    user.status_text = (data.get('status_text') or data.get('status') or '').strip()[:100]
+    db.session.commit()
+    socketio.emit('status_updated', {'user_id': user.id, 'status': user.status_text}, namespace='/')
+    return jsonify({'success': True})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ТЕМА ПО РАСПИСАНИЮ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/profile/theme-schedule', methods=['GET', 'POST'])
+def update_theme_schedule():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    user = User.query.get(session['user_id'])
+    if request.method == 'GET':
+        try:
+            schedule = json.loads(user.theme_schedule) if user.theme_schedule else None
+        except Exception:
+            schedule = None
+        return jsonify({'schedule': schedule})
+    data = request.get_json() or {}
+    if data.get('clear'):
+        user.theme_schedule = None
+    else:
+        schedule = {'light_from': data.get('light_from', '08:00'), 'dark_from': data.get('dark_from', '22:00')}
+        user.theme_schedule = json.dumps(schedule)
+    db.session.commit()
+    return jsonify({'success': True})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# МЕДЛЕННЫЙ РЕЖИМ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/groups/<int:group_id>/slow-mode', methods=['POST'])
+def set_slow_mode(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    if not member or not member.is_admin:
+        return jsonify({'error': 'Нет прав'}), 403
+    data = request.get_json() or {}
+    seconds = int(data.get('seconds', 0))
+    group = Group.query.get(group_id)
+    group.slow_mode_seconds = max(0, seconds)
+    db.session.commit()
+    return jsonify({'success': True, 'seconds': group.slow_mode_seconds})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# АНТИСПАМ ПО КЛЮЧЕВЫМ СЛОВАМ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/groups/<int:group_id>/spam-keywords', methods=['GET', 'POST'])
+def group_spam_keywords(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    if not member or not member.is_admin:
+        return jsonify({'error': 'Нет прав'}), 403
+    group = Group.query.get(group_id)
+    if request.method == 'GET':
+        return jsonify({'keywords': json.loads(group.spam_keywords or '[]')})
+    data = request.get_json() or {}
+    keywords = [k.strip().lower() for k in data.get('keywords', []) if k.strip()][:50]
+    group.spam_keywords = json.dumps(keywords)
+    db.session.commit()
+    return jsonify({'success': True, 'keywords': keywords})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ПРИВЕТСТВИЕ НОВЫХ УЧАСТНИКОВ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/groups/<int:group_id>/welcome-message', methods=['GET', 'POST'])
+def group_welcome_message(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    if not member or not member.is_admin:
+        return jsonify({'error': 'Нет прав'}), 403
+    group = Group.query.get(group_id)
+    if request.method == 'GET':
+        return jsonify({'welcome_message': group.welcome_message or ''})
+    data = request.get_json() or {}
+    group.welcome_message = (data.get('message') or '').strip()[:500]
+    db.session.commit()
+    return jsonify({'success': True})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# САМОУНИЧТОЖАЮЩИЕСЯ СООБЩЕНИЯ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/message/<int:msg_id>/set-timer', methods=['POST'])
+def set_message_timer(msg_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    msg = Message.query.get(msg_id)
+    if not msg or msg.sender_id != uid:
+        return jsonify({'error': 'Нет доступа'}), 403
+    data = request.get_json() or {}
+    seconds = int(data.get('seconds', 0))
+    if seconds > 0:
+        from datetime import timedelta
+        msg.expires_at = datetime.utcnow() + timedelta(seconds=seconds)
+    else:
+        msg.expires_at = None
+    db.session.commit()
+    return jsonify({'success': True, 'expires_at': msg.expires_at.isoformat() if msg.expires_at else None})
+
+@app.route('/cleanup-expired-messages', methods=['POST'])
+def cleanup_expired():
+    """Вызывается периодически для удаления истёкших сообщений."""
+    expired = Message.query.filter(Message.expires_at <= datetime.utcnow(), Message.is_deleted == False).all()
+    for msg in expired:
+        msg.is_deleted = True
+        msg.content = '[Сообщение удалено]'
+        socketio.emit('message_deleted', {'message_id': msg.id, 'other_user_id': msg.receiver_id}, room=f'user_{msg.sender_id}', namespace='/')
+        socketio.emit('message_deleted', {'message_id': msg.id, 'other_user_id': msg.sender_id}, room=f'user_{msg.receiver_id}', namespace='/')
+    db.session.commit()
+    return jsonify({'deleted': len(expired)})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# СКРЫТЫЕ ЧАТЫ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/hidden-chats', methods=['GET'])
+def get_hidden_chats():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    hidden = HiddenChat.query.filter_by(user_id=uid).all()
+    return jsonify({'hidden': [{'other_user_id': h.other_user_id, 'group_id': h.group_id} for h in hidden]})
+
+@app.route('/hidden-chats/toggle', methods=['POST'])
+def toggle_hidden_chat():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    other_user_id = data.get('other_user_id')
+    pin = data.get('pin', '')
+    user = User.query.get(uid)
+    if not user.hidden_chat_pin:
+        return jsonify({'error': 'Сначала установите PIN в профиле'}), 400
+    if pin != user.hidden_chat_pin:
+        return jsonify({'error': 'Неверный PIN'}), 403
+    existing = HiddenChat.query.filter_by(user_id=uid, other_user_id=other_user_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({'hidden': False})
+    hc = HiddenChat(user_id=uid, other_user_id=other_user_id)
+    db.session.add(hc)
+    db.session.commit()
+    return jsonify({'hidden': True})
+
+@app.route('/profile/hidden-chat-pin', methods=['POST'])
+def set_hidden_chat_pin():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json() or {}
+    pin = str(data.get('pin', '')).strip()
+    if not pin.isdigit() or len(pin) != 4:
+        return jsonify({'error': 'PIN должен быть 4 цифры'}), 400
+    user = User.query.get(session['user_id'])
+    user.hidden_chat_pin = pin
+    db.session.commit()
+    return jsonify({'success': True})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ПАПКИ ЧАТОВ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/chat-folders', methods=['GET'])
+def get_chat_folders():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    user = User.query.get(session['user_id'])
+    return jsonify({'folders': json.loads(user.chat_folders or '[]')})
+
+@app.route('/chat-folders', methods=['POST'])
+def save_chat_folders():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json() or {}
+    folders = data.get('folders', [])
+    user = User.query.get(session['user_id'])
+    user.chat_folders = json.dumps(folders[:20])
+    db.session.commit()
+    return jsonify({'success': True})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ПОИСК ПО СООБЩЕНИЯМ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/search/messages')
+def search_messages():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    q = request.args.get('q', '').strip()
+    chat_id = request.args.get('chat_id', type=int)
+    group_id = request.args.get('group_id', type=int)
+    if not q or len(q) < 2:
+        return jsonify({'results': []})
+    results = []
+    if group_id:
+        msgs = GroupMessage.query.filter(
+            GroupMessage.group_id == group_id,
+            GroupMessage.content.ilike(f'%{q}%'),
+            GroupMessage.is_deleted == False
+        ).order_by(GroupMessage.timestamp.desc()).limit(30).all()
+        for m in msgs:
+            results.append({'id': m.id, 'content': m.content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'group'})
+    elif chat_id:
+        msgs = Message.query.filter(
+            ((Message.sender_id == uid) & (Message.receiver_id == chat_id)) |
+            ((Message.sender_id == chat_id) & (Message.receiver_id == uid)),
+            Message.content.ilike(f'%{q}%'),
+            Message.is_deleted == False
+        ).order_by(Message.timestamp.desc()).limit(30).all()
+        for m in msgs:
+            results.append({'id': m.id, 'content': m.content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'private'})
+    return jsonify({'results': results})
 
 # Подавление ошибок разрыва соединения
 import logging

@@ -40,6 +40,12 @@
                 <button class="icon-btn" onclick="showContactsModal()" title="Контакты">
                     <i class="fas fa-address-book"></i>
                 </button>
+                <button class="icon-btn" onclick="showFoldersModal()" title="Папки чатов">
+                    <i class="fas fa-folder"></i>
+                </button>
+                <button class="icon-btn" onclick="showHiddenChatsModal()" title="Скрытые чаты">
+                    <i class="fas fa-eye-slash"></i>
+                </button>
                 {% if user.is_admin %}
                 <a href="/admin" class="icon-btn" title="Админ панель">
                     <i class="fas fa-shield-alt"></i>
@@ -109,6 +115,9 @@
                 </button>
                 <button class="icon-btn" onclick="addContactFromChat()" title="Добавить в контакты">
                     <i class="fas fa-user-plus"></i>
+                </button>
+                <button class="icon-btn" onclick="showSearchModal()" title="Поиск по сообщениям">
+                    <i class="fas fa-search"></i>
                 </button>
                 <button class="icon-btn" onclick="viewChatInfo()" title="Информация">
                     <i class="fas fa-info-circle"></i>

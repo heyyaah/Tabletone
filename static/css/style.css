@@ -3986,3 +3986,79 @@ body[data-theme="dark"] .channel-mute-btn:hover {
 .gift-badge.gift-rare    { border-color: #3182ce; background: #ebf8ff; box-shadow: 0 0 8px rgba(49,130,206,0.3); }
 .gift-badge.gift-epic    { border-color: #805ad5; background: #faf5ff; box-shadow: 0 0 8px rgba(128,90,213,0.3); }
 .gift-badge.gift-legendary { border-color: #d69e2e; background: #fffff0; box-shadow: 0 0 12px rgba(214,158,46,0.5); }
+
+/* ── Поиск по сообщениям ─────────────────────────────────────────────────── */
+.search-msg-item:hover {
+    background: var(--bg-secondary, #f7fafc);
+}
+
+/* ── Папки чатов ─────────────────────────────────────────────────────────── */
+.folders-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: none;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary, #718096);
+    transition: background 0.2s;
+}
+.folders-btn:hover {
+    background: var(--bg-secondary, #f7fafc);
+}
+
+/* ── Скрытые чаты ────────────────────────────────────────────────────────── */
+.hidden-chat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+/* ── Таймер самоуничтожения ──────────────────────────────────────────────── */
+.timer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #e53e3e;
+    background: rgba(229, 62, 62, 0.1);
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-top: 4px;
+}
+
+/* ── QR-код ──────────────────────────────────────────────────────────────── */
+#profile-qr-img {
+    image-rendering: pixelated;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ── Статус текст ────────────────────────────────────────────────────────── */
+.user-status-text {
+    font-size: 12px;
+    color: var(--text-secondary, #718096);
+    font-style: italic;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+/* ── Медленный режим индикатор ───────────────────────────────────────────── */
+.slow-mode-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(237, 137, 54, 0.1);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #ed8936;
+    margin-bottom: 8px;
+}

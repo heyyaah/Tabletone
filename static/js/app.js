@@ -410,6 +410,12 @@ function _showCtxMenu(msgEl, x, y) {
     if (!isDeleted && !isFav) {
         items.push({ icon: 'fa-thumbtack', label: 'Закрепить', _fn: () => pinCurrentMessage(msgId, isGroup), color: '' });
     }
+    if (!isDeleted && !isFav && isMine) {
+        items.push({ icon: 'fa-clock', label: 'Таймер удаления', _fn: () => showTimerModal(msgId, isGroup), color: '' });
+    }
+    if (!isDeleted && !isFav && !isGroup) {
+        items.push({ icon: 'fa-eye-slash', label: 'Скрыть чат', _fn: () => hideCurrentChat(), color: '' });
+    }
     if (isMine && !isDeleted && !isGroup && !isFav) {
         items.push({ icon: 'fa-edit', label: 'Изменить', _fn: () => editMessage(msgId), color: '' });
     }
@@ -581,6 +587,7 @@ async function _doSendText(content) {
             });
             const d = await res.json();
             if (d.success && input) input.value = '';
+            else if (d.error) showError(d.error);
         } else {
             const res = await fetch('/send', {
                 method: 'POST',
@@ -3340,6 +3347,24 @@ function _renderGroupInfoModal(data, groupId) {
                     </div>
                 </div>
 
+                <!-- Медленный режим -->
+                ${!g.is_channel ? `<div style="margin-bottom:14px;">
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;"><i class="fas fa-hourglass-half"></i> Медленный режим (сек между сообщениями)</label>
+                    <input id="gs-slow-mode" type="number" min="0" max="86400" value="${g.slow_mode_seconds||0}" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    <button onclick="saveSlowMode(${groupId})" style="margin-top:6px;padding:6px 14px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Сохранить</button>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;"><i class="fas fa-door-open"></i> Приветствие новых участников</label>
+                    <input id="gs-welcome" type="text" value="${escapeHtml(g.welcome_message||'')}" placeholder="Привет, {name}! Добро пожаловать!" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    <small style="color:#a0aec0;font-size:11px;">{name} — имя пользователя</small>
+                    <button onclick="saveWelcomeMessage(${groupId})" style="margin-top:6px;padding:6px 14px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Сохранить</button>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px;"><i class="fas fa-ban"></i> Запрещённые слова (через запятую)</label>
+                    <input id="gs-spam-kw" type="text" value="${escapeHtml((g.spam_keywords||[]).join(', '))}" placeholder="спам, реклама, ..." style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;">
+                    <button onclick="saveSpamKeywords(${groupId})" style="margin-top:6px;padding:6px 14px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Сохранить</button>
+                </div>` : ''}
+
                 <button onclick="saveGroupSettings(${groupId})" style="width:100%;padding:10px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;margin-bottom:8px;">
                     <i class="fas fa-save"></i> Сохранить изменения
                 </button>
@@ -4692,3 +4717,281 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ── Поиск по сообщениям ──────────────────────────────────────────────────────
+function showSearchModal() {
+    const isGroup = !!currentGroupId;
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'search-msg-modal';
+    modal.innerHTML = `<div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-search"></i> Поиск по сообщениям</h3>
+            <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="text" id="search-msg-input" placeholder="Введите текст..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;box-sizing:border-box;" oninput="doSearchMessages(this.value)">
+            <div id="search-msg-results" style="margin-top:12px;max-height:350px;overflow-y:auto;"></div>
+        </div>
+    </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('search-msg-input')?.focus(), 100);
+}
+window.showSearchModal = showSearchModal;
+
+async function doSearchMessages(q) {
+    if (q.length < 2) { document.getElementById('search-msg-results').innerHTML = ''; return; }
+    const params = new URLSearchParams({ q });
+    if (currentGroupId) params.set('group_id', currentGroupId);
+    else if (currentChatUserId) params.set('chat_id', currentChatUserId);
+    const r = await fetch('/search/messages?' + params);
+    const d = await r.json();
+    const el = document.getElementById('search-msg-results');
+    if (!el) return;
+    if (!d.results.length) { el.innerHTML = '<p style="color:#a0aec0;text-align:center;padding:16px;">Ничего не найдено</p>'; return; }
+    el.innerHTML = d.results.map(m => `
+        <div onclick="scrollToMsg(${m.id});document.getElementById('search-msg-modal')?.remove();"
+             style="padding:10px;border-bottom:1px solid #e2e8f0;cursor:pointer;border-radius:8px;" class="search-msg-item">
+            <div style="font-size:12px;color:#a0aec0;">${m.sender} · ${m.timestamp}</div>
+            <div style="font-size:14px;color:var(--text-primary,#2d3748);margin-top:2px;">${escapeHtml(m.content).substring(0,120)}</div>
+        </div>`).join('');
+}
+window.doSearchMessages = doSearchMessages;
+
+// ── Папки чатов ──────────────────────────────────────────────────────────────
+async function showFoldersModal() {
+    const r = await fetch('/chat-folders');
+    const d = await r.json();
+    const folders = d.folders || [];
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `<div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-folder"></i> Папки чатов</h3>
+            <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="folders-list" style="margin-bottom:12px;">
+                ${folders.length ? folders.map((f,i) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;">
+                    <span style="font-size:18px;">${f.emoji||'📁'}</span>
+                    <span style="flex:1;font-size:14px;">${escapeHtml(f.name)}</span>
+                    <button onclick="deleteFolderItem(${i},this)" style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;">✕</button>
+                </div>`).join('') : '<p style="color:#a0aec0;font-size:13px;">Папок нет</p>'}
+            </div>
+            <div style="display:flex;gap:8px;">
+                <input type="text" id="new-folder-emoji" placeholder="📁" style="width:50px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;text-align:center;">
+                <input type="text" id="new-folder-name" placeholder="Название папки" style="flex:1;padding:8px;border:1px solid #e2e8f0;border-radius:8px;">
+                <button onclick="addFolderItem()" style="background:#667eea;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;">+</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" onclick="saveFolders(this)"><i class="fas fa-save"></i> Сохранить</button>
+        </div>
+    </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    modal._folders = folders;
+    modal.id = 'folders-modal';
+    document.body.appendChild(modal);
+}
+window.showFoldersModal = showFoldersModal;
+
+function addFolderItem() {
+    const modal = document.getElementById('folders-modal');
+    const emoji = document.getElementById('new-folder-emoji').value.trim() || '📁';
+    const name = document.getElementById('new-folder-name').value.trim();
+    if (!name) return;
+    modal._folders = modal._folders || [];
+    modal._folders.push({ emoji, name });
+    document.getElementById('new-folder-name').value = '';
+    document.getElementById('new-folder-emoji').value = '';
+    const list = document.getElementById('folders-list');
+    const i = modal._folders.length - 1;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;';
+    div.innerHTML = `<span style="font-size:18px;">${emoji}</span><span style="flex:1;font-size:14px;">${escapeHtml(name)}</span><button onclick="deleteFolderItem(${i},this)" style="background:#e53e3e;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;">✕</button>`;
+    list.appendChild(div);
+}
+window.addFolderItem = addFolderItem;
+
+function deleteFolderItem(idx, btn) {
+    const modal = document.getElementById('folders-modal');
+    modal._folders.splice(idx, 1);
+    btn.closest('div[style]').remove();
+}
+window.deleteFolderItem = deleteFolderItem;
+
+async function saveFolders(btn) {
+    const modal = document.getElementById('folders-modal');
+    const r = await fetch('/chat-folders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ folders: modal._folders || [] }) });
+    const d = await r.json();
+    if (d.success) { modal.remove(); showError('Папки сохранены', 'success'); }
+    else showError(d.error || 'Ошибка');
+}
+window.saveFolders = saveFolders;
+
+// ── Скрытые чаты ─────────────────────────────────────────────────────────────
+async function showHiddenChatsModal() {
+    const pinPrompt = prompt('Введите PIN скрытых чатов (или оставьте пустым если не установлен):');
+    const r = await fetch('/hidden-chats', { method: 'GET', headers: {'X-Hidden-Pin': pinPrompt || ''} });
+    const d = await r.json();
+    if (d.error) { showError(d.error); return; }
+    const chats = d.chats || [];
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `<div class="modal-content" style="max-width:480px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-eye-slash"></i> Скрытые чаты</h3>
+            <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+        </div>
+        <div class="modal-body">
+            ${chats.length ? chats.map(c => `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #e2e8f0;">
+                <div style="width:36px;height:36px;border-radius:50%;background:${c.avatar_color||'#667eea'};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${c.letter||'?'}</div>
+                <span style="flex:1;font-size:14px;">${escapeHtml(c.name||c.username)}</span>
+                <button onclick="unhideChat(${c.id},this)" style="font-size:12px;padding:4px 10px;background:#667eea;color:#fff;border:none;border-radius:6px;cursor:pointer;">Показать</button>
+            </div>`).join('') : '<p style="color:#a0aec0;text-align:center;padding:20px;">Нет скрытых чатов</p>'}
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;">
+                <button onclick="showSetHiddenPinModal()" style="font-size:13px;padding:8px 14px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;width:100%;"><i class="fas fa-lock"></i> Изменить PIN</button>
+            </div>
+        </div>
+    </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+window.showHiddenChatsModal = showHiddenChatsModal;
+
+async function unhideChat(userId, btn) {
+    const r = await fetch('/hidden-chats/toggle', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ other_id: userId }) });
+    const d = await r.json();
+    if (d.success) { btn.closest('div[style]').remove(); showError('Чат показан', 'success'); }
+}
+window.unhideChat = unhideChat;
+
+function showSetHiddenPinModal() {
+    const pin = prompt('Введите новый PIN (4-6 цифр):');
+    if (!pin || !/^\d{4,6}$/.test(pin)) { showError('PIN должен быть 4-6 цифр'); return; }
+    fetch('/profile/hidden-chat-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin }) })
+    .then(r => r.json()).then(d => {
+        if (d.success) showError('PIN установлен', 'success');
+        else showError(d.error || 'Ошибка');
+    });
+}
+window.showSetHiddenPinModal = showSetHiddenPinModal;
+
+async function hideCurrentChat() {
+    if (!currentChatUserId) return;
+    const r = await fetch('/hidden-chats/toggle', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ other_id: currentChatUserId }) });
+    const d = await r.json();
+    if (d.success) { showError('Чат скрыт', 'success'); backToChats(); loadAllChats(); }
+    else showError(d.error || 'Ошибка');
+}
+window.hideCurrentChat = hideCurrentChat;
+
+// ── Таймер самоуничтожения ────────────────────────────────────────────────────
+function showTimerModal(msgId, isGroup) {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `<div class="modal-content" style="max-width:360px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-clock"></i> Таймер самоуничтожения</h3>
+            <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:#718096;font-size:13px;margin-bottom:12px;">Сообщение удалится через выбранное время</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                ${[['30 сек',30],['1 мин',60],['5 мин',300],['1 час',3600],['1 день',86400],['1 неделя',604800]].map(([label,secs]) =>
+                    `<button onclick="setMsgTimer(${msgId},${secs},${isGroup?'true':'false'},this.closest('.modal'))" style="padding:10px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-size:13px;background:var(--bg-secondary,#f7fafc);">${label}</button>`
+                ).join('')}
+            </div>
+        </div>
+    </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+window.showTimerModal = showTimerModal;
+
+async function setMsgTimer(msgId, seconds, isGroup, modal) {
+    const url = isGroup ? `/group-message/${msgId}/set-timer` : `/message/${msgId}/set-timer`;
+    const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ seconds }) });
+    const d = await r.json();
+    if (d.success) {
+        modal?.remove();
+        showError('Таймер установлен', 'success');
+        // Запускаем локальный таймер удаления
+        setTimeout(() => {
+            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (el) el.remove();
+        }, seconds * 1000);
+    } else showError(d.error || 'Ошибка');
+}
+window.setMsgTimer = setMsgTimer;
+
+// ── Тема по расписанию ────────────────────────────────────────────────────────
+function startThemeScheduleChecker() {
+    function checkSchedule() {
+        const schedule = document.body.dataset.themeSchedule;
+        if (!schedule) return;
+        try {
+            const s = JSON.parse(schedule);
+            if (!s.light_from || !s.dark_from) return;
+            const now = new Date();
+            const h = now.getHours(), m = now.getMinutes();
+            const cur = h * 60 + m;
+            const [lh, lm] = s.light_from.split(':').map(Number);
+            const [dh, dm] = s.dark_from.split(':').map(Number);
+            const lightStart = lh * 60 + lm;
+            const darkStart = dh * 60 + dm;
+            let target;
+            if (lightStart <= darkStart) {
+                target = (cur >= lightStart && cur < darkStart) ? 'light' : 'dark';
+            } else {
+                target = (cur >= lightStart || cur < darkStart) ? 'light' : 'dark';
+            }
+            const current = document.documentElement.getAttribute('data-theme') || localStorage.getItem('theme');
+            if (current !== target) setTheme(target);
+        } catch(e) {}
+    }
+    checkSchedule();
+    setInterval(checkSchedule, 60000);
+}
+
+// Загружаем расписание темы при старте
+(async function loadThemeSchedule() {
+    try {
+        const r = await fetch('/profile/theme-schedule');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.schedule) {
+            document.body.dataset.themeSchedule = JSON.stringify(d.schedule);
+            startThemeScheduleChecker();
+        }
+    } catch(e) {}
+})();
+
+// ── Настройки группы: slow mode, welcome, spam keywords ──────────────────────
+async function saveSlowMode(groupId) {
+    const secs = parseInt(document.getElementById('gs-slow-mode')?.value) || 0;
+    const r = await fetch(`/groups/${groupId}/slow-mode`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ seconds: secs }) });
+    const d = await r.json();
+    showError(d.success ? 'Медленный режим сохранён' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+}
+window.saveSlowMode = saveSlowMode;
+
+async function saveWelcomeMessage(groupId) {
+    const msg = document.getElementById('gs-welcome')?.value.trim() || '';
+    const r = await fetch(`/groups/${groupId}/welcome-message`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: msg }) });
+    const d = await r.json();
+    showError(d.success ? 'Приветствие сохранено' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+}
+window.saveWelcomeMessage = saveWelcomeMessage;
+
+async function saveSpamKeywords(groupId) {
+    const raw = document.getElementById('gs-spam-kw')?.value || '';
+    const keywords = raw.split(',').map(k => k.trim()).filter(Boolean);
+    const r = await fetch(`/groups/${groupId}/spam-keywords`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ keywords }) });
+    const d = await r.json();
+    showError(d.success ? 'Ключевые слова сохранены' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+}
+window.saveSpamKeywords = saveSpamKeywords;
