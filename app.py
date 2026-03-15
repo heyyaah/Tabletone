@@ -1062,10 +1062,8 @@ def register():
         session['user_id'] = user.id
 
         # Приветственное сообщение от официального бота Tabletone
-        try:
-            _send_tabletone_welcome(user.id)
-        except Exception as e:
-            print(f"Welcome message error: {e}")
+        import threading
+        threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
 
         return redirect(url_for('index'))
     
@@ -1143,10 +1141,8 @@ def login():
 
             # Уведомление администратору о новых обращениях в поддержку
             if user.is_admin:
-                try:
-                    _notify_admin_support(user.id)
-                except Exception as e:
-                    print(f"Admin support notify error: {e}")
+                import threading
+                threading.Thread(target=_notify_admin_support, args=(user.id,), daemon=True).start()
 
             return redirect(url_for('index'))
         
