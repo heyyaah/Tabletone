@@ -20,5 +20,11 @@
     </div>
     {% block scripts %}{% endblock %}
     <script>document.addEventListener('contextmenu', e => e.preventDefault());</script>
+    {% block footer %}
+    <footer class="site-footer">
+        <span>&copy; 2026 Tabletone. Все права защищены.</span>
+        <a href="/privacy">Политика конфиденциальности</a>
+    </footer>
+    {% endblock %}
 </body>
 </html>

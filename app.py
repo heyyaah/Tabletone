@@ -7634,6 +7634,11 @@ def link_preview():
         return jsonify({'preview': None})
 
 
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+
 if __name__ == '__main__':
     import sys
     
