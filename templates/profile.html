@@ -92,36 +92,30 @@
                         <i class="fas fa-image"></i> Обои для чата
                     </label>
                     <div class="wallpaper-grid">
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'default' %}selected{% endif %}" 
-                             data-wallpaper="default" 
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'default' %}selected{% endif %}"
+                             data-wallpaper="default"
                              style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
-                             onclick="selectWallpaper('default')">
-                        </div>
-                            <div class="wallpaper-option {% if user.chat_wallpaper == 'back1' %}selected{% endif %}" 
-                             data-wallpaper="back1" 
-                             style="background-image: url('/static/images/back1.png');"
-                             onclick="selectWallpaper('back1')">
-                        </div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back2' %}selected{% endif %}" 
-                             data-wallpaper="back2" 
-                             style="background-image: url('/static/images/back2.png');"
-                             onclick="selectWallpaper('back2')">
-                        </div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back3' %}selected{% endif %}" 
-                             data-wallpaper="back3" 
-                             style="background-image: url('/static/images/back3.png');"
-                             onclick="selectWallpaper('back3')">
-                        </div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back4' %}selected{% endif %}" 
-                             data-wallpaper="back4" 
-                             style="background-image: url('/static/images/back4.png');"
-                             onclick="selectWallpaper('back4')">
-                        </div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back5' %}selected{% endif %}" 
-                             data-wallpaper="back5" 
-                             style="background-image: url('/static/images/back5.png');"
-                             onclick="selectWallpaper('back5')">
-                        </div>
+                             onclick="selectWallpaper('default')"></div>
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back1' %}selected{% endif %}"
+                             data-wallpaper="back1"
+                             style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
+                             onclick="selectWallpaper('back1')"></div>
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back2' %}selected{% endif %}"
+                             data-wallpaper="back2"
+                             style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"
+                             onclick="selectWallpaper('back2')"></div>
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back3' %}selected{% endif %}"
+                             data-wallpaper="back3"
+                             style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"
+                             onclick="selectWallpaper('back3')"></div>
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back4' %}selected{% endif %}"
+                             data-wallpaper="back4"
+                             style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"
+                             onclick="selectWallpaper('back4')"></div>
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back5' %}selected{% endif %}"
+                             data-wallpaper="back5"
+                             style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"
+                             onclick="selectWallpaper('back5')"></div>
                     </div>
                     <input type="hidden" id="chat_wallpaper" name="chat_wallpaper" value="{{ user.chat_wallpaper or 'default' }}">
                 </div>

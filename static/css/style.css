@@ -2025,23 +2025,28 @@ body[data-theme="liquid"] .app-logo {
 
 /* Кастомные обои для чатов */
 .messages-container[data-wallpaper="back1"] {
-    background-image: url('/static/images/back1.png') !important;
+    background-image: none !important;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
 }
 
 .messages-container[data-wallpaper="back2"] {
-    background-image: url('/static/images/back2.png') !important;
+    background-image: none !important;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
 }
 
 .messages-container[data-wallpaper="back3"] {
-    background-image: url('/static/images/back3.png') !important;
+    background-image: none !important;
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%) !important;
 }
 
 .messages-container[data-wallpaper="back4"] {
-    background-image: url('/static/images/back4.png') !important;
+    background-image: none !important;
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;
 }
 
 .messages-container[data-wallpaper="back5"] {
-    background-image: url('/static/images/back5.png') !important;
+    background-image: none !important;
+    background: linear-gradient(135deg, #30cfd0 0%, #330867 100%) !important;
 }
 
 /* Улучшенные сообщения с тенями */
