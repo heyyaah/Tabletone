@@ -5023,6 +5023,7 @@ window.saveFolders = saveFolders;
 // ── Скрытые чаты ─────────────────────────────────────────────────────────────
 async function showHiddenChatsModal() {
     const pinPrompt = prompt('Введите PIN скрытых чатов (или оставьте пустым если не установлен):');
+    if (pinPrompt === null) return; // нажата "Отмена"
     const r = await fetch('/hidden-chats', { method: 'GET', headers: {'X-Hidden-Pin': pinPrompt || ''} });
     const d = await r.json();
     if (d.error) { showError(d.error); return; }
