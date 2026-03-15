@@ -55,6 +55,16 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     setupMobileNavigation();
     connectSocketIO();
+
+    // Открыть чат если передан через localStorage (например, из /bots)
+    const _pendingChat = localStorage.getItem('open_chat_on_load');
+    if (_pendingChat) {
+        localStorage.removeItem('open_chat_on_load');
+        try {
+            const _c = JSON.parse(_pendingChat);
+            setTimeout(() => openChat(_c.id, _c.name), 800);
+        } catch(e) {}
+    }
 });
 
 // Подключение к Socket.IO

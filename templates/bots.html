@@ -593,18 +593,18 @@ function showPremiumModal(message) {
 function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
 
 function openStickersBotChat() {
-  // Ищем бота @stickers и открываем чат с ним
-  fetch('/api/search?q=stickers')
+  fetch('/search?q=stickers')
     .then(r => r.json())
     .then(d => {
-      const bot = (d.results || []).find(u => u.username === 'stickers');
+      const bot = (d.users || []).find(u => u.username === 'stickers');
       if (bot) {
-        window.location.href = `/?chat=${bot.id}`;
+        localStorage.setItem('open_chat_on_load', JSON.stringify({id: bot.id, name: bot.display_name || 'Stickers'}));
+        window.location.href = '/';
       } else {
         alert('Бот @stickers не найден');
       }
     })
-    .catch(() => { window.location.href = '/?search=stickers'; });
+    .catch(() => alert('Ошибка поиска бота'));
 }
 
 function showCreateStickerPackModal() {
