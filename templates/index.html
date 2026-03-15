@@ -126,9 +126,28 @@
                 <button class="icon-btn" onclick="viewChatInfo()" title="Информация">
                     <i class="fas fa-info-circle"></i>
                 </button>
+                <button class="icon-btn" id="call-btn" onclick="startCall()" title="Позвонить" style="display:none;">
+                    <i class="fas fa-phone"></i>
+                </button>
                 <button class="icon-btn" onclick="showReportModal()" title="Пожаловаться">
                     <i class="fas fa-flag"></i>
                 </button>
+            </div>
+
+            <!-- Модал звонка -->
+            <div id="call-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10000;flex-direction:column;align-items:center;justify-content:center;color:#fff;">
+                <div id="call-avatar" style="width:80px;height:80px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:16px;"></div>
+                <h2 id="call-name" style="margin:0 0 8px;font-size:22px;"></h2>
+                <p id="call-status" style="margin:0 0 32px;color:#a0aec0;font-size:15px;">Вызов...</p>
+                <div style="display:flex;gap:24px;">
+                    <button id="call-accept-btn" onclick="acceptCall()" style="display:none;width:64px;height:64px;border-radius:50%;background:#38a169;border:none;color:#fff;font-size:24px;cursor:pointer;"><i class="fas fa-phone"></i></button>
+                    <button id="call-mute-btn" onclick="toggleMute()" style="width:64px;height:64px;border-radius:50%;background:#4a5568;border:none;color:#fff;font-size:20px;cursor:pointer;"><i class="fas fa-microphone"></i></button>
+                    <button id="call-end-btn" onclick="endCall()" style="width:64px;height:64px;border-radius:50%;background:#e53e3e;border:none;color:#fff;font-size:24px;cursor:pointer;"><i class="fas fa-phone-slash"></i></button>
+                </div>
+                <audio id="remote-audio" autoplay></audio>
+                <audio id="call-ringtone" loop style="display:none;">
+                    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." type="audio/wav">
+                </audio>
             </div>
 
             <!-- Закреплённое сообщение -->
@@ -250,6 +269,7 @@
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/multiple-files.js') }}"></script>
 <script src="{{ url_for('static', filename='js/add-to-chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/calls.js') }}"></script>
 <script>
 // Сохраняем текущий аккаунт в localStorage для быстрого переключения на странице логина
 (function() {

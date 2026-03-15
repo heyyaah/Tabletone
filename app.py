@@ -7701,6 +7701,67 @@ class PushSubscription(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user = db.relationship('User', foreign_keys=[user_id])
 
+# ── WebRTC звонки ─────────────────────────────────────────────────────────────
+
+@socketio.on('call_offer')
+def handle_call_offer(data):
+    """Инициатор отправляет offer получателю."""
+    if 'user_id' not in session:
+        return
+    to_user_id = data.get('to_user_id')
+    caller = User.query.get(session['user_id'])
+    if not caller or not to_user_id:
+        return
+    socketio.emit('call_incoming', {
+        'from_user_id': session['user_id'],
+        'from_name': caller.display_name or caller.username,
+        'from_avatar_letter': caller.get_avatar_letter(),
+        'from_avatar_color': caller.avatar_color,
+        'sdp': data.get('sdp')
+    }, room=f'user_{to_user_id}', namespace='/')
+
+@socketio.on('call_answer')
+def handle_call_answer(data):
+    """Получатель принял звонок, отправляет answer инициатору."""
+    if 'user_id' not in session:
+        return
+    to_user_id = data.get('to_user_id')
+    socketio.emit('call_answered', {
+        'from_user_id': session['user_id'],
+        'sdp': data.get('sdp')
+    }, room=f'user_{to_user_id}', namespace='/')
+
+@socketio.on('call_ice')
+def handle_call_ice(data):
+    """Передача ICE candidate между участниками."""
+    if 'user_id' not in session:
+        return
+    to_user_id = data.get('to_user_id')
+    socketio.emit('call_ice', {
+        'from_user_id': session['user_id'],
+        'candidate': data.get('candidate')
+    }, room=f'user_{to_user_id}', namespace='/')
+
+@socketio.on('call_end')
+def handle_call_end(data):
+    """Завершение звонка."""
+    if 'user_id' not in session:
+        return
+    to_user_id = data.get('to_user_id')
+    socketio.emit('call_ended', {
+        'from_user_id': session['user_id']
+    }, room=f'user_{to_user_id}', namespace='/')
+
+@socketio.on('call_reject')
+def handle_call_reject(data):
+    """Отклонение входящего звонка."""
+    if 'user_id' not in session:
+        return
+    to_user_id = data.get('to_user_id')
+    socketio.emit('call_rejected', {
+        'from_user_id': session['user_id']
+    }, room=f'user_{to_user_id}', namespace='/')
+
 with app.app_context():
     db.create_all()
     # Auto-migrate: expand column types

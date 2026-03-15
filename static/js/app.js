@@ -90,6 +90,7 @@ function connectSocketIO() {
         socket.on('connect', function() {
             console.log('Socket.IO connected');
             setupGroupSocketHandlers();
+            initCallSocketHandlers(socket);
             // Reload messages on reconnect to catch anything missed while disconnected
             if (currentChatUserId) loadMessages(currentChatUserId);
             else if (currentGroupId) loadGroupMessages(currentGroupId);
@@ -1226,6 +1227,10 @@ async function openChat(userId, username) {
             if (reportBtn) {
                 reportBtn.style.display = userData.is_bot ? 'none' : '';
             }
+
+            // Показываем кнопку звонка только для обычных пользователей (не ботов)
+            const callBtn = document.getElementById('call-btn');
+            if (callBtn) callBtn.style.display = userData.is_bot ? 'none' : 'flex';
         }
     } catch (error) {
         console.error('Error loading user info:', error);
