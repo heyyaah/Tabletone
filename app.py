@@ -5548,7 +5548,7 @@ def _trigger_webhook(bot, update):
                 if plan_key:
                     sender_user = User.query.get(sender_id)
                     username = sender_user.username if sender_user else 'unknown'
-                    pay_bot_username = os.environ.get('PAYMENT_BOT_USERNAME', 'TabletonePayBot')
+                    pay_bot_username = os.environ.get('PAYMENT_BOT_USERNAME', 'TabletonePay_bot')
                     deep_link = f"https://t.me/{pay_bot_username}?start=pay_{plan_key}_{username}"
                     _bot_send_message(bot.user_id, sender_id,
                         f"💳 Перейдите в Telegram-бот для оплаты.\n"
