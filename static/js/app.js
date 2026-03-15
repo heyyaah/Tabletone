@@ -63,11 +63,19 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const _c = JSON.parse(_pendingChat);
             if (_c.byUsername) {
-                setTimeout(() => openChatByUsername(_c.id), 800);
+                // Ждём инициализации сокета и списка пользователей
+                const _tryOpen = (attempts) => {
+                    if (typeof openChatByUsername === 'function') {
+                        openChatByUsername(_c.id);
+                    } else if (attempts > 0) {
+                        setTimeout(() => _tryOpen(attempts - 1), 300);
+                    }
+                };
+                setTimeout(() => _tryOpen(10), 1000);
             } else {
                 setTimeout(() => openChat(_c.id, _c.name), 800);
             }
-        } catch(e) {}
+        } catch(e) { console.error('open_chat_on_load error:', e); }
     }
 });
 
@@ -1461,9 +1469,19 @@ window.editMessage = editMessage;
 
 async function openChatByUsername(username) {
     try {
-        const r = await fetch(`/search?q=${encodeURIComponent(username)}`);
-        const d = await r.json();
-        const user = (d.users || []).find(u => u.username === username);
+        // Сначала пробуем точный поиск по username
+        const r = await fetch(`/api/user-by-username/${encodeURIComponent(username)}`);
+        if (r.ok) {
+            const d = await r.json();
+            if (d && d.id) {
+                openChat(d.id, d.display_name || d.username);
+                return;
+            }
+        }
+        // Fallback через поиск
+        const r2 = await fetch(`/search?q=${encodeURIComponent(username)}`);
+        const d2 = await r2.json();
+        const user = (d2.users || []).find(u => u.username === username);
         if (user) {
             openChat(user.id, user.display_name || user.username);
         } else {
