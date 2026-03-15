@@ -811,16 +811,44 @@ function removeUser(userId) {
         });
 }
 
-function banUser(userId) {
-    if (!confirm('Забанить этого пользователя?')) return;
-    
+function showBanModal(userId) {
+    // Remove existing modal if any
+    const existing = document.getElementById('ban-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'ban-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:#fff;border-radius:14px;padding:28px 24px;min-width:280px;max-width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+            <h3 style="margin:0 0 8px;font-size:18px;color:#1a202c;">Дать наказание</h3>
+            <p style="margin:0 0 20px;color:#718096;font-size:14px;">Выберите тип наказания для пользователя</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button onclick="doBanUser(${userId})" style="background:#e53e3e;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:15px;font-weight:600;cursor:pointer;">Бан</button>
+                <button onclick="doSpamBlock(${userId})" style="background:#ed8936;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:15px;font-weight:600;cursor:pointer;">Спам-блок</button>
+            </div>
+            <button onclick="document.getElementById('ban-modal').remove()" style="margin-top:14px;background:none;border:none;color:#a0aec0;font-size:13px;cursor:pointer;">Отмена</button>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+
+function doBanUser(userId) {
+    document.getElementById('ban-modal').remove();
     fetch(`/admin/ban/${userId}`, { method: 'POST' })
         .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                loadUsers();
-            }
-        });
+        .then(data => { if (data.success) loadUsers(); });
+}
+
+function doSpamBlock(userId) {
+    document.getElementById('ban-modal').remove();
+    fetch(`/admin/spamblock/${userId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (data.success) loadUsers(); });
+}
+
+function banUser(userId) {
+    showBanModal(userId);
 }
 
 function unbanUser(userId) {
