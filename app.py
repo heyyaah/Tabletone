@@ -6319,36 +6319,7 @@ def _premium_expiry_worker():
 eventlet.spawn(_premium_expiry_worker)
 
 # ── Встроенный платёжный Telegram-бот ────────────────────────────────────────
-def _run_payment_bot():
-    """Запускает tg_payment_bot в фоне внутри того же процесса."""
-    import time as _time
-    _time.sleep(5)  # ждём пока Flask поднимется
-    try:
-        import asyncio
-        import tg_payment_bot as _pb
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
-
-        bot_app = Application.builder().token(_pb.BOT_TOKEN).build()
-        bot_app.add_handler(CommandHandler("start", _pb.cmd_start))
-        bot_app.add_handler(CommandHandler("givepremium", _pb.cmd_give_premium))
-        bot_app.add_handler(CommandHandler("givesparks", _pb.cmd_give_sparks))
-        bot_app.add_handler(CommandHandler("ownerhelp", _pb.cmd_owner_help))
-        bot_app.add_handler(CallbackQueryHandler(_pb.callback_router))
-        bot_app.add_handler(MessageHandler(filters.PHOTO, _pb.handle_photo))
-        bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _pb.handle_text))
-
-        print("✅ Платёжный бот запущен")
-        loop.run_until_complete(bot_app.run_polling(drop_pending_updates=True))
-    except Exception as e:
-        print(f"❌ Ошибка платёжного бота: {e}")
-
-# Запускаем бота в отдельном потоке (не eventlet — нужен настоящий поток для asyncio)
-import threading
-_bot_thread = threading.Thread(target=_run_payment_bot, daemon=True)
-_bot_thread.start()
+# Платёжный бот запускается отдельным процессом через Procfile (bot: python tg_payment_bot.py)
 
 def _auto_register_telegram_webhook():
     """Авто-регистрация вебхука Telegram бота при старте."""
