@@ -3811,25 +3811,49 @@ def get_spamblock_candidates():
     if not admin or not admin.is_admin:
         return jsonify({'error': 'Доступ запрещен'}), 403
 
-    # Считаем жалобы по target_id
     from collections import Counter
+    import datetime as _dt
+
+    # Считаем жалобы по target_id
     counts = Counter(
         r['target_id'] for r in reports
         if r.get('target_type') == 'user' and r.get('target_id')
     )
+
+    seen_ids = set()
     candidates = []
+
+    # 1. Уже заблокированные пользователи (всегда показываем)
+    blocked_users = User.query.filter_by(is_spam_blocked=True).all()
+    for user in blocked_users:
+        seen_ids.add(user.id)
+        candidates.append({
+            'id': user.id,
+            'username': user.username,
+            'display_name': user.display_name or user.username,
+            'report_count': counts.get(user.id, 0),
+            'is_spam_blocked': True,
+            'spam_block_until': (user.spam_block_until + _dt.timedelta(hours=3)).strftime('%d.%m.%Y %H:%M') if user.spam_block_until else None
+        })
+
+    # 2. Кандидаты с 3+ жалобами (ещё не заблокированные)
     for target_id, count in counts.items():
         if count >= 3:
-            user = User.query.get(int(target_id))
+            uid = int(target_id)
+            if uid in seen_ids:
+                continue
+            user = User.query.get(uid)
             if user:
+                seen_ids.add(uid)
                 candidates.append({
                     'id': user.id,
                     'username': user.username,
                     'display_name': user.display_name or user.username,
                     'report_count': count,
                     'is_spam_blocked': user.is_spam_blocked,
-                    'spam_block_until': (user.spam_block_until + __import__('datetime').timedelta(hours=3)).strftime('%d.%m.%Y %H:%M') if user.spam_block_until else None
+                    'spam_block_until': (user.spam_block_until + _dt.timedelta(hours=3)).strftime('%d.%m.%Y %H:%M') if user.spam_block_until else None
                 })
+
     return jsonify({'candidates': candidates})
 
 # Выдать спам-блок

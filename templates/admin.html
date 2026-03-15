@@ -844,7 +844,12 @@ function doSpamBlock(userId) {
     document.getElementById('ban-modal').remove();
     fetch(`/admin/spamblock/${userId}`, { method: 'POST' })
         .then(r => r.json())
-        .then(data => { if (data.success) loadUsers(); });
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+                loadSpamblockCandidates();
+            }
+        });
 }
 
 function banUser(userId) {
