@@ -2631,7 +2631,22 @@ def send_multiple_files():
             
         except Exception as e:
             print(f"Error emitting multiple files message: {e}")
-        
+
+        # Если получатель — бот, триггерим для каждого файла
+        receiver = User.query.get(receiver_id)
+        if receiver and receiver.is_bot:
+            bot = Bot.query.filter_by(user_id=receiver_id, is_active=True).first()
+            if bot:
+                for mf in media_files:
+                    _trigger_webhook(bot, {
+                        'message': {
+                            'message_id': message.id,
+                            'from': {'id': session['user_id']},
+                            'text': mf['media_url'],
+                            'date': message.timestamp.isoformat() + 'Z'
+                        }
+                    })
+
         return jsonify({
             'success': True,
             'message_id': message.id,
