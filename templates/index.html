@@ -246,4 +246,22 @@
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/multiple-files.js') }}"></script>
 <script src="{{ url_for('static', filename='js/add-to-chat.js') }}"></script>
+<script>
+// Сохраняем текущий аккаунт в localStorage для быстрого переключения на странице логина
+(function() {
+    const acc = {
+        username: '{{ user.username }}',
+        display_name: '{{ user.display_name or user.username }}',
+        avatar_color: '{{ user.avatar_color }}',
+        avatar_url: '{{ user.avatar_url or "" }}'
+    };
+    try {
+        let accounts = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+        accounts = accounts.filter(a => a.username !== acc.username);
+        accounts.unshift(acc);
+        if (accounts.length > 5) accounts = accounts.slice(0, 5);
+        localStorage.setItem('saved_accounts', JSON.stringify(accounts));
+    } catch(e) {}
+})();
+</script>
 {% endblock %}

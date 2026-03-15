@@ -354,7 +354,7 @@
             <!-- Сменить аккаунт -->
             <div class="profile-section">
                 <h3><i class="fas fa-exchange-alt"></i> Сменить аккаунт</h3>
-                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Войдите в другой аккаунт. Текущая сессия будет завершена.</p>
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Войдите в другой аккаунт. Ваш профиль останется в списке для быстрого переключения.</p>
                 <a href="/logout" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:14px;">
                     <i class="fas fa-sign-out-alt"></i> Войти в другой аккаунт
                 </a>
@@ -429,6 +429,22 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 <script>
+// Сохраняем текущий аккаунт в localStorage для быстрого переключения
+(function() {
+    const acc = {
+        username: '{{ user.username }}',
+        display_name: '{{ user.display_name or user.username }}',
+        avatar_color: '{{ user.avatar_color }}',
+        avatar_url: '{{ user.avatar_url or "" }}'
+    };
+    try {
+        let accounts = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+        accounts = accounts.filter(a => a.username !== acc.username);
+        accounts.unshift(acc); // текущий аккаунт — первым
+        if (accounts.length > 5) accounts = accounts.slice(0, 5); // максимум 5
+        localStorage.setItem('saved_accounts', JSON.stringify(accounts));
+    } catch(e) {}
+})();
 function showDeletionModal() {
     document.getElementById('deletion-modal').style.display = 'flex';
 }
