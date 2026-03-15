@@ -1248,6 +1248,7 @@ function displayMessages(messages) {
     });
     
     container.innerHTML = html;
+    _fixStickerImages(container);
     _reattachCtxMenu();
 }
 
@@ -1316,8 +1317,8 @@ function createMessageHTML(msg) {
     else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
         const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : msg.media_url;
         const packId = msg.sticker_pack_id || '';
-        content = `<div class="sticker-message" onclick="viewStickerPackBySticker('${stickerUrl}',${packId||'null'})">
-            <img src="${stickerUrl}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
+        content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
+            <img data-src="${encodeURIComponent(stickerUrl)}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
         </div>`;
     }
     // Видео кружочек
@@ -1625,6 +1626,7 @@ function addMessageToChat(message) {
     
     const messageHtml = createMessageHTML(message);
     container.insertAdjacentHTML('beforeend', messageHtml);
+    _fixStickerImages(container);
     scrollToBottom();
 }
 
@@ -2847,6 +2849,7 @@ function displayGroupMessages(messages) {
     });
     
     container.innerHTML = html;
+    _fixStickerImages(container);
     _reattachCtxMenu();
 }
 
@@ -2937,8 +2940,9 @@ function createGroupMessageHTML(msg) {
     // Стикер (группа)
     else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
         const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : '';
-        content = `<div class="sticker-message" onclick="viewStickerPackBySticker('${stickerUrl}',null)">
-            <img src="${stickerUrl}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
+        const packId = msg.sticker_pack_id || '';
+        content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
+            <img data-src="${encodeURIComponent(stickerUrl)}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
         </div>`;
     }
     // Обычное текстовое сообщение
@@ -3036,6 +3040,7 @@ function addGroupMessageToChat(message) {
     
     const messageHtml = createGroupMessageHTML(message);
     container.insertAdjacentHTML('beforeend', messageHtml);
+    _fixStickerImages(container);
     scrollToBottom();
 }
 
@@ -5520,16 +5525,27 @@ async function _loadStickerPanel() {
         allPacks.forEach(pack => {
             const section = document.createElement('div');
             section.style.cssText = 'margin-bottom:12px;';
-            section.innerHTML = `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;padding:0 4px;">${escapeHtml(pack.name)}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                ${pack.stickers.map(s => `
-                    <img src="${s.image_url}" data-sticker-id="${s.id}" data-pack-id="${pack.id}"
-                         style="width:60px;height:60px;object-fit:contain;cursor:pointer;border-radius:8px;padding:2px;transition:background .15s;"
-                         onmouseover="this.style.background='var(--hover-color)'" onmouseout="this.style.background=''"
-                         onclick="sendStickerFromPanel(${s.id})"
-                         title="Нажмите чтобы отправить">`
-                ).join('')}
-            </div>`;
+
+            const label = document.createElement('div');
+            label.style.cssText = 'font-size:12px;color:var(--text-secondary);margin-bottom:6px;padding:0 4px;';
+            label.textContent = pack.name;
+            section.appendChild(label);
+
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+
+            pack.stickers.forEach(s => {
+                const img = document.createElement('img');
+                img.src = s.image_url;
+                img.style.cssText = 'width:60px;height:60px;object-fit:contain;cursor:pointer;border-radius:8px;padding:2px;transition:background .15s;';
+                img.title = 'Нажмите чтобы отправить';
+                img.addEventListener('mouseover', () => img.style.background = 'var(--hover-color)');
+                img.addEventListener('mouseout', () => img.style.background = '');
+                img.addEventListener('click', () => sendStickerFromPanel(s.id));
+                grid.appendChild(img);
+            });
+
+            section.appendChild(grid);
             body.appendChild(section);
         });
     } catch(e) {
@@ -5568,9 +5584,7 @@ async function viewStickerPack(packId) {
                     <h2 style="font-size:16px;">🎨 ${escapeHtml(d.name)}</h2>
                     <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
                 </div>
-                <div style="padding:12px;display:flex;flex-wrap:wrap;gap:6px;max-height:300px;overflow-y:auto;">
-                    ${d.stickers.map(s => `<img src="${s.image_url}" style="width:72px;height:72px;object-fit:contain;border-radius:8px;">`).join('')}
-                </div>
+                <div id="vsp-grid-${packId}" style="padding:12px;display:flex;flex-wrap:wrap;gap:6px;max-height:300px;overflow-y:auto;"></div>
                 <div style="padding:12px;border-top:1px solid var(--border-color);">
                     ${!d.is_added && !d.is_owner ? `<button onclick="addStickerPackFromModal(${d.id},this)" style="width:100%;padding:9px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Добавить пак</button>`
                     : `<div style="text-align:center;color:var(--text-secondary);font-size:13px;">✓ Пак уже в коллекции</div>`}
@@ -5578,6 +5592,14 @@ async function viewStickerPack(packId) {
             </div>`;
         document.body.appendChild(modal);
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        // Вставляем стикеры через DOM чтобы base64 не ломался
+        const grid = document.getElementById(`vsp-grid-${packId}`);
+        d.stickers.forEach(s => {
+            const img = document.createElement('img');
+            img.src = s.image_url;
+            img.style.cssText = 'width:72px;height:72px;object-fit:contain;border-radius:8px;';
+            grid.appendChild(img);
+        });
     } catch(e) { showError('Ошибка загрузки пака'); }
 }
 window.viewStickerPack = viewStickerPack;
@@ -5594,6 +5616,23 @@ async function addStickerPackFromModal(packId, btn) {
     } catch(e) { showError('Ошибка'); btn.disabled = false; }
 }
 window.addStickerPackFromModal = addStickerPackFromModal;
+
+// Устанавливаем src стикеров из data-src после вставки в DOM (base64 ломается в innerHTML)
+function _fixStickerImages(container) {
+    container.querySelectorAll('img[data-src]').forEach(img => {
+        img.src = decodeURIComponent(img.getAttribute('data-src'));
+        img.removeAttribute('data-src');
+    });
+}
+window._fixStickerImages = _fixStickerImages;
+
+// Клик по стикеру в чате — читаем URL из data-атрибута
+function _onStickerClick(el) {
+    const stickerUrl = decodeURIComponent(el.dataset.stickerUrl || '');
+    const packId = el.dataset.packId ? parseInt(el.dataset.packId) : null;
+    viewStickerPackBySticker(stickerUrl, packId);
+}
+window._onStickerClick = _onStickerClick;
 
 // Просмотр пака стикеров по URL стикера (клик на стикер в чате)
 async function viewStickerPackBySticker(stickerUrl, packId) {
