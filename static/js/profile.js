@@ -5,18 +5,15 @@ document.addEventListener('DOMContentLoaded', function() {
     setupProfileForm();
     loadSessions();
     setupAvatarUpload();
-    // Синхронизируем выбранные обои с localStorage
-    const savedWallpaper = localStorage.getItem('chat_wallpaper');
-    if (savedWallpaper) {
-        const input = document.getElementById('chat_wallpaper');
-        const option = document.querySelector(`[data-wallpaper="${savedWallpaper}"]`);
-        if (input && option) {
-            document.querySelectorAll('.wallpaper-option').forEach(o => o.classList.remove('selected'));
-            option.classList.add('selected');
-            input.value = savedWallpaper;
-        }
-    }
 });
+
+// Локальный fallback updateWallpaper если app.js не загружен
+if (typeof window.updateWallpaper === 'undefined') {
+    window.updateWallpaper = function(wallpaper) {
+        const mc = document.getElementById('messages-container');
+        if (mc) mc.setAttribute('data-wallpaper', wallpaper);
+    };
+}
 
 function showPremiumModal(message) {
     let modal = document.getElementById('premium-required-modal');
@@ -129,9 +126,8 @@ function showSuccessMessage() {
     const message = document.getElementById('success-message');
     message.style.display = 'flex';
     
-    // Сохраняем обои в localStorage и применяем в главном окне
+    // Обновляем обои в главном окне если оно открыто
     const wallpaper = document.getElementById('chat_wallpaper').value;
-    localStorage.setItem('chat_wallpaper', wallpaper);
     if (window.opener && window.opener.updateWallpaper) {
         window.opener.updateWallpaper(wallpaper);
     }
@@ -174,15 +170,34 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-// Выбор обоев
+// Выбор обоев — сразу сохраняем на сервере
 function selectWallpaper(wallpaper) {
     document.querySelectorAll('.wallpaper-option').forEach(option => {
         option.classList.remove('selected');
     });
     document.querySelector(`[data-wallpaper="${wallpaper}"]`).classList.add('selected');
     document.getElementById('chat_wallpaper').value = wallpaper;
-    // Сохраняем в localStorage для немедленного применения
-    localStorage.setItem('chat_wallpaper', wallpaper);
+
+    // Сохраняем сразу
+    fetch('/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_wallpaper: wallpaper })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error === 'premium_required') {
+            showPremiumModal(data.message);
+            // Откатываем выбор обратно
+            const current = document.querySelector('.wallpaper-option.selected');
+            if (current) current.classList.remove('selected');
+            return;
+        }
+        // Применяем обои в текущем окне и в opener если есть
+        if (window.updateWallpaper) window.updateWallpaper(wallpaper);
+        if (window.opener && window.opener.updateWallpaper) window.opener.updateWallpaper(wallpaper);
+    })
+    .catch(e => console.error('Ошибка сохранения обоев:', e));
 }
 
 // Экспорт функций в глобальную область
