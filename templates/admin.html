@@ -190,6 +190,72 @@ body[data-theme="dark"] {
     --border-color: #404040;
 }
 
+body[data-theme="liquid"] {
+    --bg-primary: rgba(255,255,255,0.85);
+    --bg-secondary: rgba(248,250,252,0.7);
+    --text-primary: #2d3748;
+    --text-secondary: #4a5568;
+    --border-color: rgba(226,232,240,0.8);
+}
+
+/* Liquid: контейнер с glass-эффектом */
+body[data-theme="liquid"] .admin-container {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 30px 20px;
+}
+
+body[data-theme="liquid"] .admin-tabs {
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 6px;
+    border-bottom: none;
+    margin-bottom: 20px;
+}
+
+body[data-theme="liquid"] .tab-btn {
+    color: rgba(255,255,255,0.85) !important;
+    border-bottom: 3px solid transparent;
+    border-radius: 8px;
+}
+
+body[data-theme="liquid"] .tab-btn:hover {
+    color: #ffffff !important;
+    background: rgba(255,255,255,0.2);
+}
+
+body[data-theme="liquid"] .tab-btn.active {
+    color: #ffffff !important;
+    background: rgba(255,255,255,0.3);
+    border-bottom-color: #ffffff;
+}
+
+body[data-theme="liquid"] .admin-header h1 {
+    color: #ffffff;
+}
+
+body[data-theme="liquid"] .admin-header {
+    border-bottom-color: rgba(255,255,255,0.3);
+}
+
+body[data-theme="liquid"] .users-list,
+body[data-theme="liquid"] .verification-list,
+body[data-theme="liquid"] .reports-list {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(10px);
+}
+
+body[data-theme="liquid"] .admin-tab h2 {
+    color: #ffffff;
+}
+
+body[data-theme="liquid"] .user-item,
+body[data-theme="liquid"] .verification-item,
+body[data-theme="liquid"] .report-item {
+    border-bottom-color: rgba(226,232,240,0.5);
+}
+
 .admin-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -226,7 +292,7 @@ body[data-theme="dark"] {
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
-    color: #718096;
+    color: var(--text-secondary, #718096);
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
