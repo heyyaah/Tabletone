@@ -1154,6 +1154,14 @@ async function openChat(userId, username) {
     document.getElementById('chat-welcome').style.display = 'none';
     document.getElementById('chat-active').style.display = 'flex';
     document.getElementById('chat-username').textContent = username;
+
+    // Сбрасываем кнопки звонка — скрываем до загрузки данных пользователя
+    const _callBtn = document.getElementById('call-btn');
+    const _videoCallBtn = document.getElementById('video-call-btn');
+    const _clearBtn = document.getElementById('clear-history-btn');
+    if (_callBtn) _callBtn.style.display = 'none';
+    if (_videoCallBtn) _videoCallBtn.style.display = 'none';
+    if (_clearBtn) _clearBtn.style.display = 'none';
     
     // На мобильных устройствах скрываем sidebar и показываем chat-area
     const sidebar = document.getElementById('sidebar');
@@ -1239,6 +1247,13 @@ async function openChat(userId, username) {
         }
     } catch (error) {
         console.error('Error loading user info:', error);
+        // Fallback: показываем кнопки звонка и очистки (не бот по умолчанию)
+        const callBtn = document.getElementById('call-btn');
+        const videoCallBtn = document.getElementById('video-call-btn');
+        const clearBtn = document.getElementById('clear-history-btn');
+        if (callBtn) callBtn.style.display = 'flex';
+        if (videoCallBtn) videoCallBtn.style.display = 'flex';
+        if (clearBtn) clearBtn.style.display = 'flex';
     }
     
     // Загружаем сообщения
