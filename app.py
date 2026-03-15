@@ -2686,10 +2686,10 @@ def send_image():
         })
     
     except Exception as e:
-        print(f"Error in send_image: {e}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
+        tb = traceback.format_exc()
+        print(f"Error in send_image: {e}\n{tb}")
+        return jsonify({'error': f'Ошибка сервера: {str(e)}', 'detail': tb}), 500
 
 # Отправка множественных файлов
 @app.route('/send_multiple_files', methods=['POST'])
@@ -2837,10 +2837,10 @@ def send_multiple_files():
         })
     
     except Exception as e:
-        print(f"Error in send_multiple_files: {e}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Ошибка сервера: {str(e)}'}), 500
+        tb = traceback.format_exc()
+        print(f"Error in send_multiple_files: {e}\n{tb}")
+        return jsonify({'error': f'Ошибка сервера: {str(e)}', 'detail': tb}), 500
 
 # Отправка множественных файлов в группу
 @app.route('/send_multiple_files_group', methods=['POST'])
