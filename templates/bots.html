@@ -66,11 +66,12 @@
       <div class="profile-section" style="margin-top:30px;">
         <h3><i class="fas fa-sticky-note"></i> Стикеры и реакции</h3>
         <p style="color:var(--text-secondary);font-size:14px;margin-bottom:14px;">
-          Создавайте собственные паки стикеров и кастомных реакций. Стикеры доступны всем, кастомные реакции — только для Premium.
+          Создавай паки стикеров через официального бота <strong>@stickers</strong> — прямо в чате.
+          Кастомные реакции доступны для Premium пользователей.
         </p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-primary" style="flex:1;min-width:160px;" onclick="showCreateStickerPackModal()">
-            <i class="fas fa-sticky-note"></i> Создать пак стикеров
+          <button class="btn btn-primary" style="flex:1;min-width:160px;" onclick="openStickersBotChat()">
+            <i class="fas fa-robot"></i> Открыть @stickers
           </button>
           {% if user.is_premium %}
           <button class="btn btn-primary" style="flex:1;min-width:160px;background:linear-gradient(135deg,#667eea,#764ba2);" onclick="showCreateReactionPackModal()">
@@ -82,9 +83,8 @@
           </button>
           {% endif %}
         </div>
-        <div id="sticker-packs-list" style="margin-top:16px;"></div>
         {% if user.is_premium %}
-        <div id="reaction-packs-list" style="margin-top:8px;"></div>
+        <div id="reaction-packs-list" style="margin-top:16px;"></div>
         {% endif %}
       </div>
 
@@ -591,6 +591,21 @@ function showPremiumModal(message) {
 
 // ===== СТИКЕРЫ =====
 function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+function openStickersBotChat() {
+  // Ищем бота @stickers и открываем чат с ним
+  fetch('/api/search?q=stickers')
+    .then(r => r.json())
+    .then(d => {
+      const bot = (d.results || []).find(u => u.username === 'stickers');
+      if (bot) {
+        window.location.href = `/?chat=${bot.id}`;
+      } else {
+        alert('Бот @stickers не найден');
+      }
+    })
+    .catch(() => { window.location.href = '/?search=stickers'; });
+}
 
 function showCreateStickerPackModal() {
   const modal = document.createElement('div');

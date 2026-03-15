@@ -880,6 +880,28 @@ with app.app_context():
         db.session.commit()
         print("✓ Бот Tabletone Support создан")
 
+    # ── Сид: бот Stickers ───────────────────────────────────────────────────
+    _STK_USERNAME = 'stickers'
+    if not User.query.filter_by(username=_STK_USERNAME).first():
+        _stk_user = User(
+            username=_STK_USERNAME,
+            display_name='Stickers',
+            bio='Создавай и управляй паками стикеров',
+            avatar_color='#f6ad55',
+            is_bot=True, is_verified=True,
+            password_hash=generate_password_hash(secrets.token_hex(32))
+        )
+        db.session.add(_stk_user)
+        db.session.flush()
+        _stk_bot = Bot(
+            user_id=_stk_user.id, owner_id=_PREMIUM_OWNER_ID,
+            token=f"{_stk_user.id}:{secrets.token_urlsafe(32)}",
+            description='Создание паков стикеров', is_active=True, review_status='approved'
+        )
+        db.session.add(_stk_bot)
+        db.session.commit()
+        print("✓ Бот Stickers создан")
+
     # ── Сид: каталог подарков ────────────────────────────────────────────────
     if GiftType.query.count() == 0:
         _default_gifts = [
@@ -2474,7 +2496,20 @@ def send_image():
             }, room=f'user_{receiver_id}', namespace='/')
         except Exception as e:
             print(f"Error emitting image message: {e}")
-        
+
+        # Если получатель — бот stickers, триггерим обработку файла
+        if receiver.is_bot:
+            bot = Bot.query.filter_by(user_id=int(receiver_id), is_active=True).first()
+            if bot:
+                _trigger_webhook(bot, {
+                    'message': {
+                        'message_id': message.id,
+                        'from': {'id': session['user_id']},
+                        'text': message.media_url,  # передаём URL как текст для stickers-бота
+                        'date': message.timestamp.isoformat() + 'Z'
+                    }
+                })
+
         return jsonify({
             'success': True,
             'message_id': message.id,
@@ -4873,6 +4908,123 @@ def _bot_send_message(bot_user_id, receiver_id, content, buttons=None):
 # user_id -> 'waiting_message' | 'waiting_close_confirm'
 _support_pending = {}
 
+# Словарь состояний бота стикеров
+# user_id -> {'state': str, 'pack_name': str, 'pack_id': int}
+_sticker_states = {}
+
+def _handle_stickers_bot(bot_user_id, sender_id, text):
+    """Обработчик диалога бота @stickers."""
+    state = _sticker_states.get(sender_id, {})
+    cmd = text.strip().lower()
+
+    def reply(msg, buttons=None):
+        _bot_send_message(bot_user_id, sender_id, msg, buttons)
+
+    # /start или /menu — главное меню
+    if cmd in ('/start', '/menu', ''):
+        _sticker_states.pop(sender_id, None)
+        btns = [
+            {"label": "📦 Создать пак", "reply": "/new"},
+            {"label": "🗂 Мои паки", "reply": "/my"},
+        ]
+        reply("🎨 Привет! Я помогу создать и управлять паками стикеров.\n\nВыбери действие:", btns)
+        return
+
+    # /new — начать создание пака
+    if cmd == '/new':
+        _sticker_states[sender_id] = {'state': 'waiting_name'}
+        reply("📝 Введи название для нового пака стикеров:")
+        return
+
+    # /my — список паков
+    if cmd == '/my':
+        _sticker_states.pop(sender_id, None)
+        owned = StickerPack.query.filter_by(creator_id=sender_id).all()
+        added_ids = [r.pack_id for r in UserStickerPack.query.filter_by(user_id=sender_id).all()]
+        added = StickerPack.query.filter(StickerPack.id.in_(added_ids), StickerPack.creator_id != sender_id).all()
+        all_packs = owned + added
+        if not all_packs:
+            reply("У тебя пока нет паков стикеров.\n\nНапиши /new чтобы создать первый!")
+        else:
+            lines = ["🗂 *Твои паки стикеров:*\n"]
+            for p in all_packs:
+                cnt = len(p.stickers)
+                owner_mark = " ✏️" if p.creator_id == sender_id else ""
+                lines.append(f"• {p.name} — {cnt} стик.{owner_mark}")
+            lines.append("\n/new — создать новый пак")
+            reply("\n".join(lines))
+        return
+
+    # /cancel — отмена текущего действия
+    if cmd == '/cancel':
+        _sticker_states.pop(sender_id, None)
+        reply("❌ Отменено. Напиши /menu чтобы вернуться в меню.")
+        return
+
+    # Состояние: ожидаем название пака
+    if state.get('state') == 'waiting_name':
+        name = text.strip()
+        if len(name) < 2:
+            reply("Название слишком короткое. Попробуй ещё раз:")
+            return
+        if len(name) > 100:
+            reply("Название слишком длинное (макс. 100 символов). Попробуй ещё раз:")
+            return
+        # Создаём пак
+        pack = StickerPack(name=name, creator_id=sender_id)
+        db.session.add(pack)
+        db.session.flush()
+        usp = UserStickerPack(user_id=sender_id, pack_id=pack.id)
+        db.session.add(usp)
+        db.session.commit()
+        _sticker_states[sender_id] = {'state': 'waiting_stickers', 'pack_id': pack.id, 'pack_name': name, 'count': 0}
+        reply(
+            f"✅ Пак «{name}» создан!\n\n"
+            "Теперь отправляй стикеры (PNG, GIF, WebP) — по одному или несколько.\n"
+            "Когда закончишь — напиши /done\n"
+            "Отмена — /cancel"
+        )
+        return
+
+    # Состояние: ожидаем стикеры
+    if state.get('state') == 'waiting_stickers':
+        pack_id = state['pack_id']
+        pack_name = state['pack_name']
+
+        # Получили URL изображения — добавляем как стикер
+        if text.startswith('/static/media/'):
+            ext = text.rsplit('.', 1)[-1].lower() if '.' in text else ''
+            if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+                count = state.get('count', 0)
+                sticker = Sticker(pack_id=pack_id, image_url=text, order_index=count)
+                db.session.add(sticker)
+                if count == 0:
+                    pack = StickerPack.query.get(pack_id)
+                    if pack:
+                        pack.cover_url = text
+                db.session.commit()
+                _sticker_states[sender_id]['count'] = count + 1
+                reply(f"✅ Стикер {count + 1} добавлен! Отправляй ещё или напиши /done")
+            else:
+                reply("⚠️ Поддерживаются только PNG, GIF, WebP, JPG.")
+            return
+
+        if cmd == '/done':
+            count = state.get('count', 0)
+            _sticker_states.pop(sender_id, None)
+            if count == 0:
+                reply(f"⚠️ В паке «{pack_name}» нет стикеров. Отправь хотя бы один файл или /cancel.")
+            else:
+                btns = [{"label": "🗂 Мои паки", "reply": "/my"}, {"label": "📦 Создать ещё", "reply": "/new"}]
+                reply(f"🎉 Пак «{pack_name}» готов! Добавлено стикеров: {count}\n\nТеперь ты можешь использовать их в чатах.", btns)
+            return
+
+        reply("Отправляй файлы-стикеры (PNG/GIF/WebP), или напиши /done чтобы завершить, /cancel чтобы отменить.")
+        return
+    btns = [{"label": "📦 Создать пак", "reply": "/new"}, {"label": "🗂 Мои паки", "reply": "/my"}]
+    reply("Не понял 🤔 Выбери действие:", btns)
+
+
 def _trigger_webhook(bot, update):
     """Отправляет update на webhook бота. Если webhook не задан — ищет команду в конструкторе."""
     text = ''
@@ -4882,17 +5034,29 @@ def _trigger_webhook(bot, update):
         pass
 
     if not bot.webhook_url:
-        if text:
+        if text or True:  # всегда обрабатываем (для файлов тоже)
             sender_id = None
             try:
                 sender_id = update['message']['from']['id']
             except Exception:
                 pass
-            if sender_id:
-                bot_user = User.query.get(bot.user_id)
-                is_support = bot_user and bot_user.username == 'tabletone_supportbot'
+            if not sender_id:
+                return
 
-                if is_support:
+            bot_user = User.query.get(bot.user_id)
+            is_stickers = bot_user and bot_user.username == 'stickers'
+
+            if is_stickers:
+                _handle_stickers_bot(bot.user_id, sender_id, text)
+                return
+
+            if not text:
+                return
+
+            bot_user_obj = User.query.get(bot.user_id)
+            is_support = bot_user_obj and bot_user_obj.username == 'tabletone_supportbot'
+
+            if is_support:
                     state = _support_pending.get(sender_id)
 
                     # Если отправитель — администратор, показываем меню поддержки
@@ -5008,7 +5172,7 @@ def _trigger_webhook(bot, update):
                         _handle_support_message(bot, sender_id, text)
                         return
 
-                _bot_auto_reply(bot, sender_id, text)
+            _bot_auto_reply(bot, sender_id, text)
         return
 
     import threading
