@@ -609,6 +609,7 @@ function loadUsers() {
                         ${hasRole('senior_admin') ? `<button class="action-btn remove" onclick="removeUser(${user.id})">Удалить</button>` : ''}
                         ${hasRole('owner') ? `<button class="action-btn" style="background:#7c3aed;color:white;" onclick="setUserRole(${user.id}, '${user.admin_role||''}')"><i class="fas fa-user-shield"></i> Роль</button>` : ''}
                         ${hasRole('owner') ? `<button class="action-btn" style="background:#0891b2;color:white;" onclick="openEditProfile(${user.id})"><i class="fas fa-user-edit"></i> Профиль</button>` : ''}
+                        ${hasRole('owner') && user.admin_role ? `<button class="action-btn" style="background:#d97706;color:white;" onclick="warnAdmin(${user.id}, '${user.display_name}')"><i class="fas fa-exclamation-triangle"></i> Предупреждение</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -1572,6 +1573,49 @@ async function toggleMaintenance() {
 
 // Загружаем статус при старте
 fetch('/admin/maintenance').then(r => r.json()).then(d => updateMaintenanceUI(d.maintenance)).catch(() => {});
+
+function warnAdmin(userId, displayName) {
+    let modal = document.getElementById('warn-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'warn-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);border-radius:14px;width:90%;max-width:420px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 6px;font-size:16px;color:#d97706;"><i class="fas fa-exclamation-triangle"></i> Предупреждение</h3>
+            <p style="color:#718096;font-size:13px;margin:0 0 16px;">Выдать предупреждение пользователю <strong>${displayName}</strong></p>
+            <textarea id="warn-reason" rows="3" placeholder="Причина предупреждения..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
+            <p style="color:#e53e3e;font-size:12px;margin:8px 0 16px;"><i class="fas fa-info-circle"></i> После 3-го предупреждения администратор будет снят с поста и не сможет подавать заявки 24 часа.</p>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button onclick="this.closest('#warn-modal').remove()" style="padding:10px 20px;border:1px solid #e2e8f0;border-radius:8px;background:none;cursor:pointer;color:#718096;font-size:14px;">Отмена</button>
+                <button onclick="submitWarn(${userId})" style="padding:10px 20px;background:#d97706;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Выдать</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function submitWarn(userId) {
+    const reason = document.getElementById('warn-reason').value.trim();
+    if (!reason) { alert('Укажите причину'); return; }
+    fetch(`/admin/users/${userId}/warn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+    }).then(r => r.json()).then(d => {
+        document.getElementById('warn-modal')?.remove();
+        if (d.success) {
+            const msg = d.demoted
+                ? `⚠️ Выдано 3-е предупреждение. Администратор снят с поста.`
+                : `✅ Предупреждение выдано (всего: ${d.total_warnings}/3)`;
+            alert(msg);
+            loadUsers();
+        } else {
+            alert(d.error || 'Ошибка');
+        }
+    });
+}
 {% endif %}
 </script>
 {% endblock %}

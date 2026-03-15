@@ -137,6 +137,7 @@ class User(db.Model):
     theme_schedule = db.Column(db.String(50))        # "08:00-22:00:light,22:00-08:00:dark"
     hidden_chat_pin = db.Column(db.String(6))        # PIN для скрытого чата
     chat_folders = db.Column(db.Text, default='[]')  # JSON папки чатов
+    admin_apply_blocked_until = db.Column(db.DateTime, nullable=True)  # Блок подачи заявки в адм.
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -628,7 +629,16 @@ class UserCustomReactionPack(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
     pack = db.relationship('CustomReactionPack', foreign_keys=[pack_id])
 
-# Создание таблиц
+class AdminWarning(db.Model):
+    """Предупреждение администратору от owner."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    issued_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_read = db.Column(db.Boolean, default=False)
+    user = db.relationship('User', foreign_keys=[user_id])
+    issuer = db.relationship('User', foreign_keys=[issued_by])
 with app.app_context():
     from sqlalchemy import text
 
@@ -662,6 +672,7 @@ with app.app_context():
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS paid_price INTEGER DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'text'",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_apply_blocked_until TIMESTAMP",
             "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
@@ -693,6 +704,7 @@ with app.app_context():
             "ALTER TABLE group_message ADD COLUMN is_paid BOOLEAN DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN paid_price INTEGER DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'",
+            f"ALTER TABLE {user_table} ADD COLUMN admin_apply_blocked_until DATETIME",
             "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
             "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
             "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
@@ -3514,7 +3526,122 @@ def admin_reject_deletion(ticket_id):
     db.session.commit()
     return jsonify({'success': True})
 
+# ── Предупреждения администраторам (только owner) ─────────────────────────────
+
+@app.route('/admin/users/<int:user_id>/warn', methods=['POST'])
+def admin_warn_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    issuer = User.query.get(session['user_id'])
+    if not issuer or not _has_role(issuer, 'owner'):
+        return jsonify({'error': 'Только owner'}), 403
+    target = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+    reason = (data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'error': 'Укажите причину'}), 400
+
+    warning = AdminWarning(user_id=user_id, reason=reason, issued_by=issuer.id)
+    db.session.add(warning)
+    db.session.flush()
+
+    total = AdminWarning.query.filter_by(user_id=user_id).count()
+    demoted = total >= 3
+    if demoted:
+        target.admin_role = None
+        target.is_admin = False
+        target.admin_apply_blocked_until = datetime.utcnow() + timedelta(days=1)
+
+    db.session.commit()
+    return jsonify({'success': True, 'total_warnings': total, 'demoted': demoted})
+
+@app.route('/admin/check-warning', methods=['GET'])
+def check_admin_warning():
+    if 'user_id' not in session:
+        return jsonify({'warning': None})
+    warning = AdminWarning.query.filter_by(user_id=session['user_id'], is_read=False)\
+        .order_by(AdminWarning.created_at.asc()).first()
+    if not warning:
+        return jsonify({'warning': None})
+    total = AdminWarning.query.filter_by(user_id=session['user_id']).count()
+    return jsonify({
+        'warning': {
+            'id': warning.id,
+            'reason': warning.reason,
+            'created_at': warning.created_at.strftime('%d.%m.%Y %H:%M'),
+            'total': total,
+            'demoted': total >= 3
+        }
+    })
+
+@app.route('/admin/warning/<int:warning_id>/read', methods=['POST'])
+def mark_warning_read(warning_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    warning = AdminWarning.query.filter_by(id=warning_id, user_id=session['user_id']).first_or_404()
+    warning.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
+
 # Список заявок на верификацию (для админа)
+@app.route('/admin/verification-requests', methods=['GET'])
+
+@app.route('/admin/users/<int:user_id>/warn', methods=['POST'])
+def admin_warn_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    issuer = User.query.get(session['user_id'])
+    if not issuer or not _has_role(issuer, 'owner'):
+        return jsonify({'error': 'Только owner'}), 403
+    target = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+    reason = (data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'error': 'Укажите причину'}), 400
+
+    warning = AdminWarning(user_id=user_id, reason=reason, issued_by=issuer.id)
+    db.session.add(warning)
+
+    # Считаем все предупреждения
+    total = AdminWarning.query.filter_by(user_id=user_id).count() + 1  # +1 текущее
+    if total >= 3:
+        # Снимаем роль
+        target.admin_role = None
+        target.is_admin = False
+        # Блокируем подачу заявки на 1 день
+        target.admin_apply_blocked_until = datetime.utcnow() + timedelta(days=1)
+
+    db.session.commit()
+    return jsonify({'success': True, 'total_warnings': total, 'demoted': total >= 3})
+
+@app.route('/admin/check-warning', methods=['GET'])
+def check_admin_warning():
+    """Проверяет непрочитанные предупреждения для текущего пользователя."""
+    if 'user_id' not in session:
+        return jsonify({'warning': None})
+    warning = AdminWarning.query.filter_by(user_id=session['user_id'], is_read=False)\
+        .order_by(AdminWarning.created_at.asc()).first()
+    if not warning:
+        return jsonify({'warning': None})
+    total = AdminWarning.query.filter_by(user_id=session['user_id']).count()
+    return jsonify({
+        'warning': {
+            'id': warning.id,
+            'reason': warning.reason,
+            'created_at': warning.created_at.strftime('%d.%m.%Y %H:%M'),
+            'total': total,
+            'demoted': total >= 3
+        }
+    })
+
+@app.route('/admin/warning/<int:warning_id>/read', methods=['POST'])
+def mark_warning_read(warning_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    warning = AdminWarning.query.filter_by(id=warning_id, user_id=session['user_id']).first_or_404()
+    warning.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
 @app.route('/admin/verification-requests', methods=['GET'])
 def get_verification_requests():
     if 'user_id' not in session:

@@ -263,5 +263,40 @@
         localStorage.setItem('saved_accounts', JSON.stringify(accounts));
     } catch(e) {}
 })();
+
+// Проверяем непрочитанные предупреждения от owner
+(async function checkWarning() {
+    try {
+        const r = await fetch('/admin/check-warning');
+        const d = await r.json();
+        if (!d.warning) return;
+        const w = d.warning;
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        const demoted = w.demoted;
+        modal.innerHTML = `
+            <div style="background:#fff;border-radius:16px;width:90%;max-width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.35);position:relative;">
+                <div style="text-align:center;margin-bottom:18px;">
+                    <div style="font-size:40px;margin-bottom:8px;">${demoted ? '🚫' : '⚠️'}</div>
+                    <h2 style="margin:0;font-size:20px;color:${demoted ? '#e53e3e' : '#d97706'};">
+                        ${demoted ? 'Вы были предупреждены и сняты с поста!' : 'Вы были предупреждены!'}
+                    </h2>
+                </div>
+                <p style="color:#4a5568;font-size:14px;margin:0 0 8px;font-weight:600;">Причина:</p>
+                <div style="background:#fef3c7;border-left:4px solid #d97706;border-radius:8px;padding:12px 14px;margin-bottom:16px;color:#92400e;font-size:14px;line-height:1.5;">${w.reason}</div>
+                ${demoted ? '<p style="color:#e53e3e;font-size:13px;margin:0 0 16px;"><i>Вы были сняты с поста модератора/администратора. Подача заявок заблокирована на 24 часа.</i></p>' : ''}
+                <p style="color:#718096;font-size:13px;margin:0 0 20px;">Впредь, будьте внимательны!</p>
+                <div style="display:flex;justify-content:flex-end;">
+                    <button id="warn-ok-btn" style="padding:10px 28px;background:${demoted ? '#e53e3e' : '#d97706'};color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;">ОК</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelector('#warn-ok-btn').addEventListener('click', async () => {
+            await fetch('/admin/warning/${w.id}/read'.replace('${w.id}', w.id), { method: 'POST' });
+            modal.remove();
+        });
+    } catch(e) {}
+})();
 </script>
 {% endblock %}
