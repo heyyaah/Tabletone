@@ -21,28 +21,28 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get("PAYMENT_BOT_TOKEN", "8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M")
 
-# Токен провайдера от BotFather → Payments → Robokassa
-PROVIDER_TOKEN = os.environ.get("PROVIDER_TOKEN", "")  # вставь сюда после получения
+# Telegram Stars — provider_token не нужен
+PROVIDER_TOKEN = ""
 
 # URL твоего сайта Tabletone на Render
 SITE_URL = os.environ.get("SITE_URL", "https://hi-latest.onrender.com")
 
-# Прайс-лист Premium (цены в копейках — 5900 = 59 руб)
+# Прайс-лист Premium (в Stars; ~1 Star ≈ 1.5 руб)
 PREMIUM_PLANS = {
-    "premium_7":   {"label": "Premium 7 дней",    "price": 5900,  "days": 7},
-    "premium_14":  {"label": "Premium 14 дней",   "price": 9900,  "days": 14},
-    "premium_30":  {"label": "Premium 30 дней",   "price": 14900, "days": 30},
-    "premium_180": {"label": "Premium 6 месяцев", "price": 49900, "days": 180},
-    "premium_365": {"label": "Premium 1 год",     "price": 79900, "days": 365},
+    "premium_7":   {"label": "Premium 7 дней",    "stars": 50,   "days": 7},
+    "premium_14":  {"label": "Premium 14 дней",   "stars": 85,   "days": 14},
+    "premium_30":  {"label": "Premium 30 дней",   "stars": 130,  "days": 30},
+    "premium_180": {"label": "Premium 6 месяцев", "stars": 430,  "days": 180},
+    "premium_365": {"label": "Premium 1 год",     "stars": 690,  "days": 365},
 }
 
-# Прайс-лист Искр (цены в копейках)
+# Прайс-лист Искр (в Stars)
 SPARKS_PLANS = {
-    "sparks_100":  {"label": "100 Искр ✨",   "price": 2900,  "sparks": 100},
-    "sparks_300":  {"label": "300 Искр ✨",   "price": 7900,  "sparks": 300},
-    "sparks_700":  {"label": "700 Искр ✨",   "price": 14900, "sparks": 700},
-    "sparks_1500": {"label": "1500 Искр ✨",  "price": 29900, "sparks": 1500},
-    "sparks_5000": {"label": "5000 Искр ✨",  "price": 79900, "sparks": 5000},
+    "sparks_100":  {"label": "100 Искр ✨",   "stars": 25,  "sparks": 100},
+    "sparks_300":  {"label": "300 Искр ✨",   "stars": 68,  "sparks": 300},
+    "sparks_700":  {"label": "700 Искр ✨",   "stars": 130, "sparks": 700},
+    "sparks_1500": {"label": "1500 Искр ✨",  "stars": 260, "sparks": 1500},
+    "sparks_5000": {"label": "5000 Искр ✨",  "stars": 690, "sparks": 5000},
 }
 
 
@@ -71,9 +71,8 @@ async def menu_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     buttons = []
     for key, plan in PREMIUM_PLANS.items():
-        price_rub = plan['price'] // 100
         buttons.append([InlineKeyboardButton(
-            f"{plan['label']} — {price_rub} ₽",
+            f"{plan['label']} — {plan['stars']} ⭐",
             callback_data=f"buy_{key}"
         )])
     buttons.append([InlineKeyboardButton("◀️ Назад", callback_data="menu_main")])
@@ -91,9 +90,8 @@ async def menu_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     buttons = []
     for key, plan in SPARKS_PLANS.items():
-        price_rub = plan['price'] // 100
         buttons.append([InlineKeyboardButton(
-            f"{plan['label']} — {price_rub} ₽",
+            f"{plan['label']} — {plan['stars']} ⭐",
             callback_data=f"buy_{key}"
         )])
     buttons.append([InlineKeyboardButton("◀️ Назад", callback_data="menu_main")])
@@ -192,18 +190,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         description = f"{plan['sparks']} Искр в Tabletone для @{username}"
         title = plan["label"]
 
-    # Отправляем инвойс (Robokassa, рубли)
+    # Отправляем инвойс (Telegram Stars)
     await context.bot.send_invoice(
         chat_id=update.effective_chat.id,
         title=title,
         description=description,
         payload=f"{key}:{username}",
-        provider_token=PROVIDER_TOKEN,
-        currency="RUB",
-        prices=[LabeledPrice(plan["label"], plan["price"])],
-        need_name=False,
-        need_email=False,
-        need_phone_number=False,
+        provider_token="",   # пустой = Telegram Stars
+        currency="XTR",
+        prices=[LabeledPrice(plan["label"], plan["stars"])],
     )
 
 
@@ -269,17 +264,17 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
             msg = (
                 f"🎉 *Оплата прошла успешно!*\n\n"
                 f"👑 Premium на *{plan['days']} дней* активирован для @{username}\n"
-                f"Сумма: {payment.total_amount // 100} ₽"
+                f"Потрачено: {payment.total_amount} ⭐"
             )
         else:
             msg = (
                 f"🎉 *Оплата прошла успешно!*\n\n"
                 f"✨ *{plan['sparks']} Искр* зачислено для @{username}\n"
-                f"Сумма: {payment.total_amount // 100} ₽"
+                f"Потрачено: {payment.total_amount} ⭐"
             )
     else:
         msg = (
-            f"✅ Оплата получена ({payment.total_amount // 100} ₽), но автоактивация не удалась.\n"
+            f"✅ Оплата получена ({payment.total_amount} ⭐), но автоактивация не удалась.\n"
             f"Напишите @kotakbaslife — активируем вручную.\n"
             f"Ваш payload: `{payload}`"
         )
