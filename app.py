@@ -5566,6 +5566,23 @@ def _trigger_webhook(bot, update):
                                 pass
                             return
 
+                        # Ответ пользователю: /reply_<user_id> <текст>
+                        if text.lower().startswith('/reply_'):
+                            try:
+                                parts = text.split(' ', 1)
+                                target_user_id = int(parts[0].split('_')[1])
+                                reply_text = parts[1].strip() if len(parts) > 1 else ''
+                                if reply_text:
+                                    target_user = User.query.get(target_user_id)
+                                    target_name = (target_user.display_name or target_user.username) if target_user else str(target_user_id)
+                                    _bot_send_message(bot.user_id, target_user_id, f"💬 Ответ администрации:\n\n{reply_text}")
+                                    _bot_send_message(bot.user_id, sender_id, f"✅ Ответ отправлен пользователю {target_name}.")
+                                else:
+                                    _bot_send_message(bot.user_id, sender_id, "⚠️ Укажите текст ответа после команды.\nПример: /reply_123 Ваш вопрос решён!")
+                            except (ValueError, IndexError):
+                                _bot_send_message(bot.user_id, sender_id, "⚠️ Неверный формат. Используйте: /reply_<id> <текст>")
+                            return
+
                         # Показываем открытые тикеты при любом сообщении от админа
                         tickets = SupportTicket.query.filter_by(status='open').order_by(SupportTicket.created_at.desc()).limit(10).all()
                         if not tickets:
@@ -5582,9 +5599,13 @@ def _trigger_webhook(bot, update):
                                     f"📩 Обращение #{t.id}\n"
                                     f"От: @{uname} ({udisp})\n"
                                     f"Дата: {t.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
-                                    f"{t.message_text}"
+                                    f"{t.message_text}\n\n"
+                                    f"💡 Чтобы ответить: /reply_{t.user_id} <текст>"
                                 )
-                                close_btns = [{"label": "✅ Закрыть диалог", "reply": f"/close_support_{t.user_id}"}]
+                                close_btns = [
+                                    {"label": "✅ Закрыть диалог", "reply": f"/close_support_{t.user_id}"},
+                                    {"label": "💬 Ответить", "reply": f"/reply_{t.user_id} "},
+                                ]
                                 _bot_send_message(bot.user_id, sender_id, msg_text, buttons=close_btns)
                         return
 
