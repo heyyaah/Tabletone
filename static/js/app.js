@@ -401,6 +401,9 @@ function _showCtxMenu(msgEl, x, y) {
     if (!isDeleted && !isFav) {
         items.push({ icon: 'fa-smile', label: 'Реакция', _fn: () => showReactionPicker(msgId, isGroup), color: '' });
     }
+    if (!isDeleted && !isFav && isGroup && _currentGroupData && _currentGroupData.is_channel) {
+        items.push({ icon: 'fa-fire', label: '✨ Искра', _fn: () => showSparkReactModal(msgId), color: '' });
+    }
     if (!isDeleted && !isFav) {
         items.push({ icon: 'fa-share', label: 'Переслать', _fn: () => showForwardModal(msgId, isGroup), color: '' });
     }
@@ -2727,6 +2730,9 @@ async function openGroup(groupId, groupName) {
         // Обновляем видимость формы сообщений (для каналов показываем заглушку если не админ)
         updateMessageInputVisibility(data.group.is_channel, data.group.is_admin);
         
+        // Добавляем кнопку платного поста для владельцев каналов
+        setTimeout(_addPaidPostBtn, 100);
+        
         // Сбрасываем placeholder поля ввода
         const msgInput = document.getElementById('message-input');
         if (msgInput) msgInput.placeholder = 'Введите сообщение...';
@@ -2877,9 +2883,20 @@ function createGroupMessageHTML(msg) {
         <div class="message ${messageClass}" data-message-id="${msg.id}" data-is-mine="${msg.is_mine ? '1' : '0'}" data-is-deleted="${msg.is_deleted ? '1' : '0'}" data-is-group="1">
             ${senderInfo}
             ${msg.reply_to ? `<div class="reply-preview" onclick="scrollToMsg(${msg.reply_to.id})"><span class="reply-sender">${escapeHtml(msg.reply_to.sender_name)}</span><span class="reply-text">${escapeHtml((msg.reply_to.content||'').slice(0,80))}</span></div>` : ''}
-            ${content}
+            ${msg.is_paid && !msg.is_purchased ? `
+                <div class="paid-post-blur">
+                    <div class="paid-post-overlay">
+                        <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+                        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">Платный контент</div>
+                        <div style="font-size:13px;color:rgba(255,255,255,0.8);margin-bottom:12px;">${msg.paid_price} ✨ искр</div>
+                        <button class="paid-post-buy-btn" onclick="buyPaidPost(${msg.paid_post_id}, this)">
+                            ✨ Купить за ${msg.paid_price} искр
+                        </button>
+                    </div>
+                </div>` : content}
             ${renderBotButtons(msg.bot_buttons)}
             <div class="message-time">${msg.timestamp_iso ? formatMsgTime(msg.timestamp_iso) : msg.timestamp}</div>
+            <div class="spark-reaction-bar" id="spark-bar-${msg.id}"></div>
         </div>
     `;
 }
@@ -4555,3 +4572,123 @@ function showContactsRequiredModal() {
     modal.style.display = 'flex';
 }
 window.showContactsRequiredModal = showContactsRequiredModal;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ИСКРЫ И ПЛАТНЫЕ ПОСТЫ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function buyPaidPost(paidPostId, btn) {
+    const r = await fetch(`/paid-post/${paidPostId}/buy`, { method: 'POST' });
+    const d = await r.json();
+    if (d.error) { showError(d.error); return; }
+    if (d.success || d.already_purchased) {
+        // Перезагружаем группу чтобы показать контент
+        showError('Контент открыт!', 'success');
+        if (currentGroupId) openGroup(currentGroupId, document.getElementById('chat-username')?.textContent || '');
+    }
+}
+window.buyPaidPost = buyPaidPost;
+
+async function showSparkReactModal(msgId) {
+    const balR = await fetch('/sparks/balance');
+    const bal = await balR.json();
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:320px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="font-size:36px;margin-bottom:8px;">✨</div>
+            <h3 style="font-size:17px;font-weight:700;margin-bottom:4px;">Искорная реакция</h3>
+            <p style="color:#718096;font-size:13px;margin-bottom:16px;">Ваш баланс: <b style="color:#f6ad55;">${bal.balance} ✨</b></p>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
+                ${[1,5,10,25,50,100].map(n => `<button onclick="doSparkReact(${msgId},${n},this.closest('div[style*=fixed]'))" style="padding:8px 14px;border:2px solid #f6ad55;border-radius:10px;background:transparent;color:#f6ad55;font-weight:700;cursor:pointer;font-size:14px;">${n} ✨</button>`).join('')}
+            </div>
+            <button onclick="this.closest('div[style*=fixed]').remove()" style="background:#e2e8f0;color:#4a5568;border:none;border-radius:10px;padding:8px 20px;cursor:pointer;">Отмена</button>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+window.showSparkReactModal = showSparkReactModal;
+
+async function doSparkReact(msgId, amount, modal) {
+    modal && modal.remove();
+    const r = await fetch(`/sparks/react/${msgId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({amount}) });
+    const d = await r.json();
+    if (d.error) { showError(d.error); return; }
+    showError(`Отправлено ${amount} ✨`, 'success');
+    const bar = document.getElementById(`spark-bar-${msgId}`);
+    if (bar) bar.innerHTML = `<span class="spark-total">✨ ${d.total}</span>`;
+}
+window.doSparkReact = doSparkReact;
+
+// Добавляем кнопку "Платный пост" в форму канала для владельцев
+function _addPaidPostBtn() {
+    if (!_currentGroupData || !_currentGroupData.is_channel || !_currentGroupData.is_admin) return;
+    if (document.getElementById('paid-post-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'paid-post-btn';
+    btn.type = 'button';
+    btn.className = 'media-btn';
+    btn.title = 'Платный пост';
+    btn.innerHTML = '<i class="fas fa-lock"></i>';
+    btn.onclick = showPaidPostModal;
+    const form = document.getElementById('message-form');
+    if (form) form.insertBefore(btn, form.querySelector('#message-input'));
+}
+
+function showPaidPostModal() {
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <h3 style="font-size:17px;font-weight:700;margin-bottom:16px;">🔒 Платный пост</h3>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Текст поста</label>
+                <textarea id="pp-content" rows="4" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;" placeholder="Описание платного контента..."></textarea>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Медиафайлы (фото/видео)</label>
+                <input type="file" id="pp-media" accept="image/*,video/*" multiple style="font-size:13px;">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Цена в искрах ✨</label>
+                <input type="number" id="pp-price" value="10" min="1" max="10000" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="submitPaidPost()" style="flex:1;padding:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;">Опубликовать</button>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 16px;background:#e2e8f0;color:#4a5568;border:none;border-radius:10px;cursor:pointer;">Отмена</button>
+            </div>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+window.showPaidPostModal = showPaidPostModal;
+
+async function submitPaidPost() {
+    const content = document.getElementById('pp-content')?.value.trim();
+    const price = parseInt(document.getElementById('pp-price')?.value) || 10;
+    const files = document.getElementById('pp-media')?.files;
+    if (!content) { showError('Введите текст поста'); return; }
+    const fd = new FormData();
+    fd.append('content', content);
+    fd.append('price_sparks', price);
+    if (files) for (const f of files) fd.append('media', f);
+    const r = await fetch(`/channel/${currentGroupId}/paid-post`, { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.success) {
+        document.querySelector('div[style*="fixed"]')?.remove();
+        showError('Платный пост опубликован!', 'success');
+    } else showError(d.error || 'Ошибка');
+}
+window.submitPaidPost = submitPaidPost;
+
+// Добавляем кнопку искорной реакции в контекстное меню каналов
+// (уже добавлено через _showCtxMenu — здесь добавляем spark-bar при загрузке)
+document.addEventListener('DOMContentLoaded', function() {
+    // Обновляем spark-bar при получении события
+    if (window.socket) {
+        window.socket.on('spark_reaction', function(data) {
+            const bar = document.getElementById(`spark-bar-${data.msg_id}`);
+            if (bar) bar.innerHTML = `<span class="spark-total">✨ ${data.total}</span>`;
+        });
+    }
+});

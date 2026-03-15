@@ -190,6 +190,48 @@
             </div>
             {% endif %}
 
+            <!-- Искры -->
+            <div class="profile-section">
+                <h3><i class="fas fa-fire" style="color:#f6ad55;"></i> Искры</h3>
+                <div style="display:flex;align-items:center;gap:16px;padding:12px 0;">
+                    <div style="font-size:36px;">✨</div>
+                    <div>
+                        <div style="font-size:24px;font-weight:700;color:#f6ad55;">{{ spark_balance }}</div>
+                        <div style="color:#718096;font-size:13px;">Ваш баланс искр</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="showSparkHistory()" style="margin-left:auto;padding:8px 16px;font-size:13px;">
+                        <i class="fas fa-history"></i> История
+                    </button>
+                </div>
+                <p style="color:#718096;font-size:13px;line-height:1.6;">
+                    Искры — валюта Tabletone. Отправляйте искорные реакции на посты каналов, покупайте подарки и платный контент.
+                </p>
+            </div>
+
+            <!-- Подарки -->
+            <div class="profile-section">
+                <h3><i class="fas fa-gift" style="color:#667eea;"></i> Подарки</h3>
+                {% if displayed_gifts %}
+                <div id="profile-gifts-display" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                    {% for g in displayed_gifts %}
+                    <div class="gift-badge gift-{{ g.gift_type.rarity }}" title="{{ g.gift_type.name }}">
+                        {{ g.gift_type.emoji }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="color:#a0aec0;font-size:13px;margin-bottom:12px;">Нет отображаемых подарков.</p>
+                {% endif %}
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="showMyGifts()" style="padding:8px 16px;font-size:13px;">
+                        <i class="fas fa-box-open"></i> Мои подарки
+                    </button>
+                    <button class="btn btn-primary" onclick="showGiftCatalog()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#f6ad55,#ed8936);">
+                        <i class="fas fa-store"></i> Магазин подарков
+                    </button>
+                </div>
+            </div>
+
             <!-- Безопасность: 2FA -->
             <div class="profile-section">
                 <h3><i class="fas fa-shield-alt"></i> Безопасность</h3>
@@ -392,6 +434,117 @@ function submitAdminApplication() {
             statusEl.innerHTML = `<p style="color:#e53e3e;font-size:13px;">${d.error || 'Ошибка'}</p>`;
         }
     });
+}
+
+// ── Искры ──────────────────────────────────────────────────────────────────
+async function showSparkHistory() {
+    const r = await fetch('/sparks/history');
+    const d = await r.json();
+    const modal = _createModal('История искр ✨', d.transactions.length ? d.transactions.map(t => {
+        const sign = t.amount > 0 ? '+' : '';
+        const color = t.amount > 0 ? '#38a169' : '#e53e3e';
+        const labels = {spark_reaction:'Искорная реакция', gift_buy:'Покупка подарка', gift_sell:'Продажа подарка', post_pay:'Покупка поста', post_income:'Доход с поста', spark_received:'Получено искр', withdraw:'Вывод'};
+        return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;">
+            <span style="color:#4a5568;">${labels[t.reason] || t.reason}</span>
+            <span style="font-weight:700;color:${color};">${sign}${t.amount} ✨</span>
+        </div>`;
+    }).join('') : '<p style="color:#a0aec0;text-align:center;padding:20px;">История пуста</p>');
+    document.body.appendChild(modal);
+}
+
+async function showMyGifts() {
+    const r = await fetch('/gifts/my');
+    const d = await r.json();
+    const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
+    const content = d.gifts.length ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+            ${d.gifts.map(g => `
+            <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:32px;margin-bottom:6px;">${g.emoji}</div>
+                <div style="font-weight:600;font-size:13px;">${g.name}</div>
+                <div style="font-size:11px;color:${rarityColors[g.rarity]};text-transform:uppercase;margin:4px 0;">${g.rarity}</div>
+                ${g.sender_name ? `<div style="font-size:11px;color:#a0aec0;">от ${g.sender_name}</div>` : ''}
+                <div style="display:flex;gap:6px;margin-top:8px;justify-content:center;">
+                    <button onclick="toggleGiftDisplay(${g.id},this)" style="font-size:11px;padding:4px 8px;border:1px solid #667eea;border-radius:6px;background:${g.is_displayed?'#667eea':'transparent'};color:${g.is_displayed?'#fff':'#667eea'};cursor:pointer;">
+                        ${g.is_displayed ? '👁 Скрыть' : '👁 Показать'}
+                    </button>
+                    <button onclick="sellGift(${g.id},${Math.floor(g.price_sparks*0.8)},this)" style="font-size:11px;padding:4px 8px;border:1px solid #e53e3e;border-radius:6px;background:transparent;color:#e53e3e;cursor:pointer;">
+                        💰 ${Math.floor(g.price_sparks*0.8)} ✨
+                    </button>
+                </div>
+            </div>`).join('')}
+        </div>` : '<p style="color:#a0aec0;text-align:center;padding:20px;">У вас нет подарков</p>';
+    const modal = _createModal('Мои подарки 🎁', content);
+    document.body.appendChild(modal);
+}
+
+async function showGiftCatalog() {
+    const [catR, balR] = await Promise.all([fetch('/gifts/catalog'), fetch('/sparks/balance')]);
+    const cat = await catR.json();
+    const bal = await balR.json();
+    const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
+    const content = `
+        <p style="text-align:center;margin-bottom:16px;font-size:15px;">Ваш баланс: <b style="color:#f6ad55;">${bal.balance} ✨</b></p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+            ${cat.gifts.map(g => `
+            <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:32px;margin-bottom:6px;">${g.emoji}</div>
+                <div style="font-weight:600;font-size:13px;">${g.name}</div>
+                <div style="font-size:11px;color:${rarityColors[g.rarity]};text-transform:uppercase;margin:4px 0;">${g.rarity}</div>
+                <div style="font-size:12px;color:#f6ad55;font-weight:700;margin:4px 0;">${g.price_sparks} ✨</div>
+                <button onclick="sendGiftFromCatalog(${g.id})" style="font-size:12px;padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;margin-top:4px;width:100%;">
+                    Подарить
+                </button>
+            </div>`).join('')}
+        </div>`;
+    const modal = _createModal('Магазин подарков 🛍', content);
+    document.body.appendChild(modal);
+}
+
+async function sendGiftFromCatalog(giftTypeId) {
+    const username = prompt('Введите @username получателя:');
+    if (!username) return;
+    const clean = username.replace('@','');
+    const r = await fetch(`/api/user-by-username/${clean}`);
+    if (!r.ok) { alert('Пользователь не найден'); return; }
+    const d = await r.json();
+    const res = await fetch('/gifts/send', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({gift_type_id: giftTypeId, recipient_id: d.id})});
+    const rd = await res.json();
+    if (rd.success) { alert('Подарок отправлен! 🎁'); document.querySelectorAll('.profile-modal').forEach(m=>m.remove()); }
+    else alert(rd.error || 'Ошибка');
+}
+
+async function toggleGiftDisplay(giftId, btn) {
+    const r = await fetch(`/gifts/${giftId}/display`, {method:'POST'});
+    const d = await r.json();
+    if (d.success) {
+        btn.textContent = d.is_displayed ? '👁 Скрыть' : '👁 Показать';
+        btn.style.background = d.is_displayed ? '#667eea' : 'transparent';
+        btn.style.color = d.is_displayed ? '#fff' : '#667eea';
+    }
+}
+
+async function sellGift(giftId, price, btn) {
+    if (!confirm(`Продать подарок за ${price} ✨? (комиссия 20%)`)) return;
+    const r = await fetch(`/gifts/${giftId}/sell`, {method:'POST'});
+    const d = await r.json();
+    if (d.success) { alert(`Продано за ${d.earned} ✨`); btn.closest('div[style*="border"]').remove(); }
+    else alert(d.error || 'Ошибка');
+}
+
+function _createModal(title, content) {
+    const m = document.createElement('div');
+    m.className = 'profile-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML = `<div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="font-size:18px;font-weight:700;">${title}</h3>
+            <button onclick="this.closest('.profile-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#718096;">&times;</button>
+        </div>
+        ${content}
+    </div>`;
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    return m;
 }
 </script>
 {% endblock %}

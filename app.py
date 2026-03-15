@@ -213,6 +213,8 @@ class GroupMessage(db.Model):
     edited_at = db.Column(db.DateTime)
     is_deleted = db.Column(db.Boolean, default=False)
     reply_to_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=True)
+    is_paid = db.Column(db.Boolean, default=False)    # Платный пост
+    paid_price = db.Column(db.Integer, default=0)     # Цена в искрах
     
     group = db.relationship('Group', foreign_keys=[group_id])
     sender = db.relationship('User', foreign_keys=[sender_id])
@@ -441,6 +443,85 @@ class PollVote(db.Model):
     voted_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('poll_id', 'option_id', 'user_id', name='_poll_vote_uc'),)
 
+# ── Искры (Sparks) ───────────────────────────────────────────────────────────
+class SparkBalance(db.Model):
+    """Баланс искр пользователя."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    balance = db.Column(db.Integer, default=0)
+    user = db.relationship('User', foreign_keys=[user_id])
+
+class SparkTransaction(db.Model):
+    """История транзакций искр."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)  # + пополнение, - списание
+    reason = db.Column(db.String(100), nullable=False)  # spark_reaction, gift_buy, gift_sell, post_pay, withdraw
+    ref_id = db.Column(db.Integer)  # id связанного объекта
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', foreign_keys=[user_id])
+
+class SparkReaction(db.Model):
+    """Искорная реакция на пост канала."""
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    group_message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
+    amount = db.Column(db.Integer, default=1)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('sender_id', 'group_message_id', name='_spark_reaction_uc'),)
+    sender = db.relationship('User', foreign_keys=[sender_id])
+
+class ChannelSparkWithdraw(db.Model):
+    """Запрос на вывод искр владельцем канала."""
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, done
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ── Подарки ───────────────────────────────────────────────────────────────────
+class GiftType(db.Model):
+    """Тип подарка (каталог)."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    emoji = db.Column(db.String(10), nullable=False)
+    description = db.Column(db.String(300))
+    price_sparks = db.Column(db.Integer, nullable=False)  # Цена в искрах
+    rarity = db.Column(db.String(20), default='common')  # common, rare, epic, legendary
+    is_active = db.Column(db.Boolean, default=True)
+
+class UserGift(db.Model):
+    """Подарок, полученный пользователем."""
+    id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    gift_type_id = db.Column(db.Integer, db.ForeignKey('gift_type.id'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # кто подарил
+    is_displayed = db.Column(db.Boolean, default=False)  # показывать в профиле
+    received_at = db.Column(db.DateTime, default=datetime.utcnow)
+    owner = db.relationship('User', foreign_keys=[owner_id])
+    sender = db.relationship('User', foreign_keys=[sender_id])
+    gift_type = db.relationship('GiftType', foreign_keys=[gift_type_id])
+
+# ── Платные посты ─────────────────────────────────────────────────────────────
+class PaidPost(db.Model):
+    """Платный пост в канале."""
+    id = db.Column(db.Integer, primary_key=True)
+    group_message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False, unique=True)
+    price_sparks = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    group_message = db.relationship('GroupMessage', foreign_keys=[group_message_id])
+
+class PaidPostPurchase(db.Model):
+    """Факт покупки платного поста пользователем."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    paid_post_id = db.Column(db.Integer, db.ForeignKey('paid_post.id'), nullable=False)
+    purchased_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'paid_post_id', name='_post_purchase_uc'),)
+    user = db.relationship('User', foreign_keys=[user_id])
+    paid_post = db.relationship('PaidPost', foreign_keys=[paid_post_id])
+
 # ── Контакты ─────────────────────────────────────────────────────────────────
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -475,6 +556,8 @@ with app.app_context():
             "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES group_message(id)",
             "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
+            "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS paid_price INTEGER DEFAULT 0",
         ]
     else:
         migrations = [
@@ -487,6 +570,8 @@ with app.app_context():
             "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
             "ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
             "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
+            "ALTER TABLE group_message ADD COLUMN is_paid BOOLEAN DEFAULT 0",
+            "ALTER TABLE group_message ADD COLUMN paid_price INTEGER DEFAULT 0",
         ]
 
     with db.engine.connect() as conn:
@@ -651,6 +736,22 @@ with app.app_context():
             db.session.add(_c)
         db.session.commit()
         print("✓ Бот Tabletone Support создан")
+
+    # ── Сид: каталог подарков ────────────────────────────────────────────────
+    if GiftType.query.count() == 0:
+        _default_gifts = [
+            GiftType(name='Сердечко', emoji='❤️', description='Маленький знак внимания', price_sparks=5, rarity='common'),
+            GiftType(name='Звезда', emoji='⭐', description='Ты звезда!', price_sparks=10, rarity='common'),
+            GiftType(name='Огонь', emoji='🔥', description='Горячий подарок', price_sparks=20, rarity='common'),
+            GiftType(name='Алмаз', emoji='💎', description='Редкий и ценный', price_sparks=50, rarity='rare'),
+            GiftType(name='Корона', emoji='👑', description='Для настоящих королей', price_sparks=100, rarity='epic'),
+            GiftType(name='Ракета', emoji='🚀', description='До луны и обратно', price_sparks=200, rarity='epic'),
+            GiftType(name='Единорог', emoji='🦄', description='Легендарный подарок', price_sparks=500, rarity='legendary'),
+        ]
+        for _g in _default_gifts:
+            db.session.add(_g)
+        db.session.commit()
+        print("✓ Каталог подарков создан")
 
 # ── Система ролей ────────────────────────────────────────────────────────────
 ROLE_LEVELS = {'moderator': 1, 'admin': 2, 'senior_admin': 3, 'owner': 4}
@@ -2303,7 +2404,10 @@ def profile():
     
     user = User.query.get( session['user_id'])
     verification_request = VerificationRequest.query.filter_by(user_id=user.id).order_by(VerificationRequest.created_at.desc()).first()
-    return render_template('profile.html', user=user, verification_request=verification_request)
+    spark_balance = _get_spark_balance(user.id).balance
+    displayed_gifts = UserGift.query.filter_by(owner_id=user.id, is_displayed=True).all()
+    return render_template('profile.html', user=user, verification_request=verification_request,
+                           spark_balance=spark_balance, displayed_gifts=displayed_gifts)
 
 # API для получения информации о пользователе
 @app.route('/api/user/<int:user_id>')
@@ -2329,6 +2433,15 @@ def get_user_info(user_id):
         'premium_emoji': user.premium_emoji,
         'created_at': user.created_at.strftime('%d.%m.%Y')
     })
+
+@app.route('/api/user-by-username/<username>')
+def get_user_by_username(username):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    return jsonify({'id': user.id, 'username': user.username, 'display_name': user.display_name or user.username})
 
 # Обновление профиля
 @app.route('/profile/update', methods=['POST'])
@@ -3484,6 +3597,15 @@ def get_group(group_id):
             'file_size': m.file_size
         } for m in media_files]
         
+        # Данные платного поста
+        paid_post = PaidPost.query.filter_by(group_message_id=msg.id).first() if getattr(msg, 'is_paid', False) else None
+        is_purchased = False
+        if paid_post:
+            if group.creator_id == session['user_id'] or msg.sender_id == session['user_id']:
+                is_purchased = True
+            else:
+                is_purchased = bool(PaidPostPurchase.query.filter_by(user_id=session['user_id'], paid_post_id=paid_post.id).first())
+
         messages_data.append({
             'id': msg.id,
             'sender_id': msg.sender_id,
@@ -3491,13 +3613,17 @@ def get_group(group_id):
             'sender_avatar_color': sender.avatar_color,
             'sender_avatar_url': sender.avatar_url,
             'sender_avatar_letter': sender.get_avatar_letter(),
-            'content': msg.content,
+            'content': msg.content if (not getattr(msg, 'is_paid', False) or is_purchased) else '🔒 Платный контент',
             'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
             'timestamp_iso': msg.timestamp.isoformat() + 'Z',
             'edited_at': msg.edited_at.strftime('%H:%M %d.%m') if msg.edited_at else None,
             'is_deleted': msg.is_deleted,
             'is_mine': msg.sender_id == session['user_id'],
-            'media_files': media_data,
+            'media_files': media_data if (not getattr(msg, 'is_paid', False) or is_purchased) else [],
+            'is_paid': getattr(msg, 'is_paid', False),
+            'paid_price': getattr(msg, 'paid_price', 0),
+            'paid_post_id': paid_post.id if paid_post else None,
+            'is_purchased': is_purchased,
             'reply_to': {
                 'id': msg.reply_to.id,
                 'content': msg.reply_to.content if not msg.reply_to.is_deleted else '[удалено]',
@@ -5229,6 +5355,312 @@ def forward_message():
         msg_data = {'id': new_msg.id, 'sender_id': uid, 'sender_name': sender.display_name or sender.username, 'sender_avatar_color': sender.avatar_color, 'sender_avatar_letter': sender.get_avatar_letter(), 'content': fwd_content, 'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'), 'timestamp_iso': new_msg.timestamp.isoformat() + 'Z', 'media_files': []}
         socketio.emit('new_group_message', {'group_id': int(to_group_id), 'message': msg_data}, room=f'group_{to_group_id}', include_self=True, namespace='/')
     return jsonify({'success': True})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ИСКРЫ (SPARKS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _get_spark_balance(user_id):
+    sb = SparkBalance.query.filter_by(user_id=user_id).first()
+    if not sb:
+        sb = SparkBalance(user_id=user_id, balance=0)
+        db.session.add(sb)
+        db.session.commit()
+    return sb
+
+def _add_sparks(user_id, amount, reason, ref_id=None):
+    sb = _get_spark_balance(user_id)
+    sb.balance += amount
+    tx = SparkTransaction(user_id=user_id, amount=amount, reason=reason, ref_id=ref_id)
+    db.session.add(tx)
+    db.session.commit()
+
+def _spend_sparks(user_id, amount, reason, ref_id=None):
+    sb = _get_spark_balance(user_id)
+    if sb.balance < amount:
+        return False
+    sb.balance -= amount
+    tx = SparkTransaction(user_id=user_id, amount=-amount, reason=reason, ref_id=ref_id)
+    db.session.add(tx)
+    db.session.commit()
+    return True
+
+@app.route('/sparks/balance')
+def sparks_balance():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    sb = _get_spark_balance(session['user_id'])
+    return jsonify({'balance': sb.balance})
+
+@app.route('/sparks/history')
+def sparks_history():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    txs = SparkTransaction.query.filter_by(user_id=session['user_id']).order_by(SparkTransaction.created_at.desc()).limit(50).all()
+    return jsonify({'transactions': [{'amount': t.amount, 'reason': t.reason, 'created_at': t.created_at.isoformat()} for t in txs]})
+
+@app.route('/sparks/react/<int:msg_id>', methods=['POST'])
+def spark_react(msg_id):
+    """Отправить искорную реакцию на пост канала."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    amount = max(1, min(int(data.get('amount', 1)), 100))
+
+    msg = GroupMessage.query.get(msg_id)
+    if not msg:
+        return jsonify({'error': 'Сообщение не найдено'}), 404
+    group = Group.query.get(msg.group_id)
+    if not group or not group.is_channel:
+        return jsonify({'error': 'Только для каналов'}), 400
+
+    # Проверяем дубль
+    existing = SparkReaction.query.filter_by(sender_id=uid, group_message_id=msg_id).first()
+    if existing:
+        return jsonify({'error': 'Вы уже отправили искру на этот пост'}), 400
+
+    if not _spend_sparks(uid, amount, 'spark_reaction', msg_id):
+        return jsonify({'error': 'Недостаточно искр'}), 400
+
+    sr = SparkReaction(sender_id=uid, group_message_id=msg_id, amount=amount)
+    db.session.add(sr)
+    db.session.commit()
+
+    # Начисляем владельцу канала
+    _add_sparks(group.creator_id, amount, 'spark_received', msg_id)
+
+    total = db.session.query(db.func.sum(SparkReaction.amount)).filter_by(group_message_id=msg_id).scalar() or 0
+    socketio.emit('spark_reaction', {'msg_id': msg_id, 'total': total}, room=f'group_{msg.group_id}', namespace='/')
+    return jsonify({'success': True, 'total': total})
+
+@app.route('/sparks/post/<int:msg_id>/total')
+def spark_post_total(msg_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    total = db.session.query(db.func.sum(SparkReaction.amount)).filter_by(group_message_id=msg_id).scalar() or 0
+    return jsonify({'total': total})
+
+@app.route('/sparks/channel/<int:group_id>/withdraw', methods=['POST'])
+def channel_spark_withdraw(group_id):
+    """Вывод искр владельцем канала."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    group = Group.query.get(group_id)
+    if not group or group.creator_id != uid:
+        return jsonify({'error': 'Нет доступа'}), 403
+    sb = _get_spark_balance(uid)
+    if sb.balance < 100:
+        return jsonify({'error': 'Для вывода нужно не менее 100 искр'}), 400
+    amount = sb.balance
+    _spend_sparks(uid, amount, 'withdraw', group_id)
+    w = ChannelSparkWithdraw(group_id=group_id, owner_id=uid, amount=amount, status='pending')
+    db.session.add(w)
+    db.session.commit()
+    return jsonify({'success': True, 'amount': amount})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ПОДАРКИ (GIFTS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/gifts/catalog')
+def gifts_catalog():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    gifts = GiftType.query.filter_by(is_active=True).all()
+    return jsonify({'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'description': g.description, 'price_sparks': g.price_sparks, 'rarity': g.rarity} for g in gifts]})
+
+@app.route('/gifts/send', methods=['POST'])
+def gifts_send():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    gift_type_id = data.get('gift_type_id')
+    recipient_id = data.get('recipient_id')
+    if not gift_type_id or not recipient_id:
+        return jsonify({'error': 'Неверные параметры'}), 400
+    gt = GiftType.query.get(gift_type_id)
+    if not gt or not gt.is_active:
+        return jsonify({'error': 'Подарок не найден'}), 404
+    recipient = User.query.get(recipient_id)
+    if not recipient:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    if not _spend_sparks(uid, gt.price_sparks, 'gift_buy', gift_type_id):
+        return jsonify({'error': 'Недостаточно искр'}), 400
+    ug = UserGift(owner_id=recipient_id, gift_type_id=gift_type_id, sender_id=uid)
+    db.session.add(ug)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/gifts/my')
+def gifts_my():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    gifts = UserGift.query.filter_by(owner_id=uid).all()
+    return jsonify({'gifts': [{'id': g.id, 'gift_type_id': g.gift_type_id, 'name': g.gift_type.name, 'emoji': g.gift_type.emoji, 'rarity': g.gift_type.rarity, 'price_sparks': g.gift_type.price_sparks, 'sender_name': (g.sender.display_name or g.sender.username) if g.sender else None, 'is_displayed': g.is_displayed, 'received_at': g.received_at.isoformat()} for g in gifts]})
+
+@app.route('/gifts/<int:gift_id>/display', methods=['POST'])
+def gift_display(gift_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    ug = UserGift.query.get(gift_id)
+    if not ug or ug.owner_id != session['user_id']:
+        return jsonify({'error': 'Нет доступа'}), 403
+    ug.is_displayed = not ug.is_displayed
+    db.session.commit()
+    return jsonify({'success': True, 'is_displayed': ug.is_displayed})
+
+@app.route('/gifts/<int:gift_id>/sell', methods=['POST'])
+def gift_sell(gift_id):
+    """Продать подарок за искры (с комиссией 20%)."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    ug = UserGift.query.get(gift_id)
+    if not ug or ug.owner_id != uid:
+        return jsonify({'error': 'Нет доступа'}), 403
+    sell_price = int(ug.gift_type.price_sparks * 0.8)  # 20% комиссия
+    db.session.delete(ug)
+    db.session.commit()
+    _add_sparks(uid, sell_price, 'gift_sell', gift_id)
+    return jsonify({'success': True, 'earned': sell_price})
+
+@app.route('/gifts/user/<int:user_id>')
+def gifts_user_displayed(user_id):
+    """Подарки пользователя для показа в профиле."""
+    gifts = UserGift.query.filter_by(owner_id=user_id, is_displayed=True).all()
+    return jsonify({'gifts': [{'id': g.id, 'name': g.gift_type.name, 'emoji': g.gift_type.emoji, 'rarity': g.gift_type.rarity} for g in gifts]})
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ПЛАТНЫЕ ПОСТЫ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/channel/<int:group_id>/paid-post', methods=['POST'])
+def create_paid_post(group_id):
+    """Создать платный пост в канале."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    group = Group.query.get(group_id)
+    if not group or not group.is_channel:
+        return jsonify({'error': 'Только для каналов'}), 400
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    if not member or not member.is_admin:
+        return jsonify({'error': 'Нет прав'}), 403
+
+    data = request.form
+    price = int(data.get('price_sparks', 10))
+    content = data.get('content', '').strip()
+    if not content:
+        return jsonify({'error': 'Пустой пост'}), 400
+
+    # Создаём сообщение с флагом is_paid
+    msg = GroupMessage(group_id=group_id, sender_id=uid, content=content)
+    msg.is_paid = True
+    msg.paid_price = price
+    db.session.add(msg)
+    db.session.flush()
+
+    # Обрабатываем медиа если есть
+    media_files_data = []
+    if 'media' in request.files:
+        files = request.files.getlist('media')
+        for i, f in enumerate(files[:10]):
+            if f and f.filename:
+                ext = f.filename.rsplit('.', 1)[-1].lower()
+                if ext in ALLOWED_IMAGES:
+                    mtype = 'image'
+                    folder = 'images'
+                elif ext in ALLOWED_VIDEO:
+                    mtype = 'video'
+                    folder = 'videos'
+                else:
+                    continue
+                fname = secure_filename(f'{secrets.token_hex(8)}.{ext}')
+                fpath = os.path.join(app.config['UPLOAD_FOLDER'], folder, fname)
+                os.makedirs(os.path.dirname(fpath), exist_ok=True)
+                f.save(fpath)
+                url = f'/static/media/{folder}/{fname}'
+                mm = GroupMessageMedia(message_id=msg.id, media_type=mtype, media_url=url, file_name=f.filename, order_index=i)
+                db.session.add(mm)
+                media_files_data.append({'media_type': mtype, 'media_url': url})
+
+    pp = PaidPost(group_message_id=msg.id, price_sparks=price)
+    db.session.add(pp)
+    db.session.commit()
+
+    sender = User.query.get(uid)
+    msg_data = {
+        'id': msg.id, 'sender_id': uid,
+        'sender_name': sender.display_name or sender.username,
+        'sender_avatar_color': sender.avatar_color,
+        'sender_avatar_letter': sender.get_avatar_letter(),
+        'content': content, 'is_paid': True, 'paid_price': price,
+        'paid_post_id': pp.id,
+        'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
+        'timestamp_iso': msg.timestamp.isoformat() + 'Z',
+        'media_files': media_files_data
+    }
+    socketio.emit('new_group_message', {'group_id': group_id, 'message': msg_data}, room=f'group_{group_id}', include_self=True, namespace='/')
+    return jsonify({'success': True, 'message': msg_data})
+
+@app.route('/paid-post/<int:post_id>/buy', methods=['POST'])
+def buy_paid_post(post_id):
+    """Купить доступ к платному посту."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    pp = PaidPost.query.get(post_id)
+    if not pp:
+        return jsonify({'error': 'Пост не найден'}), 404
+
+    # Проверяем уже куплено
+    existing = PaidPostPurchase.query.filter_by(user_id=uid, paid_post_id=post_id).first()
+    if existing:
+        return jsonify({'already_purchased': True})
+
+    # Владелец канала видит бесплатно
+    msg = GroupMessage.query.get(pp.group_message_id)
+    group = Group.query.get(msg.group_id)
+    if group.creator_id == uid:
+        return jsonify({'already_purchased': True})
+
+    if not _spend_sparks(uid, pp.price_sparks, 'post_pay', post_id):
+        return jsonify({'error': 'Недостаточно искр'}), 400
+
+    # Начисляем владельцу канала
+    _add_sparks(group.creator_id, pp.price_sparks, 'post_income', post_id)
+
+    purchase = PaidPostPurchase(user_id=uid, paid_post_id=post_id)
+    db.session.add(purchase)
+    db.session.commit()
+
+    # Возвращаем полный контент
+    media_files = GroupMessageMedia.query.filter_by(message_id=msg.id).order_by(GroupMessageMedia.order_index).all()
+    return jsonify({
+        'success': True,
+        'content': msg.content,
+        'media_files': [{'media_type': m.media_type, 'media_url': m.media_url, 'file_name': m.file_name} for m in media_files]
+    })
+
+@app.route('/paid-post/<int:post_id>/check')
+def check_paid_post(post_id):
+    """Проверить, куплен ли пост."""
+    if 'user_id' not in session:
+        return jsonify({'purchased': False})
+    uid = session['user_id']
+    pp = PaidPost.query.get(post_id)
+    if not pp:
+        return jsonify({'purchased': False})
+    msg = GroupMessage.query.get(pp.group_message_id)
+    group = Group.query.get(msg.group_id)
+    if group.creator_id == uid:
+        return jsonify({'purchased': True})
+    existing = PaidPostPurchase.query.filter_by(user_id=uid, paid_post_id=post_id).first()
+    return jsonify({'purchased': bool(existing)})
 
 # Подавление ошибок разрыва соединения
 import logging

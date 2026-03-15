@@ -3921,3 +3921,68 @@ body[data-theme="dark"] .channel-mute-btn:hover {
 .message.sent .poll-option-bar { background: rgba(255,255,255,0.15); }
 .message.sent .poll-option-percent { color: rgba(255,255,255,0.9); }
 .message.sent .poll-footer { color: rgba(255,255,255,0.7); }
+
+/* ── Искры и платные посты ─────────────────────────────────────────────────── */
+.paid-post-blur {
+    position: relative;
+    min-height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15));
+    border: 2px dashed rgba(102,126,234,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+.paid-post-overlay {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-primary, #2d3748);
+}
+.paid-post-buy-btn {
+    background: linear-gradient(135deg, #f6ad55, #ed8936);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+.paid-post-buy-btn:hover { transform: scale(1.04); }
+
+.spark-reaction-bar {
+    margin-top: 4px;
+    min-height: 0;
+}
+.spark-total {
+    display: inline-block;
+    background: rgba(246,173,85,0.15);
+    color: #d69e2e;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ── Подарки в профиле ─────────────────────────────────────────────────────── */
+.gift-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    border: 2px solid #e2e8f0;
+    cursor: default;
+    transition: transform 0.15s;
+}
+.gift-badge:hover { transform: scale(1.1); }
+.gift-badge.gift-common  { border-color: #a0aec0; background: #f7fafc; }
+.gift-badge.gift-rare    { border-color: #3182ce; background: #ebf8ff; box-shadow: 0 0 8px rgba(49,130,206,0.3); }
+.gift-badge.gift-epic    { border-color: #805ad5; background: #faf5ff; box-shadow: 0 0 8px rgba(128,90,213,0.3); }
+.gift-badge.gift-legendary { border-color: #d69e2e; background: #fffff0; box-shadow: 0 0 12px rgba(214,158,46,0.5); }
