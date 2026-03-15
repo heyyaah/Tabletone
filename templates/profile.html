@@ -379,9 +379,9 @@
                     <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Неограниченные боты</div>
                     <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Premium Support</div>
                 </div>
-                <a href="https://t.me/tabletone_premiumbot" target="_blank" class="btn btn-primary" style="display:inline-block;text-decoration:none;background:linear-gradient(135deg,#f6ad55,#ed8936);">
+                <button onclick="localStorage.setItem('open_chat_on_load','{\"id\":\"tabletone_premiumbot\",\"byUsername\":true}'); openChatByUsername('tabletone_premiumbot')" class="btn btn-primary" style="background:linear-gradient(135deg,#f6ad55,#ed8936);border:none;cursor:pointer;">
                     <i class="fas fa-crown"></i> Купить Premium
-                </a>
+                </button>
             </div>
             {% endif %}
 

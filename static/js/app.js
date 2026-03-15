@@ -1452,6 +1452,20 @@ function updateMessageDeleted(messageId) {
 window.openChat = openChat;
 window.showMessageMenu = showMessageMenu;
 window.editMessage = editMessage;
+
+async function openChatByUsername(username) {
+    try {
+        const r = await fetch(`/search?q=${encodeURIComponent(username)}`);
+        const d = await r.json();
+        const user = (d.users || []).find(u => u.username === username);
+        if (user) {
+            openChat(user.id, user.display_name || user.username);
+        } else {
+            showError('Бот не найден');
+        }
+    } catch(e) { showError('Ошибка открытия чата'); }
+}
+window.openChatByUsername = openChatByUsername;
 window.deleteMessage = deleteMessage;
 window.setTheme = setTheme;
 window.loadTheme = loadTheme;
