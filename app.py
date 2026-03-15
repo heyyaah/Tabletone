@@ -1680,6 +1680,8 @@ def register():
         display_name = request.form.get('display_name', '').strip()
         
         # Проверка на существование пользователя
+        if len(username) < 4:
+            return render_template('register.html', error='Username должен содержать минимум 4 символа')
         if User.query.filter_by(username=username).first():
             return render_template('register.html', error='Пользователь с таким именем уже существует')
         
@@ -3891,8 +3893,8 @@ def create_group():
         
         # Проверяем username если указан
         if username:
-            if len(username) < 3 or len(username) > 50:
-                return jsonify({'error': 'Username должен содержать от 3 до 50 символов'}), 400
+            if len(username) < 4 or len(username) > 50:
+                return jsonify({'error': 'Username должен содержать от 4 до 50 символов'}), 400
             
             # Проверяем что username содержит только разрешенные символы
             if not all(c.isalnum() or c == '_' for c in username):
@@ -5322,6 +5324,8 @@ def create_bot():
 
     if not name or not username:
         return jsonify({'error': 'Имя и username обязательны'}), 400
+    if len(username) < 4:
+        return jsonify({'error': 'Username бота должен содержать минимум 4 символа'}), 400
     if not username.endswith('bot'):
         return jsonify({'error': 'Username бота должен заканчиваться на "bot"'}), 400
     if User.query.filter_by(username=username).first():
