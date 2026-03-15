@@ -33,6 +33,18 @@ function showCallModal(name, avatarLetter, avatarColor, incoming, isVideo) {
 
     document.getElementById('call-accept-btn').style.display = incoming ? 'flex' : 'none';
     document.getElementById('call-toggle-video-btn').style.display = isVideo ? 'flex' : 'none';
+
+    // Сбрасываем UI кнопок управления в начальное состояние
+    const muteBtn = document.getElementById('call-mute-btn');
+    if (muteBtn) {
+        muteBtn.querySelector('i').className = 'fas fa-microphone';
+        muteBtn.style.background = '#4a5568';
+    }
+    const videoBtn = document.getElementById('call-toggle-video-btn');
+    if (videoBtn) {
+        videoBtn.querySelector('i').className = 'fas fa-video';
+        videoBtn.style.background = '#4a5568';
+    }
 }
 
 function hideCallModal() {
@@ -157,10 +169,14 @@ function toggleMute() {
 function toggleVideo() {
     if (!localStream) return;
     callIsVideoOff = !callIsVideoOff;
-    localStream.getVideoTracks().forEach(t => t.enabled = !callIsVideoOff);
+    // Только отключаем трек, не останавливаем — остановка рвёт соединение
+    localStream.getVideoTracks().forEach(t => { t.enabled = !callIsVideoOff; });
     const btn = document.getElementById('call-toggle-video-btn');
     btn.querySelector('i').className = callIsVideoOff ? 'fas fa-video-slash' : 'fas fa-video';
     btn.style.background = callIsVideoOff ? '#e53e3e' : '#4a5568';
+    // Скрываем локальное видео, но не трогаем соединение
+    const lv = document.getElementById('local-video');
+    if (lv) lv.style.visibility = callIsVideoOff ? 'hidden' : 'visible';
 }
 
 // ── RTCPeerConnection factory ─────────────────────────────────────────────────
@@ -180,7 +196,8 @@ function _createPC() {
     };
     pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') _setCallStatus('Идёт звонок');
-        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') _cleanupCall();
+        // Только 'failed' завершает звонок — 'disconnected' может быть временным (смена сети, выкл. камеры)
+        if (pc.connectionState === 'failed') _cleanupCall();
     };
     return pc;
 }
