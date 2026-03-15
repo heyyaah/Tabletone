@@ -386,6 +386,71 @@ class BannedIP(db.Model):
 
     admin = db.relationship('User', foreign_keys=[banned_by])
 
+# ── Реакции на сообщения ─────────────────────────────────────────────────────
+class MessageReaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
+    group_message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=True)
+    emoji = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'message_id', 'emoji', name='_user_msg_emoji_uc'),
+        db.UniqueConstraint('user_id', 'group_message_id', 'emoji', name='_user_gmsg_emoji_uc'),
+    )
+    user = db.relationship('User', foreign_keys=[user_id])
+
+# ── Закреплённые сообщения ───────────────────────────────────────────────────
+class PinnedMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+    # Для личных чатов: user1_id < user2_id
+    user1_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user2_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
+    group_message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=True)
+    pinned_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    pinned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    content_preview = db.Column(db.String(200))
+
+# ── Опросы ───────────────────────────────────────────────────────────────────
+class Poll(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    question = db.Column(db.String(500), nullable=False)
+    is_anonymous = db.Column(db.Boolean, default=True)
+    is_multiple = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Привязка к сообщению
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
+    group_message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=True)
+    creator = db.relationship('User', foreign_keys=[creator_id])
+
+class PollOption(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey('poll.id'), nullable=False)
+    text = db.Column(db.String(200), nullable=False)
+    order_index = db.Column(db.Integer, default=0)
+    poll = db.relationship('Poll', foreign_keys=[poll_id])
+
+class PollVote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey('poll.id'), nullable=False)
+    option_id = db.Column(db.Integer, db.ForeignKey('poll_option.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    voted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('poll_id', 'option_id', 'user_id', name='_poll_vote_uc'),)
+
+# ── Контакты ─────────────────────────────────────────────────────────────────
+class Contact(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    contact_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'contact_id', name='_contact_uc'),)
+    user = db.relationship('User', foreign_keys=[user_id])
+    contact = db.relationship('User', foreign_keys=[contact_id])
+
 # Создание таблиц
 with app.app_context():
     from sqlalchemy import text
@@ -632,13 +697,24 @@ def get_reports():
 def create_report():
     """Создает новую жалобу"""
     data = request.json
+    
+    # Антиспам жалоб: 1 жалоба на одного человека в день
+    reporter = data.get("reporter")
+    target_id = data.get("target_id")
+    if reporter and target_id:
+        from datetime import timedelta
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        existing_today = [r for r in reports if r.get("reporter") == reporter and str(r.get("target_id")) == str(target_id) and r.get("created_at", "") >= today_start.isoformat()]
+        if existing_today:
+            return jsonify({"error": "Вы уже подавали жалобу на этого пользователя сегодня"}), 429
+
     report = {
         "id": len(reports) + 1,
         "reported_user": data.get("username"),
         "category": data.get("category"),
         "details": data.get("details"),
-        "reporter": data.get("reporter", "Anonymous"),
-        "target_id": data.get("target_id"),
+        "reporter": reporter,
+        "target_id": target_id,
         "target_type": data.get("target_type"),
         "status": "new",
         "created_at": datetime.now().isoformat(),
@@ -940,6 +1016,7 @@ def admin_run_migrations():
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email VARCHAR(200)',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)',
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(20)',
+        # Новые таблицы создаются через db.create_all() — здесь только колонки
     ]
     with db.engine.connect() as conn:
         for sql in migrations:
@@ -1528,6 +1605,20 @@ def send_message():
     # Проверяем, не пытается ли пользователь отправить сообщение самому себе
     if receiver_id == session['user_id']:
         return jsonify({'error': 'Вы не можете отправить сообщение самому себе'}), 400
+
+    # Проверка контактов: если получатель не бот и не admin — нужны взаимные контакты
+    # (исключение: если уже есть переписка — разрешаем продолжать)
+    if not receiver.is_bot and not receiver.is_admin:
+        uid = session['user_id']
+        i_added = Contact.query.filter_by(user_id=uid, contact_id=receiver_id).first() is not None
+        they_added = Contact.query.filter_by(user_id=receiver_id, contact_id=uid).first() is not None
+        # Проверяем есть ли уже переписка
+        existing_msg = Message.query.filter(
+            ((Message.sender_id == uid) & (Message.receiver_id == receiver_id)) |
+            ((Message.sender_id == receiver_id) & (Message.receiver_id == uid))
+        ).first()
+        if not existing_msg and not (i_added and they_added):
+            return jsonify({'error': 'contacts_required', 'message': 'Чтобы написать этому пользователю, добавьте его в контакты и дождитесь взаимного добавления'}), 403
     
     message = Message(
         sender_id=session['user_id'],
@@ -4711,6 +4802,432 @@ def bot_set_webhook():
         return jsonify({'error': 'Неверный токен'}), 401
     bot.webhook_url = data.get('url', '').strip() or None
     db.session.commit()
+    return jsonify({'success': True})
+
+# ── Реакции ──────────────────────────────────────────────────────────────────
+
+@app.route('/message/<int:msg_id>/react', methods=['POST'])
+def react_message(msg_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json() or {}
+    emoji = (data.get('emoji') or '').strip()
+    if not emoji:
+        return jsonify({'error': 'Укажите эмодзи'}), 400
+    msg = Message.query.get(msg_id)
+    if not msg:
+        return jsonify({'error': 'Не найдено'}), 404
+    # Проверяем доступ
+    uid = session['user_id']
+    if msg.sender_id != uid and msg.receiver_id != uid:
+        return jsonify({'error': 'Нет доступа'}), 403
+    existing = MessageReaction.query.filter_by(user_id=uid, message_id=msg_id, emoji=emoji).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        action = 'removed'
+    else:
+        r = MessageReaction(user_id=uid, message_id=msg_id, emoji=emoji)
+        db.session.add(r)
+        db.session.commit()
+        action = 'added'
+    # Собираем все реакции
+    reactions = _get_message_reactions(msg_id=msg_id)
+    # Уведомляем через Socket.IO
+    other_id = msg.receiver_id if msg.sender_id == uid else msg.sender_id
+    for room_uid in [uid, other_id]:
+        socketio.emit('reaction_updated', {'message_id': msg_id, 'reactions': reactions}, room=f'user_{room_uid}', namespace='/')
+    return jsonify({'success': True, 'action': action, 'reactions': reactions})
+
+@app.route('/group-message/<int:msg_id>/react', methods=['POST'])
+def react_group_message(msg_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json() or {}
+    emoji = (data.get('emoji') or '').strip()
+    if not emoji:
+        return jsonify({'error': 'Укажите эмодзи'}), 400
+    msg = GroupMessage.query.get(msg_id)
+    if not msg:
+        return jsonify({'error': 'Не найдено'}), 404
+    uid = session['user_id']
+    membership = GroupMember.query.filter_by(group_id=msg.group_id, user_id=uid).first()
+    if not membership:
+        return jsonify({'error': 'Нет доступа'}), 403
+    existing = MessageReaction.query.filter_by(user_id=uid, group_message_id=msg_id, emoji=emoji).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        action = 'removed'
+    else:
+        r = MessageReaction(user_id=uid, group_message_id=msg_id, emoji=emoji)
+        db.session.add(r)
+        db.session.commit()
+        action = 'added'
+    reactions = _get_message_reactions(group_msg_id=msg_id)
+    socketio.emit('reaction_updated', {'group_message_id': msg_id, 'reactions': reactions}, room=f'group_{msg.group_id}', namespace='/')
+    return jsonify({'success': True, 'action': action, 'reactions': reactions})
+
+def _get_message_reactions(msg_id=None, group_msg_id=None):
+    """Возвращает словарь {emoji: {count, users, mine}}"""
+    if msg_id:
+        rows = MessageReaction.query.filter_by(message_id=msg_id).all()
+    else:
+        rows = MessageReaction.query.filter_by(group_message_id=group_msg_id).all()
+    result = {}
+    for r in rows:
+        if r.emoji not in result:
+            result[r.emoji] = {'count': 0, 'users': []}
+        result[r.emoji]['count'] += 1
+        result[r.emoji]['users'].append(r.user_id)
+    return result
+
+# ── Закреплённые сообщения ────────────────────────────────────────────────────
+
+@app.route('/chat/<int:other_id>/pin', methods=['POST'])
+def pin_message(other_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    msg_id = data.get('message_id')
+    if not msg_id:
+        return jsonify({'error': 'Укажите message_id'}), 400
+    msg = Message.query.get(msg_id)
+    if not msg or (msg.sender_id != uid and msg.receiver_id != uid):
+        return jsonify({'error': 'Нет доступа'}), 403
+    u1, u2 = min(uid, other_id), max(uid, other_id)
+    # Удаляем старое закреплённое
+    PinnedMessage.query.filter_by(user1_id=u1, user2_id=u2).delete()
+    pin = PinnedMessage(user1_id=u1, user2_id=u2, message_id=msg_id, pinned_by=uid, content_preview=(msg.content or '')[:100])
+    db.session.add(pin)
+    db.session.commit()
+    for room_uid in [uid, other_id]:
+        socketio.emit('message_pinned', {'chat_type': 'private', 'other_id': other_id, 'message_id': msg_id, 'preview': pin.content_preview}, room=f'user_{room_uid}', namespace='/')
+    return jsonify({'success': True})
+
+@app.route('/chat/<int:other_id>/unpin', methods=['POST'])
+def unpin_message(other_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    u1, u2 = min(uid, other_id), max(uid, other_id)
+    PinnedMessage.query.filter_by(user1_id=u1, user2_id=u2).delete()
+    db.session.commit()
+    for room_uid in [uid, other_id]:
+        socketio.emit('message_unpinned', {'chat_type': 'private', 'other_id': other_id}, room=f'user_{room_uid}', namespace='/')
+    return jsonify({'success': True})
+
+@app.route('/chat/<int:other_id>/pinned')
+def get_pinned_message(other_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    u1, u2 = min(uid, other_id), max(uid, other_id)
+    pin = PinnedMessage.query.filter_by(user1_id=u1, user2_id=u2).first()
+    if not pin:
+        return jsonify({'pinned': None})
+    return jsonify({'pinned': {'message_id': pin.message_id, 'preview': pin.content_preview}})
+
+@app.route('/groups/<int:group_id>/pin', methods=['POST'])
+def pin_group_message(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    if not membership or not membership.is_admin:
+        return jsonify({'error': 'Только админы могут закреплять'}), 403
+    data = request.get_json() or {}
+    msg_id = data.get('message_id')
+    msg = GroupMessage.query.get(msg_id)
+    if not msg or msg.group_id != group_id:
+        return jsonify({'error': 'Не найдено'}), 404
+    PinnedMessage.query.filter_by(group_id=group_id).delete()
+    pin = PinnedMessage(group_id=group_id, group_message_id=msg_id, pinned_by=uid, content_preview=(msg.content or '')[:100])
+    db.session.add(pin)
+    db.session.commit()
+    socketio.emit('message_pinned', {'chat_type': 'group', 'group_id': group_id, 'message_id': msg_id, 'preview': pin.content_preview}, room=f'group_{group_id}', namespace='/')
+    return jsonify({'success': True})
+
+@app.route('/groups/<int:group_id>/unpin', methods=['POST'])
+def unpin_group_message(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    if not membership or not membership.is_admin:
+        return jsonify({'error': 'Только админы могут откреплять'}), 403
+    PinnedMessage.query.filter_by(group_id=group_id).delete()
+    db.session.commit()
+    socketio.emit('message_unpinned', {'chat_type': 'group', 'group_id': group_id}, room=f'group_{group_id}', namespace='/')
+    return jsonify({'success': True})
+
+@app.route('/groups/<int:group_id>/pinned')
+def get_group_pinned(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    pin = PinnedMessage.query.filter_by(group_id=group_id).first()
+    if not pin:
+        return jsonify({'pinned': None})
+    return jsonify({'pinned': {'message_id': pin.group_message_id, 'preview': pin.content_preview}})
+
+# ── Статус "печатает..." ──────────────────────────────────────────────────────
+
+@socketio.on('typing_start')
+def on_typing_start(data):
+    if 'user_id' not in session:
+        return
+    uid = session['user_id']
+    user = User.query.get(uid)
+    name = (user.display_name or user.username) if user else '?'
+    target = data.get('to_user_id') or data.get('group_id')
+    if data.get('to_user_id'):
+        socketio.emit('user_typing', {'user_id': uid, 'name': name, 'chat_type': 'private'}, room=f'user_{target}', namespace='/')
+    elif data.get('group_id'):
+        socketio.emit('user_typing', {'user_id': uid, 'name': name, 'chat_type': 'group', 'group_id': target}, room=f'group_{target}', skip_sid=request.sid, namespace='/')
+
+@socketio.on('typing_stop')
+def on_typing_stop(data):
+    if 'user_id' not in session:
+        return
+    uid = session['user_id']
+    target = data.get('to_user_id') or data.get('group_id')
+    if data.get('to_user_id'):
+        socketio.emit('user_stop_typing', {'user_id': uid, 'chat_type': 'private'}, room=f'user_{target}', namespace='/')
+    elif data.get('group_id'):
+        socketio.emit('user_stop_typing', {'user_id': uid, 'chat_type': 'group', 'group_id': target}, room=f'group_{target}', skip_sid=request.sid, namespace='/')
+
+# ── Опросы ────────────────────────────────────────────────────────────────────
+
+@app.route('/poll/create', methods=['POST'])
+def create_poll():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json() or {}
+    question = (data.get('question') or '').strip()
+    options = data.get('options', [])
+    is_anonymous = data.get('is_anonymous', True)
+    is_multiple = data.get('is_multiple', False)
+    receiver_id = data.get('receiver_id')
+    group_id = data.get('group_id')
+    if not question or len(question) > 500:
+        return jsonify({'error': 'Укажите вопрос (до 500 символов)'}), 400
+    if len(options) < 2 or len(options) > 10:
+        return jsonify({'error': 'Нужно от 2 до 10 вариантов'}), 400
+    uid = session['user_id']
+    poll = Poll(creator_id=uid, question=question, is_anonymous=is_anonymous, is_multiple=is_multiple)
+    db.session.add(poll)
+    db.session.flush()
+    for i, opt_text in enumerate(options):
+        opt_text = str(opt_text).strip()
+        if not opt_text or len(opt_text) > 200:
+            continue
+        db.session.add(PollOption(poll_id=poll.id, text=opt_text, order_index=i))
+    # Создаём сообщение-контейнер
+    if receiver_id:
+        msg = Message(sender_id=uid, receiver_id=int(receiver_id), content=f'📊 {question}', message_type='poll')
+        db.session.add(msg)
+        db.session.flush()
+        poll.message_id = msg.id
+        db.session.commit()
+        sender = User.query.get(uid)
+        msg_data = {
+            'id': msg.id, 'sender_id': uid, 'content': msg.content,
+            'message_type': 'poll', 'poll_id': poll.id,
+            'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
+            'timestamp_iso': msg.timestamp.isoformat() + 'Z'
+        }
+        sender_info = {'id': sender.id, 'username': sender.username, 'display_name': sender.display_name or sender.username, 'avatar_color': sender.avatar_color, 'avatar_letter': sender.get_avatar_letter()}
+        socketio.emit('new_message', {'message': {**msg_data, 'is_mine': True}, 'other_user_id': int(receiver_id), 'sender_info': sender_info}, room=f'user_{uid}', namespace='/')
+        socketio.emit('new_message', {'message': {**msg_data, 'is_mine': False}, 'other_user_id': uid, 'sender_info': sender_info}, room=f'user_{receiver_id}', namespace='/')
+    elif group_id:
+        membership = GroupMember.query.filter_by(group_id=int(group_id), user_id=uid).first()
+        if not membership:
+            return jsonify({'error': 'Нет доступа'}), 403
+        msg = GroupMessage(group_id=int(group_id), sender_id=uid, content=f'📊 {question}')
+        db.session.add(msg)
+        db.session.flush()
+        poll.group_message_id = msg.id
+        db.session.commit()
+        sender = User.query.get(uid)
+        msg_data = {
+            'id': msg.id, 'sender_id': uid,
+            'sender_name': sender.display_name or sender.username,
+            'sender_avatar_color': sender.avatar_color, 'sender_avatar_letter': sender.get_avatar_letter(),
+            'content': msg.content, 'message_type': 'poll', 'poll_id': poll.id,
+            'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
+            'timestamp_iso': msg.timestamp.isoformat() + 'Z', 'media_files': []
+        }
+        socketio.emit('new_group_message', {'group_id': int(group_id), 'message': msg_data}, room=f'group_{group_id}', include_self=True, namespace='/')
+    else:
+        db.session.commit()
+    return jsonify({'success': True, 'poll_id': poll.id})
+
+@app.route('/poll/<int:poll_id>')
+def get_poll(poll_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    poll = Poll.query.get(poll_id)
+    if not poll:
+        return jsonify({'error': 'Не найдено'}), 404
+    uid = session['user_id']
+    options = PollOption.query.filter_by(poll_id=poll_id).order_by(PollOption.order_index).all()
+    total_votes = PollVote.query.filter_by(poll_id=poll_id).count()
+    my_votes = [v.option_id for v in PollVote.query.filter_by(poll_id=poll_id, user_id=uid).all()]
+    opts_data = []
+    for opt in options:
+        votes = PollVote.query.filter_by(option_id=opt.id).count()
+        opts_data.append({'id': opt.id, 'text': opt.text, 'votes': votes, 'percent': round(votes / total_votes * 100) if total_votes else 0})
+    return jsonify({'poll': {'id': poll.id, 'question': poll.question, 'is_anonymous': poll.is_anonymous, 'is_multiple': poll.is_multiple, 'total_votes': total_votes, 'my_votes': my_votes, 'options': opts_data}})
+
+@app.route('/poll/<int:poll_id>/vote', methods=['POST'])
+def vote_poll(poll_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    poll = Poll.query.get(poll_id)
+    if not poll:
+        return jsonify({'error': 'Не найдено'}), 404
+    uid = session['user_id']
+    data = request.get_json() or {}
+    option_ids = data.get('option_ids', [])
+    if not option_ids:
+        return jsonify({'error': 'Выберите вариант'}), 400
+    if not poll.is_multiple and len(option_ids) > 1:
+        option_ids = [option_ids[0]]
+    # Удаляем старые голоса
+    PollVote.query.filter_by(poll_id=poll_id, user_id=uid).delete()
+    for oid in option_ids:
+        opt = PollOption.query.filter_by(id=int(oid), poll_id=poll_id).first()
+        if opt:
+            db.session.add(PollVote(poll_id=poll_id, option_id=opt.id, user_id=uid))
+    db.session.commit()
+    # Уведомляем через Socket.IO
+    if poll.message_id:
+        msg = Message.query.get(poll.message_id)
+        if msg:
+            for room_uid in [msg.sender_id, msg.receiver_id]:
+                socketio.emit('poll_updated', {'poll_id': poll_id, 'message_id': poll.message_id}, room=f'user_{room_uid}', namespace='/')
+    elif poll.group_message_id:
+        msg = GroupMessage.query.get(poll.group_message_id)
+        if msg:
+            socketio.emit('poll_updated', {'poll_id': poll_id, 'group_message_id': poll.group_message_id}, room=f'group_{msg.group_id}', namespace='/')
+    return jsonify({'success': True})
+
+# ── Контакты ──────────────────────────────────────────────────────────────────
+
+@app.route('/contacts', methods=['GET'])
+def get_contacts():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    contacts = Contact.query.filter_by(user_id=uid).all()
+    result = []
+    for c in contacts:
+        u = c.contact
+        result.append({
+            'id': u.id, 'username': u.username,
+            'display_name': u.display_name or u.username,
+            'avatar_color': u.avatar_color, 'avatar_url': u.avatar_url,
+            'avatar_letter': u.get_avatar_letter(), 'is_verified': u.is_verified
+        })
+    return jsonify({'contacts': result})
+
+@app.route('/contacts/add', methods=['POST'])
+def add_contact():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    target_id = data.get('user_id')
+    if not target_id or int(target_id) == uid:
+        return jsonify({'error': 'Некорректный пользователь'}), 400
+    target = User.query.get(int(target_id))
+    if not target:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    existing = Contact.query.filter_by(user_id=uid, contact_id=int(target_id)).first()
+    if existing:
+        return jsonify({'success': True, 'already': True})
+    db.session.add(Contact(user_id=uid, contact_id=int(target_id)))
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/contacts/remove', methods=['POST'])
+def remove_contact():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    target_id = data.get('user_id')
+    Contact.query.filter_by(user_id=uid, contact_id=int(target_id)).delete()
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/contacts/check/<int:target_id>')
+def check_contact(target_id):
+    """Проверяет взаимность контактов"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    i_added = Contact.query.filter_by(user_id=uid, contact_id=target_id).first() is not None
+    they_added = Contact.query.filter_by(user_id=target_id, contact_id=uid).first() is not None
+    return jsonify({'i_added': i_added, 'they_added': they_added, 'mutual': i_added and they_added})
+
+# ── Пересылка сообщений ───────────────────────────────────────────────────────
+
+@app.route('/message/forward', methods=['POST'])
+def forward_message():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    sender = User.query.get(uid)
+    data = request.get_json() or {}
+    # Источник
+    msg_id = data.get('message_id')
+    group_msg_id = data.get('group_message_id')
+    # Назначение
+    to_user_id = data.get('to_user_id')
+    to_group_id = data.get('to_group_id')
+    if not (msg_id or group_msg_id) or not (to_user_id or to_group_id):
+        return jsonify({'error': 'Укажите источник и назначение'}), 400
+    # Получаем контент
+    if msg_id:
+        orig = Message.query.get(msg_id)
+        if not orig or (orig.sender_id != uid and orig.receiver_id != uid):
+            return jsonify({'error': 'Нет доступа'}), 403
+        content = orig.content
+        msg_type = orig.message_type or 'text'
+        media_url = orig.media_url
+        orig_sender = User.query.get(orig.sender_id)
+    else:
+        orig = GroupMessage.query.get(group_msg_id)
+        if not orig:
+            return jsonify({'error': 'Не найдено'}), 404
+        membership = GroupMember.query.filter_by(group_id=orig.group_id, user_id=uid).first()
+        if not membership:
+            return jsonify({'error': 'Нет доступа'}), 403
+        content = orig.content
+        msg_type = 'text'
+        media_url = None
+        orig_sender = User.query.get(orig.sender_id)
+    fwd_prefix = f'↩ Переслано от {orig_sender.display_name or orig_sender.username}:\n' if orig_sender else '↩ Переслано:\n'
+    fwd_content = fwd_prefix + content
+    if to_user_id:
+        new_msg = Message(sender_id=uid, receiver_id=int(to_user_id), content=fwd_content, message_type='text', media_url=media_url)
+        db.session.add(new_msg)
+        db.session.commit()
+        msg_data = {'id': new_msg.id, 'sender_id': uid, 'content': fwd_content, 'message_type': 'text', 'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'), 'timestamp_iso': new_msg.timestamp.isoformat() + 'Z'}
+        sender_info = {'id': sender.id, 'username': sender.username, 'display_name': sender.display_name or sender.username, 'avatar_color': sender.avatar_color, 'avatar_letter': sender.get_avatar_letter()}
+        socketio.emit('new_message', {'message': {**msg_data, 'is_mine': True}, 'other_user_id': int(to_user_id), 'sender_info': sender_info}, room=f'user_{uid}', namespace='/')
+        socketio.emit('new_message', {'message': {**msg_data, 'is_mine': False}, 'other_user_id': uid, 'sender_info': sender_info}, room=f'user_{to_user_id}', namespace='/')
+    elif to_group_id:
+        membership = GroupMember.query.filter_by(group_id=int(to_group_id), user_id=uid).first()
+        if not membership:
+            return jsonify({'error': 'Нет доступа к группе'}), 403
+        new_msg = GroupMessage(group_id=int(to_group_id), sender_id=uid, content=fwd_content)
+        db.session.add(new_msg)
+        db.session.commit()
+        msg_data = {'id': new_msg.id, 'sender_id': uid, 'sender_name': sender.display_name or sender.username, 'sender_avatar_color': sender.avatar_color, 'sender_avatar_letter': sender.get_avatar_letter(), 'content': fwd_content, 'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'), 'timestamp_iso': new_msg.timestamp.isoformat() + 'Z', 'media_files': []}
+        socketio.emit('new_group_message', {'group_id': int(to_group_id), 'message': msg_data}, room=f'group_{to_group_id}', include_self=True, namespace='/')
     return jsonify({'success': True})
 
 # Подавление ошибок разрыва соединения

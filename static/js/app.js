@@ -128,6 +128,22 @@ function connectSocketIO() {
                 setTheme(data.theme);
             }
         });
+
+        socket.on('reaction_updated', function(data) {
+            const msgId = data.message_id || data.group_message_id;
+            if (msgId && typeof renderReactions === 'function') renderReactions(msgId, data.reactions);
+        });
+
+        socket.on('message_pinned', function(data) {
+            if ((data.chat_type === 'private' && currentChatUserId) || (data.chat_type === 'group' && currentGroupId === data.group_id)) {
+                if (typeof loadPinnedMessage === 'function') loadPinnedMessage();
+            }
+        });
+
+        socket.on('message_unpinned', function(data) {
+            const bar = document.getElementById('pinned-bar');
+            if (bar) bar.style.display = 'none';
+        });
     } catch (error) {
         console.error('Failed to initialize Socket.IO:', error);
     }
@@ -381,6 +397,15 @@ function _showCtxMenu(msgEl, x, y) {
 
     if (!isDeleted && !isFav) {
         items.push({ icon: 'fa-bookmark', label: 'В избранное', _fn: () => addToFavorites(isGroup ? 'group_message' : 'message', msgId), color: '' });
+    }
+    if (!isDeleted && !isFav) {
+        items.push({ icon: 'fa-smile', label: 'Реакция', _fn: () => showReactionPicker(msgId, isGroup), color: '' });
+    }
+    if (!isDeleted && !isFav) {
+        items.push({ icon: 'fa-share', label: 'Переслать', _fn: () => showForwardModal(msgId, isGroup), color: '' });
+    }
+    if (!isDeleted && !isFav) {
+        items.push({ icon: 'fa-thumbtack', label: 'Закрепить', _fn: () => pinCurrentMessage(msgId, isGroup), color: '' });
     }
     if (isMine && !isDeleted && !isGroup && !isFav) {
         items.push({ icon: 'fa-edit', label: 'Изменить', _fn: () => editMessage(msgId), color: '' });
@@ -1092,6 +1117,9 @@ async function openChat(userId, username) {
         updateAddToChatButton();
     }
     
+    // Загружаем закреплённое сообщение
+    if (typeof loadPinnedMessage === 'function') loadPinnedMessage();
+
     // Фокус на поле ввода
     const msgInput = document.getElementById('message-input');
     if (msgInput) {
@@ -1267,7 +1295,12 @@ function createMessageHTML(msg) {
     // Обычное текстовое сообщение
     else {
         const editedText = msg.edited_at ? ` <span class="edited-text">(изм.)</span>` : '';
-        content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
+        if (msg.message_type === 'poll' && msg.poll_id) {
+            content = `<div class="poll-widget" id="poll-widget-${msg.poll_id}"><div class="poll-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка опроса...</div></div>`;
+            setTimeout(() => loadAndShowPoll(msg.poll_id, `poll-widget-${msg.poll_id}`), 50);
+        } else {
+            content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
+        }
     }
 
     return `
@@ -1673,6 +1706,8 @@ async function handleSendMessage(e) {
         const data = await response.json();
         if (data.error === 'spam_blocked') {
             showSpamblockModal(data.until);
+        } else if (data.error === 'contacts_required') {
+            showContactsRequiredModal();
         } else if (data.success) {
             messageInput.value = '';
             _cancelReply();
@@ -2704,6 +2739,9 @@ async function openGroup(groupId, groupName) {
         displayGroupMessages(data.messages);
         scrollToBottom();
         
+        // Загружаем закреплённое сообщение
+        if (typeof loadPinnedMessage === 'function') loadPinnedMessage();
+
         // Отмечаем сообщения как прочитанные
         markGroupAsRead(groupId);
     } catch (error) {
@@ -2827,7 +2865,12 @@ function createGroupMessageHTML(msg) {
     // Обычное текстовое сообщение
     else {
         const editedText = msg.edited_at ? ` <span class="edited-text">(изм.)</span>` : '';
-        content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
+        if (msg.message_type === 'poll' && msg.poll_id) {
+            content = `<div class="poll-widget" id="poll-widget-${msg.poll_id}"><div class="poll-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка опроса...</div></div>`;
+            setTimeout(() => loadAndShowPoll(msg.poll_id, `poll-widget-${msg.poll_id}`), 50);
+        } else {
+            content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
+        }
     }
 
     return `
@@ -4071,3 +4114,444 @@ function showSpamblockDetails() {
     document.getElementById('spamblock-until-text').textContent = _spamblockUntil || 'неизвестно';
     document.getElementById('spamblock-details-modal').classList.add('active');
 }
+
+// ============================================
+// РЕАКЦИИ НА СООБЩЕНИЯ
+// ============================================
+
+const REACTION_EMOJIS = ['👍','❤️','😂','😮','😢','🔥','👏','🎉'];
+
+function showReactionPicker(msgId, isGroup) {
+    // Убираем старый picker
+    document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
+    const msgEl = document.querySelector(`[data-message-id="${msgId}"]`);
+    if (!msgEl) return;
+    const picker = document.createElement('div');
+    picker.className = 'reaction-picker';
+    picker.innerHTML = REACTION_EMOJIS.map(e =>
+        `<button class="reaction-emoji-btn" onclick="sendReaction('${msgId}','${e}',${isGroup})">${e}</button>`
+    ).join('');
+    msgEl.appendChild(picker);
+    setTimeout(() => document.addEventListener('click', function h(ev) {
+        if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('click', h); }
+    }), 50);
+}
+
+async function sendReaction(msgId, emoji, isGroup) {
+    document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
+    const url = isGroup ? `/group-message/${msgId}/react` : `/message/${msgId}/react`;
+    try {
+        const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({emoji}) });
+        const d = await r.json();
+        if (d.reactions) renderReactions(msgId, d.reactions);
+    } catch(e) { console.error(e); }
+}
+
+function renderReactions(msgId, reactions) {
+    const msgEl = document.querySelector(`[data-message-id="${msgId}"]`);
+    if (!msgEl) return;
+    let bar = msgEl.querySelector('.reactions-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'reactions-bar';
+        const timeEl = msgEl.querySelector('.message-time');
+        if (timeEl) msgEl.insertBefore(bar, timeEl); else msgEl.appendChild(bar);
+    }
+    const myId = parseInt(document.body.getAttribute('data-user-id'));
+    bar.innerHTML = Object.entries(reactions).map(([emoji, data]) => {
+        const mine = data.users && data.users.includes(myId);
+        return `<span class="reaction-chip${mine?' mine':''}" onclick="sendReaction('${msgId}','${emoji}',${msgEl.dataset.isGroup==='1'})">${emoji} ${data.count}</span>`;
+    }).join('');
+    if (!Object.keys(reactions).length) bar.remove();
+}
+
+// Socket.IO обработчик реакций
+if (typeof socket !== 'undefined' && socket) {
+    socket.on('reaction_updated', function(data) {
+        const msgId = data.message_id || data.group_message_id;
+        if (msgId) renderReactions(msgId, data.reactions);
+    });
+}
+
+window.showReactionPicker = showReactionPicker;
+window.sendReaction = sendReaction;
+window.renderReactions = renderReactions;
+
+// ============================================
+// СТАТУС "ПЕЧАТАЕТ..."
+// ============================================
+
+let _typingTimer = null;
+let _isTyping = false;
+
+function setupTypingIndicator() {
+    const input = document.getElementById('message-input');
+    if (!input) return;
+    input.addEventListener('input', function() {
+        if (!socket || !socket.connected) return;
+        if (!_isTyping) {
+            _isTyping = true;
+            if (currentChatUserId) socket.emit('typing_start', {to_user_id: currentChatUserId});
+            else if (currentGroupId) socket.emit('typing_start', {group_id: currentGroupId});
+        }
+        clearTimeout(_typingTimer);
+        _typingTimer = setTimeout(() => {
+            _isTyping = false;
+            if (currentChatUserId) socket.emit('typing_stop', {to_user_id: currentChatUserId});
+            else if (currentGroupId) socket.emit('typing_stop', {group_id: currentGroupId});
+        }, 2000);
+    });
+}
+
+function showTypingIndicator(name) {
+    let el = document.getElementById('typing-indicator');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'typing-indicator';
+        el.className = 'typing-indicator';
+        const container = document.getElementById('messages-container');
+        if (container) container.appendChild(el);
+    }
+    el.innerHTML = `<span class="typing-dots"><span></span><span></span><span></span></span> <span>${escapeHtml(name)} печатает...</span>`;
+    el.style.display = 'flex';
+    scrollToBottom();
+}
+
+function hideTypingIndicator(userId) {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupTypingIndicator();
+    // Socket.IO typing handlers
+    const waitForSocket = setInterval(() => {
+        if (window.socket) {
+            clearInterval(waitForSocket);
+            window.socket.on('user_typing', function(data) {
+                if (data.chat_type === 'private' && currentChatUserId) {
+                    showTypingIndicator(data.name);
+                } else if (data.chat_type === 'group' && currentGroupId === data.group_id) {
+                    showTypingIndicator(data.name);
+                }
+            });
+            window.socket.on('user_stop_typing', function(data) {
+                if (data.chat_type === 'private' && currentChatUserId) hideTypingIndicator();
+                else if (data.chat_type === 'group' && currentGroupId === data.group_id) hideTypingIndicator();
+            });
+        }
+    }, 500);
+});
+
+// ============================================
+// ОПРОСЫ
+// ============================================
+
+function showPollModal() {
+    if (!currentChatUserId && !currentGroupId) { showError('Сначала откройте чат'); return; }
+    const modal = document.createElement('div');
+    modal.id = 'poll-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;">
+            <h3 style="margin-bottom:16px;"><i class="fas fa-poll"></i> Создать опрос</h3>
+            <div class="form-group">
+                <label>Вопрос</label>
+                <input type="text" id="poll-question" placeholder="Введите вопрос..." maxlength="500" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;">
+            </div>
+            <div id="poll-options-list">
+                <div class="form-group"><input type="text" class="poll-option-input" placeholder="Вариант 1" maxlength="200" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
+                <div class="form-group"><input type="text" class="poll-option-input" placeholder="Вариант 2" maxlength="200" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;"></div>
+            </div>
+            <button onclick="addPollOption()" style="background:none;border:1px dashed #667eea;color:#667eea;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;margin-bottom:12px;width:100%;">+ Добавить вариант</button>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="poll-anonymous" checked> Анонимный
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" id="poll-multiple"> Несколько ответов
+                </label>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="submitPoll()" class="btn btn-primary" style="flex:1;">Создать</button>
+                <button onclick="document.getElementById('poll-modal').remove()" class="btn" style="flex:1;background:#e2e8f0;color:#4a5568;">Отмена</button>
+            </div>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+
+function addPollOption() {
+    const list = document.getElementById('poll-options-list');
+    const count = list.querySelectorAll('.poll-option-input').length;
+    if (count >= 10) { showError('Максимум 10 вариантов'); return; }
+    const div = document.createElement('div');
+    div.className = 'form-group';
+    div.innerHTML = `<input type="text" class="poll-option-input" placeholder="Вариант ${count+1}" maxlength="200" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;">`;
+    list.appendChild(div);
+}
+
+async function submitPoll() {
+    const question = document.getElementById('poll-question').value.trim();
+    const options = [...document.querySelectorAll('.poll-option-input')].map(i => i.value.trim()).filter(Boolean);
+    const isAnonymous = document.getElementById('poll-anonymous').checked;
+    const isMultiple = document.getElementById('poll-multiple').checked;
+    if (!question) { showError('Введите вопрос'); return; }
+    if (options.length < 2) { showError('Нужно минимум 2 варианта'); return; }
+    const body = { question, options, is_anonymous: isAnonymous, is_multiple: isMultiple };
+    if (currentChatUserId) body.receiver_id = currentChatUserId;
+    else if (currentGroupId) body.group_id = currentGroupId;
+    try {
+        const r = await fetch('/poll/create', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const d = await r.json();
+        if (d.success) { document.getElementById('poll-modal').remove(); showError('Опрос создан!', 'success'); }
+        else showError(d.error || 'Ошибка');
+    } catch(e) { showError('Ошибка создания опроса'); }
+}
+
+async function loadAndShowPoll(pollId, msgEl) {
+    try {
+        const r = await fetch(`/poll/${pollId}`);
+        const d = await r.json();
+        if (!d.poll) return;
+        const poll = d.poll;
+        let html = `<div class="poll-widget" data-poll-id="${poll.id}">
+            <div class="poll-question">${escapeHtml(poll.question)}</div>
+            <div class="poll-options">`;
+        poll.options.forEach(opt => {
+            const voted = poll.my_votes.includes(opt.id);
+            html += `<div class="poll-option${voted?' voted':''}" onclick="votePoll(${poll.id},[${opt.id}])">
+                <div class="poll-option-bar" style="width:${opt.percent}%"></div>
+                <span class="poll-option-text">${escapeHtml(opt.text)}</span>
+                <span class="poll-option-percent">${opt.percent}%</span>
+            </div>`;
+        });
+        html += `</div><div class="poll-footer">${poll.total_votes} голосов${poll.is_anonymous?' • Анонимный':''}</div></div>`;
+        const contentEl = msgEl.querySelector('.message-content');
+        if (contentEl) contentEl.innerHTML = html;
+    } catch(e) { console.error(e); }
+}
+
+async function votePoll(pollId, optionIds) {
+    try {
+        const r = await fetch(`/poll/${pollId}/vote`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({option_ids: optionIds}) });
+        const d = await r.json();
+        if (d.success) {
+            // Перезагружаем опрос
+            const msgEl = document.querySelector(`[data-poll-id="${pollId}"]`)?.closest('.message');
+            if (msgEl) loadAndShowPoll(pollId, msgEl);
+        }
+    } catch(e) { console.error(e); }
+}
+
+// Обработка poll_updated через Socket.IO
+document.addEventListener('DOMContentLoaded', function() {
+    const waitForSocket2 = setInterval(() => {
+        if (window.socket) {
+            clearInterval(waitForSocket2);
+            window.socket.on('poll_updated', function(data) {
+                const msgEl = document.querySelector(`[data-poll-id="${data.poll_id}"]`)?.closest('.message');
+                if (msgEl) loadAndShowPoll(data.poll_id, msgEl);
+            });
+        }
+    }, 500);
+});
+
+window.showPollModal = showPollModal;
+window.addPollOption = addPollOption;
+window.submitPoll = submitPoll;
+window.votePoll = votePoll;
+
+// ============================================
+// ПЕРЕСЫЛКА СООБЩЕНИЙ
+// ============================================
+
+function showForwardModal(msgId, isGroup) {
+    const modal = document.createElement('div');
+    modal.id = 'forward-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:400px;width:100%;max-height:70vh;overflow-y:auto;">
+            <h3 style="margin-bottom:16px;"><i class="fas fa-share"></i> Переслать сообщение</h3>
+            <input type="text" id="forward-search" placeholder="Поиск чата..." style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;" oninput="filterForwardList(this.value)">
+            <div id="forward-list" style="max-height:300px;overflow-y:auto;"></div>
+            <button onclick="document.getElementById('forward-modal').remove()" style="margin-top:12px;width:100%;padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Отмена</button>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    _loadForwardList(msgId, isGroup);
+}
+
+let _forwardChats = [];
+async function _loadForwardList(msgId, isGroup) {
+    const listEl = document.getElementById('forward-list');
+    try {
+        const [usersR, groupsR] = await Promise.all([fetch('/users'), fetch('/groups')]);
+        const usersD = await usersR.json();
+        const groupsD = await groupsR.json();
+        _forwardChats = [
+            ...(usersD.users || []).map(u => ({type:'user', id:u.id, name:u.display_name||u.username, msgId, isGroup})),
+            ...(groupsD.groups || []).map(g => ({type:'group', id:g.id, name:g.name, msgId, isGroup}))
+        ];
+        _renderForwardList(_forwardChats);
+    } catch(e) { listEl.innerHTML = '<p style="color:#e53e3e;">Ошибка загрузки</p>'; }
+}
+
+function _renderForwardList(chats) {
+    const listEl = document.getElementById('forward-list');
+    if (!listEl) return;
+    listEl.innerHTML = chats.map(c => `
+        <div onclick="doForward('${c.type}',${c.id},${c.msgId},${c.isGroup})" style="padding:10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f0f4f8'" onmouseout="this.style.background=''">
+            <div style="width:36px;height:36px;border-radius:50%;background:#667eea;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:600;flex-shrink:0;">${escapeHtml(c.name[0].toUpperCase())}</div>
+            <span style="font-size:14px;">${escapeHtml(c.name)}</span>
+        </div>`).join('');
+}
+
+function filterForwardList(q) {
+    const filtered = q ? _forwardChats.filter(c => c.name.toLowerCase().includes(q.toLowerCase())) : _forwardChats;
+    _renderForwardList(filtered);
+}
+
+async function doForward(type, targetId, msgId, isGroup) {
+    document.getElementById('forward-modal')?.remove();
+    const body = {};
+    if (isGroup) body.group_message_id = msgId; else body.message_id = msgId;
+    if (type === 'user') body.to_user_id = targetId; else body.to_group_id = targetId;
+    try {
+        const r = await fetch('/message/forward', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const d = await r.json();
+        if (d.success) showError('Сообщение переслано', 'success');
+        else showError(d.error || 'Ошибка пересылки');
+    } catch(e) { showError('Ошибка пересылки'); }
+}
+
+window.showForwardModal = showForwardModal;
+window.filterForwardList = filterForwardList;
+window.doForward = doForward;
+
+// ============================================
+// ЗАКРЕПЛЁННЫЕ СООБЩЕНИЯ
+// ============================================
+
+async function loadPinnedMessage() {
+    const bar = document.getElementById('pinned-bar');
+    if (!bar) return;
+    try {
+        let url = '';
+        if (currentGroupId) url = `/groups/${currentGroupId}/pinned`;
+        else if (currentChatUserId) url = `/chat/${currentChatUserId}/pinned`;
+        else { bar.style.display = 'none'; return; }
+        const r = await fetch(url);
+        const d = await r.json();
+        if (d.pinned) {
+            bar.style.display = 'flex';
+            bar.querySelector('.pinned-preview').textContent = d.pinned.preview || 'Закреплённое сообщение';
+            bar.dataset.msgId = d.pinned.message_id;
+        } else {
+            bar.style.display = 'none';
+        }
+    } catch(e) { bar.style.display = 'none'; }
+}
+
+function scrollToPinned() {
+    const bar = document.getElementById('pinned-bar');
+    if (!bar || !bar.dataset.msgId) return;
+    scrollToMsg(bar.dataset.msgId);
+}
+
+async function pinCurrentMessage(msgId, isGroup) {
+    const url = isGroup ? `/groups/${currentGroupId}/pin` : `/chat/${currentChatUserId}/pin`;
+    const body = isGroup ? {message_id: msgId} : {message_id: msgId};
+    try {
+        const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const d = await r.json();
+        if (d.success) { showError('Сообщение закреплено', 'success'); loadPinnedMessage(); }
+        else showError(d.error || 'Ошибка');
+    } catch(e) { showError('Ошибка'); }
+}
+
+// Socket.IO для закреплённых — обработчик добавлен в connectSocketIO
+
+window.loadPinnedMessage = loadPinnedMessage;
+window.scrollToPinned = scrollToPinned;
+window.pinCurrentMessage = pinCurrentMessage;
+
+// ============================================
+// КОНТАКТЫ
+// ============================================
+
+async function showContactsModal() {
+    const modal = document.createElement('div');
+    modal.id = 'contacts-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:400px;width:100%;max-height:70vh;overflow-y:auto;">
+            <h3 style="margin-bottom:16px;"><i class="fas fa-address-book"></i> Контакты</h3>
+            <div id="contacts-list-modal" style="max-height:400px;overflow-y:auto;"></div>
+            <button onclick="document.getElementById('contacts-modal').remove()" style="margin-top:12px;width:100%;padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Закрыть</button>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    const r = await fetch('/contacts');
+    const d = await r.json();
+    const listEl = document.getElementById('contacts-list-modal');
+    if (!d.contacts || !d.contacts.length) {
+        listEl.innerHTML = '<p style="color:#a0aec0;text-align:center;padding:20px;">Контактов пока нет</p>';
+        return;
+    }
+    listEl.innerHTML = d.contacts.map(c => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;cursor:pointer;" onclick="openChat(${c.id},'${escapeHtml(c.display_name||c.username)}');document.getElementById('contacts-modal').remove();">
+            <div style="width:40px;height:40px;border-radius:50%;background:${c.avatar_color};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex-shrink:0;">${escapeHtml(c.avatar_letter)}</div>
+            <div style="flex:1;">
+                <div style="font-weight:600;font-size:14px;">${escapeHtml(c.display_name||c.username)}</div>
+                <div style="font-size:12px;color:#a0aec0;">@${escapeHtml(c.username)}</div>
+            </div>
+            <button onclick="event.stopPropagation();removeContact(${c.id},this)" style="background:none;border:none;color:#e53e3e;cursor:pointer;font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #e53e3e;">Удалить</button>
+        </div>`).join('');
+}
+
+async function addContactFromChat() {
+    if (!currentChatUserId) return;
+    const r = await fetch('/contacts/add', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user_id: currentChatUserId}) });
+    const d = await r.json();
+    if (d.success) showError(d.already ? 'Уже в контактах' : 'Добавлен в контакты', 'success');
+    else showError(d.error || 'Ошибка');
+}
+
+async function removeContact(userId, btn) {
+    const r = await fetch('/contacts/remove', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user_id: userId}) });
+    const d = await r.json();
+    if (d.success) { btn.closest('div[style]').remove(); showError('Контакт удалён', 'success'); }
+}
+
+window.showContactsModal = showContactsModal;
+window.addContactFromChat = addContactFromChat;
+window.removeContact = removeContact;
+
+// Обработка ошибки contacts_required при отправке
+const _origDoSendText = window._doSendText;
+// Патчим handleSendMessage для обработки contacts_required
+const _origHandleSendMessage = window.handleSendMessage;
+
+function showContactsRequiredModal() {
+    let modal = document.getElementById('contacts-required-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'contacts-required-modal';
+        modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+            <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:28px 24px;max-width:360px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="font-size:40px;margin-bottom:12px;">👥</div>
+                <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Нужны взаимные контакты</h3>
+                <p style="color:#718096;font-size:14px;margin-bottom:20px;">Чтобы написать этому пользователю, добавьте его в контакты. Когда он тоже добавит вас — вы сможете общаться.</p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button onclick="addContactFromChat();document.getElementById('contacts-required-modal').style.display='none';" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;">Добавить в контакты</button>
+                    <button onclick="document.getElementById('contacts-required-modal').style.display='none';" style="background:#e2e8f0;color:#4a5568;border:none;border-radius:10px;padding:10px 20px;font-size:14px;cursor:pointer;">Отмена</button>
+                </div>
+            </div>`;
+        modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'flex';
+}
+window.showContactsRequiredModal = showContactsRequiredModal;

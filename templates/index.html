@@ -37,6 +37,9 @@
                 <a href="/bots" class="icon-btn" title="Мои боты">
                     <i class="fas fa-robot"></i>
                 </a>
+                <button class="icon-btn" onclick="showContactsModal()" title="Контакты">
+                    <i class="fas fa-address-book"></i>
+                </button>
                 {% if user.is_admin %}
                 <a href="/admin" class="icon-btn" title="Админ панель">
                     <i class="fas fa-shield-alt"></i>
@@ -104,12 +107,22 @@
                 <button class="icon-btn" id="add-to-chat-btn" onclick="showAddToChatModal()" title="Добавить в чат" style="display: none;">
                     <i class="fas fa-user-plus"></i>
                 </button>
+                <button class="icon-btn" onclick="addContactFromChat()" title="Добавить в контакты">
+                    <i class="fas fa-user-plus"></i>
+                </button>
                 <button class="icon-btn" onclick="viewChatInfo()" title="Информация">
                     <i class="fas fa-info-circle"></i>
                 </button>
-                <button class="icon-btn"    onclick="showReportModal()" title="Пожаловаться">
+                <button class="icon-btn" onclick="showReportModal()" title="Пожаловаться">
                     <i class="fas fa-flag"></i>
                 </button>
+            </div>
+
+            <!-- Закреплённое сообщение -->
+            <div class="pinned-bar" id="pinned-bar" onclick="scrollToPinned()">
+                <i class="fas fa-thumbtack pinned-icon"></i>
+                <span class="pinned-label">Закреплено</span>
+                <span class="pinned-preview"></span>
             </div>
             
             <div class="messages-container" id="messages-container">
@@ -124,6 +137,9 @@
                     </button>
                     <button type="button" class="media-btn" id="video-circle-btn" title="Видео кружочек">
                         <i class="fas fa-video"></i>
+                    </button>
+                    <button type="button" class="media-btn" id="poll-btn" title="Создать опрос" onclick="showPollModal()">
+                        <i class="fas fa-poll"></i>
                     </button>
                     <input type="text" id="message-input" 
                            placeholder="Введите сообщение..." autocomplete="off">
