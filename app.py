@@ -1396,7 +1396,7 @@ def _pay_main_kb():
 def payment_webhook():
     token = os.environ.get('PAYMENT_BOT_TOKEN', '8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M')
     owner_tg_id = int(os.environ.get('OWNER_TELEGRAM_ID', '8081350794'))
-    site_url_pay = os.environ.get('SITE_URL', 'https://hi-latest.onrender.com')
+    site_url_pay = os.environ.get('SITE_URL', 'https://hi-j5rs.onrender.com')
     pay_secret = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
     data = request.get_json(silent=True) or {}
 
