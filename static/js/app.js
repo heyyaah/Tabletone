@@ -1254,16 +1254,8 @@ function displayMessages(messages) {
 function createMessageHTML(msg) {
     const messageClass = msg.is_mine ? 'sent' : 'received';
 
-    // Удалённое сообщение
-    if (msg.is_deleted) {
-        return `
-        <div class="message ${messageClass}" data-message-id="${msg.id}" data-is-mine="${msg.is_mine ? '1' : '0'}" data-is-deleted="1">
-            <div class="message-content" style="color:var(--text-secondary);font-style:italic;opacity:0.7;">
-                <i class="fas fa-ban" style="font-size:11px;margin-right:4px;"></i>Сообщение удалено
-            </div>
-            <div class="message-time">${msg.timestamp_iso ? formatMsgTime(msg.timestamp_iso) : msg.timestamp}</div>
-        </div>`;
-    }
+    // Удалённые сообщения не показываем
+    if (msg.is_deleted) return '';
 
     let content = '';
     
@@ -1450,18 +1442,10 @@ function updateMessageContent(messageId, content, editedAt) {
 function updateMessageDeleted(messageId) {
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!messageEl) return;
-
-    messageEl.dataset.isDeleted = '1';
-
-    // Убираем всё содержимое кроме времени и заменяем на плашку
-    const timeEl = messageEl.querySelector('.message-time');
-    const timeHtml = timeEl ? timeEl.outerHTML : '';
-    messageEl.innerHTML = `
-        <div class="message-content" style="color:var(--text-secondary);font-style:italic;opacity:0.7;">
-            <i class="fas fa-ban" style="font-size:11px;margin-right:4px;"></i>Сообщение удалено
-        </div>
-        ${timeHtml}
-    `;
+    messageEl.style.transition = 'opacity 0.3s, transform 0.3s';
+    messageEl.style.opacity = '0';
+    messageEl.style.transform = 'scale(0.95)';
+    setTimeout(() => messageEl.remove(), 300);
 }
 
 // Экспорт функций в глобальную область видимости
@@ -3676,9 +3660,10 @@ async function deleteGroupMessage(messageId) {
         if (d.success) {
             const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
             if (msgEl) {
-                const contentEl = msgEl.querySelector('.message-content');
-                if (contentEl) contentEl.textContent = '[Сообщение удалено]';
-                msgEl.dataset.isDeleted = '1';
+                msgEl.style.transition = 'opacity 0.3s, transform 0.3s';
+                msgEl.style.opacity = '0';
+                msgEl.style.transform = 'scale(0.95)';
+                setTimeout(() => msgEl.remove(), 300);
             }
         } else {
             showError(d.error || 'Ошибка удаления');
