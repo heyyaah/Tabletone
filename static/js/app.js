@@ -2038,6 +2038,16 @@ async function handleSendMessage(e) {
     if (!content) return;
     _isSending = true;
 
+    // Сразу останавливаем индикатор печатания
+    if (_isTyping) {
+        _isTyping = false;
+        clearTimeout(_typingTimer);
+        if (socket && socket.connected) {
+            if (currentChatUserId) socket.emit('typing_stop', { to_user_id: currentChatUserId });
+            else if (currentGroupId) socket.emit('typing_stop', { group_id: currentGroupId });
+        }
+    }
+
     // Если открыто Избранное — сохраняем как заметку
     if (_favoritesOpen && !currentChatUserId && !currentGroupId) {
         try {
