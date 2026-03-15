@@ -1291,6 +1291,14 @@ function createMessageHTML(msg) {
         
         content = mediaHtml;
     }
+    // Стикер
+    else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
+        const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : msg.media_url;
+        const packId = msg.sticker_pack_id || '';
+        content = `<div class="sticker-message" onclick="viewStickerPackBySticker('${stickerUrl}',${packId||'null'})">
+            <img src="${stickerUrl}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
+        </div>`;
+    }
     // Видео кружочек
     else if (msg.message_type === 'video_note' && msg.media_url) {
         content = `
@@ -2888,6 +2896,13 @@ function createGroupMessageHTML(msg) {
         
         content = mediaHtml;
     }
+    // Стикер (группа)
+    else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
+        const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : '';
+        content = `<div class="sticker-message" onclick="viewStickerPackBySticker('${stickerUrl}',null)">
+            <img src="${stickerUrl}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
+        </div>`;
+    }
     // Обычное текстовое сообщение
     else {
         const editedText = msg.edited_at ? ` <span class="edited-text">(изм.)</span>` : '';
@@ -4184,23 +4199,28 @@ function showSpamblockDetails() {
 
 const REACTION_EMOJIS = ['👍','❤️','😂','😮','😢','🔥','👏','🎉'];
 
-function showReactionPicker(msgId, isGroup) {
+async function showReactionPicker(msgId, isGroup) {
     document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
-    // Ищем кнопку реакции или само сообщение
     const triggerEl = document.querySelector(`[data-message-id="${msgId}"] .reaction-trigger`)
                    || document.querySelector(`[data-message-id="${msgId}"]`);
     if (!triggerEl) return;
 
     const picker = document.createElement('div');
     picker.className = 'reaction-picker';
-    picker.style.cssText = 'position:fixed;z-index:9999;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:24px;padding:6px 10px;display:flex;gap:4px;box-shadow:0 4px 20px rgba(0,0,0,0.2);';
-    picker.innerHTML = REACTION_EMOJIS.map(e =>
+    picker.style.cssText = 'position:fixed;z-index:9999;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:24px;padding:6px 10px;display:flex;flex-wrap:wrap;gap:4px;box-shadow:0 4px 20px rgba(0,0,0,0.2);max-width:320px;';
+
+    let html = REACTION_EMOJIS.map(e =>
         `<button class="reaction-emoji-btn" onclick="sendReaction('${msgId}','${e}',${isGroup})" style="background:none;border:none;cursor:pointer;font-size:22px;padding:2px 3px;border-radius:8px;transition:transform .1s;" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'">${e}</button>`
     ).join('');
 
+    if (_isPremium) {
+        html += `<button id="custom-reaction-toggle" onclick="_toggleCustomReactions('${msgId}',${isGroup},this)" style="background:linear-gradient(135deg,#667eea,#764ba2);border:none;cursor:pointer;font-size:13px;padding:3px 8px;border-radius:8px;color:#fff;font-weight:600;" title="Кастомные реакции">✨</button>`;
+    }
+
+    picker.innerHTML = html;
+
     const rect = triggerEl.getBoundingClientRect();
     document.body.appendChild(picker);
-    // Даём браузеру отрендерить для получения размеров
     requestAnimationFrame(() => {
         const pw = picker.offsetWidth || 320;
         const ph = picker.offsetHeight || 48;
@@ -4217,6 +4237,105 @@ function showReactionPicker(msgId, isGroup) {
         if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('click', h); }
     }), 50);
 }
+
+// Показать/скрыть кастомные реакции в пикере (только Premium)
+async function _toggleCustomReactions(msgId, isGroup, btn) {
+    const picker = btn.closest('.reaction-picker');
+    const existing = picker.querySelector('.custom-reactions-row');
+    if (existing) { existing.remove(); return; }
+
+    const row = document.createElement('div');
+    row.className = 'custom-reactions-row';
+    row.style.cssText = 'width:100%;display:flex;flex-wrap:wrap;gap:4px;padding-top:6px;border-top:1px solid var(--border-color);margin-top:4px;';
+    row.innerHTML = '<span style="font-size:11px;color:var(--text-secondary);width:100%;padding:0 2px;">Мои реакции:</span>';
+
+    try {
+        const r = await fetch('/reactions/my');
+        const d = await r.json();
+        if (d.error === 'premium_required') { showPremiumModal('Кастомные реакции доступны только для Premium'); return; }
+        const allPacks = [...(d.owned || []), ...(d.added || [])];
+        if (!allPacks.length) {
+            row.innerHTML += '<span style="font-size:12px;color:var(--text-secondary);padding:4px;">Нет кастомных реакций. Создайте пак!</span>';
+        } else {
+            allPacks.forEach(pack => {
+                pack.reactions.forEach(rx => {
+                    const img = document.createElement('img');
+                    img.src = rx.image_url;
+                    img.dataset.reactionId = rx.id;
+                    img.dataset.packId = pack.id;
+                    img.style.cssText = 'width:32px;height:32px;object-fit:contain;cursor:pointer;border-radius:6px;padding:1px;transition:transform .1s;';
+                    img.title = rx.name + ' (ПКМ — посмотреть пак)';
+                    img.onmouseover = () => img.style.transform = 'scale(1.3)';
+                    img.onmouseout = () => img.style.transform = 'scale(1)';
+                    img.onclick = () => sendCustomReaction(msgId, rx.id, rx.image_url, isGroup);
+                    img.oncontextmenu = (e) => { e.preventDefault(); viewReactionPack(pack.id); };
+                    row.appendChild(img);
+                });
+            });
+        }
+    } catch(e) {
+        row.innerHTML += '<span style="font-size:12px;color:#e53e3e;">Ошибка загрузки</span>';
+    }
+    picker.appendChild(row);
+}
+window._toggleCustomReactions = _toggleCustomReactions;
+
+// Отправить кастомную реакцию (изображение)
+async function sendCustomReaction(msgId, reactionId, imageUrl, isGroup) {
+    document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
+    const url = isGroup ? `/group-message/${msgId}/react` : `/message/${msgId}/react`;
+    // Используем URL изображения как emoji-ключ для кастомных реакций
+    try {
+        const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({emoji: imageUrl, is_custom: true, reaction_id: reactionId}) });
+        const d = await r.json();
+        if (d.reactions) renderReactions(msgId, d.reactions);
+    } catch(e) { console.error(e); }
+}
+window.sendCustomReaction = sendCustomReaction;
+
+// Просмотр пака реакций (по ПКМ на реакцию)
+async function viewReactionPack(packId) {
+    try {
+        const r = await fetch(`/reactions/pack/${packId}`);
+        const d = await r.json();
+        if (d.error) { showError(d.error); return; }
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:380px;padding:0;overflow:hidden;">
+                <div class="modal-header" style="padding:14px 18px;">
+                    <h2 style="font-size:16px;">✨ ${escapeHtml(d.name)}</h2>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
+                </div>
+                <div style="padding:12px;display:flex;flex-wrap:wrap;gap:6px;max-height:300px;overflow-y:auto;">
+                    ${d.reactions.map(rx => `<img src="${rx.image_url}" title="${escapeHtml(rx.name)}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;" loading="lazy">`).join('')}
+                </div>
+                <div style="padding:12px;border-top:1px solid var(--border-color);">
+                    ${!d.is_added && !d.is_owner ? `<button onclick="addReactionPackFromModal(${d.id},this)" style="width:100%;padding:9px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">✨ Добавить пак реакций</button>`
+                    : `<div style="text-align:center;color:var(--text-secondary);font-size:13px;">✓ Пак уже в коллекции</div>`}
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    } catch(e) { showError('Ошибка загрузки пака реакций'); }
+}
+window.viewReactionPack = viewReactionPack;
+
+async function addReactionPackFromModal(packId, btn) {
+    btn.disabled = true; btn.textContent = 'Добавление...';
+    try {
+        const r = await fetch(`/reactions/pack/${packId}/add`, { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+            btn.textContent = '✓ Добавлено';
+            btn.style.background = '#38a169';
+        } else if (d.error === 'premium_required') {
+            showPremiumModal('Кастомные реакции доступны только для Premium');
+            btn.disabled = false; btn.textContent = '✨ Добавить пак реакций';
+        } else { showError(d.error || 'Ошибка'); btn.disabled = false; }
+    } catch(e) { showError('Ошибка'); btn.disabled = false; }
+}
+window.addReactionPackFromModal = addReactionPackFromModal;
 
 async function sendReaction(msgId, emoji, isGroup) {
     document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
@@ -4241,7 +4360,13 @@ function renderReactions(msgId, reactions) {
     const myId = parseInt(document.body.getAttribute('data-user-id'));
     bar.innerHTML = Object.entries(reactions).map(([emoji, data]) => {
         const mine = data.users && data.users.includes(myId);
-        return `<span class="reaction-chip${mine?' mine':''}" onclick="sendReaction('${msgId}','${emoji}',${msgEl.dataset.isGroup==='1'})">${emoji} ${data.count}</span>`;
+        const isCustom = emoji.startsWith('/static/') || emoji.startsWith('http');
+        const emojiHtml = isCustom
+            ? `<img src="${emoji}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;border-radius:3px;">`
+            : emoji;
+        const packId = data.pack_id || '';
+        const ctxAttr = isCustom && packId ? `oncontextmenu="event.preventDefault();viewReactionPack(${packId})"` : '';
+        return `<span class="reaction-chip${mine?' mine':''}" onclick="sendReaction('${msgId}','${emoji.replace(/'/g,"\\'")}',${msgEl.dataset.isGroup==='1'})" ${ctxAttr} title="${isCustom ? 'ПКМ — посмотреть пак' : ''}">${emojiHtml} ${data.count}</span>`;
     }).join('');
     if (!Object.keys(reactions).length) bar.remove();
 }
@@ -5219,3 +5344,216 @@ async function transferGroup(groupId) {
     } catch(e) { showError('Ошибка передачи'); }
 }
 window.transferGroup = transferGroup;
+
+// ===== СТИКЕРЫ =====
+
+let _stickerPanelOpen = false;
+let _stickerPacks = [];
+
+async function toggleStickerPanel() {
+    const existing = document.getElementById('sticker-panel');
+    if (existing) { existing.remove(); _stickerPanelOpen = false; return; }
+    _stickerPanelOpen = true;
+    const panel = document.createElement('div');
+    panel.id = 'sticker-panel';
+    panel.style.cssText = 'position:absolute;bottom:60px;right:0;width:320px;max-height:380px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:1000;display:flex;flex-direction:column;overflow:hidden;';
+    panel.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border-color);flex-shrink:0;">
+            <span style="font-weight:600;font-size:14px;">Стикеры</span>
+            <button onclick="showCreateStickerPackModal()" style="background:var(--primary-color);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;">+ Создать</button>
+        </div>
+        <div id="sticker-panel-body" style="overflow-y:auto;flex:1;padding:8px;"></div>
+    `;
+    // Вставляем относительно input-area
+    const inputArea = document.querySelector('.message-input-container') || document.querySelector('.input-area') || document.querySelector('#message-input')?.parentElement;
+    if (inputArea) {
+        inputArea.style.position = 'relative';
+        inputArea.appendChild(panel);
+    } else {
+        document.body.appendChild(panel);
+    }
+    await _loadStickerPanel();
+    setTimeout(() => document.addEventListener('click', function h(e) {
+        if (!panel.contains(e.target) && !e.target.closest('#sticker-btn')) {
+            panel.remove(); _stickerPanelOpen = false;
+            document.removeEventListener('click', h);
+        }
+    }), 100);
+}
+window.toggleStickerPanel = toggleStickerPanel;
+
+async function _loadStickerPanel() {
+    const body = document.getElementById('sticker-panel-body');
+    if (!body) return;
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Загрузка...</div>';
+    try {
+        const r = await fetch('/stickers/my');
+        const d = await r.json();
+        const allPacks = [...(d.owned || []), ...(d.added || [])];
+        _stickerPacks = allPacks;
+        if (!allPacks.length) {
+            body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">Нет стикеров.<br>Создайте свой пак!</div>';
+            return;
+        }
+        body.innerHTML = '';
+        allPacks.forEach(pack => {
+            const section = document.createElement('div');
+            section.style.cssText = 'margin-bottom:12px;';
+            section.innerHTML = `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;padding:0 4px;">${escapeHtml(pack.name)}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                ${pack.stickers.map(s => `
+                    <img src="${s.image_url}" data-sticker-id="${s.id}" data-pack-id="${pack.id}"
+                         style="width:60px;height:60px;object-fit:contain;cursor:pointer;border-radius:8px;padding:2px;transition:background .15s;"
+                         onmouseover="this.style.background='var(--hover-color)'" onmouseout="this.style.background=''"
+                         onclick="sendStickerFromPanel(${s.id})"
+                         title="Нажмите чтобы отправить">`
+                ).join('')}
+            </div>`;
+            body.appendChild(section);
+        });
+    } catch(e) {
+        body.innerHTML = '<div style="text-align:center;padding:20px;color:#e53e3e;">Ошибка загрузки</div>';
+    }
+}
+
+async function sendStickerFromPanel(stickerId) {
+    document.getElementById('sticker-panel')?.remove();
+    _stickerPanelOpen = false;
+    const payload = { sticker_id: stickerId };
+    if (currentGroupId) payload.group_id = currentGroupId;
+    else if (currentChatUserId) payload.receiver_id = currentChatUserId;
+    else return;
+    try {
+        await fetch('/stickers/send', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+    } catch(e) { showError('Ошибка отправки стикера'); }
+}
+window.sendStickerFromPanel = sendStickerFromPanel;
+
+// Просмотр пака стикеров по клику на стикер в чате
+async function viewStickerPack(packId) {
+    try {
+        const r = await fetch(`/stickers/pack/${packId}`);
+        const d = await r.json();
+        if (d.error) { showError(d.error); return; }
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:380px;padding:0;overflow:hidden;">
+                <div class="modal-header" style="padding:14px 18px;">
+                    <h2 style="font-size:16px;">🎨 ${escapeHtml(d.name)}</h2>
+                    <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
+                </div>
+                <div style="padding:12px;display:flex;flex-wrap:wrap;gap:6px;max-height:300px;overflow-y:auto;">
+                    ${d.stickers.map(s => `<img src="${s.image_url}" style="width:72px;height:72px;object-fit:contain;border-radius:8px;">`).join('')}
+                </div>
+                <div style="padding:12px;border-top:1px solid var(--border-color);">
+                    ${!d.is_added && !d.is_owner ? `<button onclick="addStickerPackFromModal(${d.id},this)" style="width:100%;padding:9px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Добавить пак</button>`
+                    : `<div style="text-align:center;color:var(--text-secondary);font-size:13px;">✓ Пак уже в коллекции</div>`}
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    } catch(e) { showError('Ошибка загрузки пака'); }
+}
+window.viewStickerPack = viewStickerPack;
+
+async function addStickerPackFromModal(packId, btn) {
+    btn.disabled = true; btn.textContent = 'Добавление...';
+    try {
+        const r = await fetch(`/stickers/pack/${packId}/add`, { method: 'POST' });
+        const d = await r.json();
+        if (d.success) {
+            btn.textContent = '✓ Добавлено';
+            btn.style.background = '#38a169';
+        } else { showError(d.error || 'Ошибка'); btn.disabled = false; }
+    } catch(e) { showError('Ошибка'); btn.disabled = false; }
+}
+window.addStickerPackFromModal = addStickerPackFromModal;
+
+// Просмотр пака стикеров по URL стикера (клик на стикер в чате)
+async function viewStickerPackBySticker(stickerUrl, packId) {
+    // Если packId известен — используем его, иначе ищем по URL
+    if (packId) {
+        viewStickerPack(packId);
+        return;
+    }
+    // Ищем пак по URL стикера среди своих паков
+    try {
+        const r = await fetch('/stickers/my');
+        const d = await r.json();
+        const allPacks = [...(d.owned || []), ...(d.added || [])];
+        for (const pack of allPacks) {
+            if (pack.stickers.some(s => s.image_url === stickerUrl)) {
+                viewStickerPack(pack.id);
+                return;
+            }
+        }
+        // Пак не найден в коллекции — показываем просто стикер с предложением найти пак
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:280px;text-align:center;padding:24px;">
+                <img src="${stickerUrl}" style="width:140px;height:140px;object-fit:contain;border-radius:12px;margin-bottom:12px;">
+                <p style="color:var(--text-secondary);font-size:13px;">Пак этого стикера не найден в вашей коллекции</p>
+                <button onclick="this.closest('.modal').remove()" style="margin-top:12px;padding:8px 20px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;">Закрыть</button>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    } catch(e) { showError('Ошибка'); }
+}
+window.viewStickerPackBySticker = viewStickerPackBySticker;
+
+function showCreateStickerPackModal() {
+    document.getElementById('sticker-panel')?.remove();
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'create-sticker-modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h2 style="font-size:16px;">🎨 Создать пак стикеров</h2>
+                <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="padding:16px;">
+                <input id="sp-name" type="text" placeholder="Название пака" style="width:100%;padding:9px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;">
+                <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--text-secondary);">Загрузите стикеры (PNG/GIF/WebP, до 20 штук):</label>
+                <input id="sp-files" type="file" accept="image/png,image/gif,image/webp,image/jpeg" multiple style="width:100%;margin-bottom:12px;">
+                <div id="sp-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+                <button onclick="submitCreateStickerPack()" style="width:100%;padding:10px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Создать</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.getElementById('sp-files').addEventListener('change', function() {
+        const preview = document.getElementById('sp-preview');
+        preview.innerHTML = '';
+        Array.from(this.files).slice(0, 20).forEach(f => {
+            const url = URL.createObjectURL(f);
+            preview.innerHTML += `<img src="${url}" style="width:56px;height:56px;object-fit:contain;border-radius:6px;border:1px solid var(--border-color);">`;
+        });
+    });
+}
+window.showCreateStickerPackModal = showCreateStickerPackModal;
+
+async function submitCreateStickerPack() {
+    const name = document.getElementById('sp-name')?.value.trim();
+    const files = document.getElementById('sp-files')?.files;
+    if (!name) { showError('Введите название'); return; }
+    if (!files || files.length === 0) { showError('Выберите файлы'); return; }
+    const fd = new FormData();
+    fd.append('name', name);
+    Array.from(files).slice(0, 20).forEach(f => fd.append('stickers', f));
+    try {
+        const r = await fetch('/stickers/pack/create', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.success) {
+            showError('Пак создан!', 'success');
+            document.getElementById('create-sticker-modal')?.remove();
+        } else { showError(d.error || 'Ошибка'); }
+    } catch(e) { showError('Ошибка создания'); }
+}
+window.submitCreateStickerPack = submitCreateStickerPack;

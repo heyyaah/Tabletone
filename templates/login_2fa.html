@@ -45,6 +45,16 @@
             </button>
         </form>
 
+        <div style="text-align:center; margin-top:14px;">
+            <button id="resend-btn" onclick="resendCode()" class="btn btn-secondary" style="font-size:13px; padding:8px 18px;">
+                <i class="fas fa-redo"></i> Получить новый код
+            </button>
+            <div id="resend-timer" style="display:none; margin-top:8px; font-size:13px; color:#718096;">
+                Повторный запрос через <strong id="resend-countdown"></strong> сек.
+            </div>
+            <div id="resend-msg" style="margin-top:8px; font-size:13px;"></div>
+        </div>
+
         <div class="auth-footer">
             <p><a href="/login">← Вернуться к входу</a></p>
             <p style="margin-top:10px;">
@@ -122,5 +132,61 @@ window.addEventListener('click', e => {
     const m = document.getElementById('cannot-login-modal');
     if (e.target === m) closeCannotLoginModal();
 });
+
+// ── Повторная отправка кода ───────────────────────────────────────────────────
+let _resendTimer = null;
+
+function resendCode() {
+    const btn = document.getElementById('resend-btn');
+    const timerEl = document.getElementById('resend-timer');
+    const countdownEl = document.getElementById('resend-countdown');
+    const msgEl = document.getElementById('resend-msg');
+
+    btn.disabled = true;
+    msgEl.textContent = '';
+
+    fetch('/login/2fa/resend', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                msgEl.style.color = '#38a169';
+                msgEl.textContent = '✓ Новый код отправлен';
+                startCooldown(d.next_cooldown);
+            } else {
+                // Уже на кулдауне — показываем оставшееся время
+                msgEl.style.color = '#e53e3e';
+                msgEl.textContent = d.error || 'Ошибка';
+                if (d.remaining) startCooldown(d.remaining);
+                else btn.disabled = false;
+            }
+        })
+        .catch(() => {
+            msgEl.style.color = '#e53e3e';
+            msgEl.textContent = 'Ошибка соединения';
+            btn.disabled = false;
+        });
+}
+
+function startCooldown(seconds) {
+    const btn = document.getElementById('resend-btn');
+    const timerEl = document.getElementById('resend-timer');
+    const countdownEl = document.getElementById('resend-countdown');
+
+    if (_resendTimer) clearInterval(_resendTimer);
+    btn.disabled = true;
+    timerEl.style.display = 'block';
+    countdownEl.textContent = seconds;
+
+    let left = seconds;
+    _resendTimer = setInterval(() => {
+        left--;
+        countdownEl.textContent = left;
+        if (left <= 0) {
+            clearInterval(_resendTimer);
+            timerEl.style.display = 'none';
+            btn.disabled = false;
+        }
+    }, 1000);
+}
 </script>
 {% endblock %}

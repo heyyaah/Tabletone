@@ -414,7 +414,7 @@ class MessageReaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
     group_message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=True)
-    emoji = db.Column(db.String(10), nullable=False)
+    emoji = db.Column(db.String(500), nullable=False)  # может быть URL кастомной реакции
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (
         db.UniqueConstraint('user_id', 'message_id', 'emoji', name='_user_msg_emoji_uc'),
@@ -570,6 +570,63 @@ class Contact(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
     contact = db.relationship('User', foreign_keys=[contact_id])
 
+# ── Стикеры ───────────────────────────────────────────────────────────────────
+class StickerPack(db.Model):
+    """Пак стикеров."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    cover_url = db.Column(db.String(500))   # первый стикер как обложка
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    creator = db.relationship('User', foreign_keys=[creator_id])
+    stickers = db.relationship('Sticker', backref='pack', lazy=True, cascade='all, delete-orphan')
+
+class Sticker(db.Model):
+    """Один стикер в паке."""
+    id = db.Column(db.Integer, primary_key=True)
+    pack_id = db.Column(db.Integer, db.ForeignKey('sticker_pack.id'), nullable=False)
+    image_url = db.Column(db.String(500), nullable=False)
+    emoji_hint = db.Column(db.String(10), default='😊')  # связанный эмодзи
+    order_index = db.Column(db.Integer, default=0)
+
+class UserStickerPack(db.Model):
+    """Пак стикеров, добавленный пользователем в коллекцию."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    pack_id = db.Column(db.Integer, db.ForeignKey('sticker_pack.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'pack_id', name='_user_stickerpack_uc'),)
+    user = db.relationship('User', foreign_keys=[user_id])
+    pack = db.relationship('StickerPack', foreign_keys=[pack_id])
+
+# ── Кастомные реакции (Premium) ───────────────────────────────────────────────
+class CustomReactionPack(db.Model):
+    """Пак кастомных реакций."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    creator = db.relationship('User', foreign_keys=[creator_id])
+    reactions = db.relationship('CustomReaction', backref='pack', lazy=True, cascade='all, delete-orphan')
+
+class CustomReaction(db.Model):
+    """Одна кастомная реакция."""
+    id = db.Column(db.Integer, primary_key=True)
+    pack_id = db.Column(db.Integer, db.ForeignKey('custom_reaction_pack.id'), nullable=False)
+    image_url = db.Column(db.String(500), nullable=False)
+    name = db.Column(db.String(50))  # название реакции
+    order_index = db.Column(db.Integer, default=0)
+
+class UserCustomReactionPack(db.Model):
+    """Пак кастомных реакций, добавленный пользователем."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    pack_id = db.Column(db.Integer, db.ForeignKey('custom_reaction_pack.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'pack_id', name='_user_reactpack_uc'),)
+    user = db.relationship('User', foreign_keys=[user_id])
+    pack = db.relationship('CustomReactionPack', foreign_keys=[pack_id])
+
 # Создание таблиц
 with app.app_context():
     from sqlalchemy import text
@@ -610,6 +667,7 @@ with app.app_context():
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE',
             'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS admin_permissions TEXT DEFAULT \'{}\'',
             'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS member_restrictions TEXT DEFAULT \'{}\'',
+            'ALTER TABLE message_reaction ALTER COLUMN emoji TYPE VARCHAR(500)',
         ]
     else:
         migrations = [
@@ -1922,7 +1980,8 @@ def get_chat(user_id):
                 'content': msg.reply_to.content if not msg.reply_to.is_deleted else '[удалено]',
                 'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
             } if msg.reply_to_id and msg.reply_to else None,
-            'bot_buttons': _get_bot_buttons_for_msg(msg)
+            'bot_buttons': _get_bot_buttons_for_msg(msg),
+            'sticker_pack_id': _get_sticker_pack_id(msg.content) if msg.message_type == 'sticker' or (msg.content and msg.content.startswith('[sticker]')) else None,
         } for msg in messages]
     })
 
@@ -4074,7 +4133,8 @@ def get_group(group_id):
                 'id': msg.reply_to.id,
                 'content': msg.reply_to.content if not msg.reply_to.is_deleted else '[удалено]',
                 'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
-            } if msg.reply_to_id and msg.reply_to else None
+            } if msg.reply_to_id and msg.reply_to else None,
+            'sticker_pack_id': _get_sticker_pack_id(msg.content) if (msg.content and (msg.content.startswith('[sticker]') or msg.content.startswith('/static/media/stickers/'))) else None,
         })
     
     # Получаем участников
@@ -4753,6 +4813,19 @@ def _get_bot_buttons_for_msg(msg):
     except Exception:
         return []
 
+def _get_sticker_pack_id(content):
+    """Извлекает pack_id из URL стикера."""
+    if not content:
+        return None
+    url = content.replace('[sticker]', '')
+    # URL вида /static/media/stickers/{pack_id}/...
+    try:
+        parts = url.split('/')
+        idx = parts.index('stickers')
+        return int(parts[idx + 1])
+    except Exception:
+        return None
+
 def _bot_send_message(bot_user_id, receiver_id, content, buttons=None):
     """Внутренняя функция отправки сообщения от бота"""
     message = Message(
@@ -5156,14 +5229,12 @@ def login_2fa():
         if (user.two_fa_code == entered and
                 user.two_fa_code_expires and
                 datetime.utcnow() < user.two_fa_code_expires):
-            # Код верный — завершаем вход
             user.two_fa_code = None
             user.two_fa_code_expires = None
             db.session.commit()
             session.pop('2fa_pending_user_id', None)
             session['user_id'] = user.id
             user.last_seen = datetime.utcnow()
-            # Создаём сессию
             session_token = secrets.token_urlsafe(32)
             user_agent = request.headers.get('User-Agent', '')
             ip_address = request.remote_addr
@@ -5186,6 +5257,45 @@ def login_2fa():
             return render_template('login_2fa.html', error='Неверный или просроченный код')
 
     return render_template('login_2fa.html')
+
+
+@app.route('/login/2fa/resend', methods=['POST'])
+def resend_2fa_code():
+    """Повторная отправка кода 2FA с нарастающей задержкой."""
+    pending_id = session.get('2fa_pending_user_id')
+    if not pending_id:
+        return jsonify({'error': 'Сессия истекла'}), 400
+    user = User.query.get(pending_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+
+    # Считаем сколько раз уже запрашивали — храним в сессии
+    resend_count = session.get('2fa_resend_count', 0)
+    last_resend = session.get('2fa_last_resend', 0)
+    cooldown = 30 * (resend_count + 1)  # 30, 60, 90... секунд
+
+    import time
+    now = time.time()
+    if last_resend and (now - last_resend) < cooldown:
+        remaining = int(cooldown - (now - last_resend))
+        return jsonify({'error': f'Подождите {remaining} сек.', 'remaining': remaining}), 429
+
+    # Генерируем новый код
+    code = str(random.randint(100000, 999999))
+    from datetime import timedelta
+    user.two_fa_code = code
+    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=10)
+    db.session.commit()
+
+    try:
+        _send_2fa_code(user.id, code)
+    except Exception as e:
+        print(f"2FA resend error: {e}")
+
+    session['2fa_resend_count'] = resend_count + 1
+    session['2fa_last_resend'] = now
+    next_cooldown = 30 * (resend_count + 2)
+    return jsonify({'success': True, 'next_cooldown': next_cooldown})
 
 
 @app.route('/profile/2fa/enable', methods=['POST'])
@@ -5577,7 +5687,7 @@ def react_group_message(msg_id):
     return jsonify({'success': True, 'action': action, 'reactions': reactions})
 
 def _get_message_reactions(msg_id=None, group_msg_id=None):
-    """Возвращает словарь {emoji: {count, users, mine}}"""
+    """Возвращает словарь {emoji: {count, users, pack_id}}"""
     if msg_id:
         rows = MessageReaction.query.filter_by(message_id=msg_id).all()
     else:
@@ -5585,7 +5695,15 @@ def _get_message_reactions(msg_id=None, group_msg_id=None):
     result = {}
     for r in rows:
         if r.emoji not in result:
-            result[r.emoji] = {'count': 0, 'users': []}
+            # Для кастомных реакций (URL) ищем pack_id
+            pack_id = None
+            if r.emoji.startswith('/static/media/reactions/'):
+                # URL вида /static/media/reactions/{pack_id}/...
+                try:
+                    pack_id = int(r.emoji.split('/')[4])
+                except Exception:
+                    pass
+            result[r.emoji] = {'count': 0, 'users': [], 'pack_id': pack_id}
         result[r.emoji]['count'] += 1
         result[r.emoji]['users'].append(r.user_id)
     return result
@@ -6502,6 +6620,8 @@ def search_messages():
             results.append({'id': m.id, 'content': m.content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'private'})
     return jsonify({'results': results})
 
+ALLOWED_STICKER_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAYMENT API (для Telegram-бота оплаты)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -6625,6 +6745,317 @@ def _auto_register_telegram_webhook():
 import threading as _threading
 _wh_thread = _threading.Thread(target=_auto_register_telegram_webhook, daemon=True)
 _wh_thread.start()
+
+# ── Стикеры ───────────────────────────────────────────────────────────────────
+
+@app.route('/stickers/my', methods=['GET'])
+def stickers_my():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    owned = StickerPack.query.filter_by(creator_id=uid).all()
+    added_links = UserStickerPack.query.filter_by(user_id=uid).all()
+    added_pack_ids = {l.pack_id for l in added_links}
+
+    def pack_dict(p, is_owner):
+        return {
+            'id': p.id,
+            'name': p.name,
+            'cover_url': p.cover_url or (p.stickers[0].image_url if p.stickers else ''),
+            'is_owner': is_owner,
+            'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji_hint': s.emoji_hint} for s in p.stickers]
+        }
+
+    owned_list = [pack_dict(p, True) for p in owned]
+    added_list = []
+    for link in added_links:
+        p = link.pack
+        if p and p.creator_id != uid:
+            added_list.append(pack_dict(p, False))
+
+    return jsonify({'owned': owned_list, 'added': added_list})
+
+
+@app.route('/stickers/pack/<int:pack_id>', methods=['GET'])
+def sticker_pack_info(pack_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    p = StickerPack.query.get_or_404(pack_id)
+    is_added = UserStickerPack.query.filter_by(user_id=uid, pack_id=pack_id).first() is not None
+    return jsonify({
+        'id': p.id,
+        'name': p.name,
+        'cover_url': p.cover_url or (p.stickers[0].image_url if p.stickers else ''),
+        'is_owner': p.creator_id == uid,
+        'is_added': is_added,
+        'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji_hint': s.emoji_hint} for s in p.stickers]
+    })
+
+
+@app.route('/stickers/pack/create', methods=['POST'])
+def sticker_pack_create():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    name = request.form.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Укажите название'}), 400
+    files = request.files.getlist('stickers')
+    if not files:
+        return jsonify({'error': 'Выберите файлы'}), 400
+
+    pack = StickerPack(name=name, creator_id=uid)
+    db.session.add(pack)
+    db.session.flush()
+
+    upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'stickers', str(pack.id))
+    os.makedirs(upload_dir, exist_ok=True)
+
+    for i, f in enumerate(files[:20]):
+        if not allowed_file(f.filename, ALLOWED_IMAGES):
+            continue
+        ext = f.filename.rsplit('.', 1)[1].lower()
+        fname = f"{secrets.token_hex(8)}.{ext}"
+        fpath = os.path.join(upload_dir, fname)
+        f.save(fpath)
+        url = f"/static/media/stickers/{pack.id}/{fname}"
+        sticker = Sticker(pack_id=pack.id, image_url=url, order_index=i)
+        db.session.add(sticker)
+        if i == 0:
+            pack.cover_url = url
+
+    db.session.commit()
+    return jsonify({'success': True, 'pack_id': pack.id})
+
+
+@app.route('/stickers/pack/<int:pack_id>/add', methods=['POST'])
+def sticker_pack_add(pack_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    p = StickerPack.query.get_or_404(pack_id)
+    existing = UserStickerPack.query.filter_by(user_id=uid, pack_id=pack_id).first()
+    if existing:
+        return jsonify({'success': True, 'already_added': True})
+    link = UserStickerPack(user_id=uid, pack_id=pack_id)
+    db.session.add(link)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/stickers/pack/<int:pack_id>/delete', methods=['POST'])
+def sticker_pack_delete(pack_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    p = StickerPack.query.get_or_404(pack_id)
+    if p.creator_id != uid:
+        # Просто убираем из коллекции
+        link = UserStickerPack.query.filter_by(user_id=uid, pack_id=pack_id).first()
+        if link:
+            db.session.delete(link)
+            db.session.commit()
+        return jsonify({'success': True})
+    db.session.delete(p)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/stickers/send', methods=['POST'])
+def sticker_send():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    data = request.get_json() or {}
+    sticker_id = data.get('sticker_id')
+    receiver_id = data.get('receiver_id')
+    group_id = data.get('group_id')
+
+    sticker = Sticker.query.get(sticker_id)
+    if not sticker:
+        return jsonify({'error': 'Стикер не найден'}), 404
+
+    content = f"[sticker]{sticker.image_url}"
+
+    if group_id:
+        group = Group.query.get(group_id)
+        if not group:
+            return jsonify({'error': 'Группа не найдена'}), 404
+        member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+        if not member:
+            return jsonify({'error': 'Вы не в группе'}), 403
+        msg = GroupMessage(group_id=group_id, sender_id=uid, content=content)
+        db.session.add(msg)
+        db.session.commit()
+        sender = User.query.get(uid)
+        socketio.emit('group_message', {
+            'message': {
+                'id': msg.id, 'content': content, 'message_type': 'sticker',
+                'sender_id': uid, 'group_id': group_id,
+                'timestamp': msg.timestamp.strftime('%H:%M'),
+                'timestamp_iso': msg.timestamp.isoformat(),
+                'sender_name': sender.display_name or sender.username,
+                'sticker_pack_id': sticker.pack_id,
+            }
+        }, room=f'group_{group_id}', namespace='/')
+        return jsonify({'success': True, 'message_id': msg.id})
+    elif receiver_id:
+        receiver = User.query.get(receiver_id)
+        if not receiver:
+            return jsonify({'error': 'Пользователь не найден'}), 404
+        msg = Message(sender_id=uid, receiver_id=receiver_id, content=content, message_type='sticker')
+        db.session.add(msg)
+        db.session.commit()
+        sender = User.query.get(uid)
+        for room_uid in [uid, receiver_id]:
+            socketio.emit('new_message', {
+                'message': {
+                    'id': msg.id, 'content': content, 'message_type': 'sticker',
+                    'is_mine': room_uid == uid,
+                    'timestamp': msg.timestamp.strftime('%H:%M'),
+                    'timestamp_iso': msg.timestamp.isoformat(),
+                    'sticker_pack_id': sticker.pack_id,
+                },
+                'other_user_id': receiver_id if room_uid == uid else uid,
+            }, room=f'user_{room_uid}', namespace='/')
+        return jsonify({'success': True, 'message_id': msg.id})
+    return jsonify({'error': 'Укажите receiver_id или group_id'}), 400
+
+
+# ── Кастомные реакции ─────────────────────────────────────────────────────────
+
+@app.route('/reactions/my', methods=['GET'])
+def reactions_my():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    user = User.query.get(uid)
+    if not user.is_premium:
+        return jsonify({'error': 'premium_required'}), 403
+
+    owned = CustomReactionPack.query.filter_by(creator_id=uid).all()
+    added_links = UserCustomReactionPack.query.filter_by(user_id=uid).all()
+
+    def pack_dict(p, is_owner):
+        return {
+            'id': p.id,
+            'name': p.name,
+            'is_owner': is_owner,
+            'reactions': [{'id': r.id, 'image_url': r.image_url, 'name': r.name} for r in p.reactions]
+        }
+
+    owned_list = [pack_dict(p, True) for p in owned]
+    added_list = []
+    for link in added_links:
+        p = link.pack
+        if p and p.creator_id != uid:
+            added_list.append(pack_dict(p, False))
+
+    return jsonify({'owned': owned_list, 'added': added_list})
+
+
+@app.route('/reactions/pack/<int:pack_id>', methods=['GET'])
+def reaction_pack_info(pack_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    p = CustomReactionPack.query.get_or_404(pack_id)
+    is_added = UserCustomReactionPack.query.filter_by(user_id=uid, pack_id=pack_id).first() is not None
+    return jsonify({
+        'id': p.id,
+        'name': p.name,
+        'is_owner': p.creator_id == uid,
+        'is_added': is_added,
+        'reactions': [{'id': r.id, 'image_url': r.image_url, 'name': r.name} for r in p.reactions]
+    })
+
+
+@app.route('/reactions/pack/create', methods=['POST'])
+def reaction_pack_create():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    user = User.query.get(uid)
+    if not user.is_premium:
+        return jsonify({'error': 'premium_required', 'message': 'Кастомные реакции доступны только для Premium'}), 403
+
+    name = request.form.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Укажите название'}), 400
+    files = request.files.getlist('reactions')
+    if not files:
+        return jsonify({'error': 'Выберите файлы'}), 400
+
+    pack = CustomReactionPack(name=name, creator_id=uid)
+    db.session.add(pack)
+    db.session.flush()
+
+    upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'reactions', str(pack.id))
+    os.makedirs(upload_dir, exist_ok=True)
+
+    for i, f in enumerate(files[:20]):
+        if not allowed_file(f.filename, ALLOWED_IMAGES):
+            continue
+        ext = f.filename.rsplit('.', 1)[1].lower()
+        fname = f"{secrets.token_hex(8)}.{ext}"
+        fpath = os.path.join(upload_dir, fname)
+        f.save(fpath)
+        url = f"/static/media/reactions/{pack.id}/{fname}"
+        reaction = CustomReaction(pack_id=pack.id, image_url=url, order_index=i)
+        db.session.add(reaction)
+
+    db.session.commit()
+    return jsonify({'success': True, 'pack_id': pack.id})
+
+
+@app.route('/reactions/pack/<int:pack_id>/add', methods=['POST'])
+def reaction_pack_add(pack_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    user = User.query.get(uid)
+    if not user.is_premium:
+        return jsonify({'error': 'premium_required'}), 403
+    CustomReactionPack.query.get_or_404(pack_id)
+    existing = UserCustomReactionPack.query.filter_by(user_id=uid, pack_id=pack_id).first()
+    if existing:
+        return jsonify({'success': True, 'already_added': True})
+    link = UserCustomReactionPack(user_id=uid, pack_id=pack_id)
+    db.session.add(link)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/reactions/pack/<int:pack_id>/delete', methods=['POST'])
+def reaction_pack_delete(pack_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    p = CustomReactionPack.query.get_or_404(pack_id)
+    if p.creator_id != uid:
+        link = UserCustomReactionPack.query.filter_by(user_id=uid, pack_id=pack_id).first()
+        if link:
+            db.session.delete(link)
+            db.session.commit()
+        return jsonify({'success': True})
+    db.session.delete(p)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# ── Поиск пака стикеров по URL стикера ───────────────────────────────────────
+
+@app.route('/stickers/find_by_url', methods=['GET'])
+def sticker_find_by_url():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    url = request.args.get('url', '')
+    sticker = Sticker.query.filter_by(image_url=url).first()
+    if not sticker:
+        return jsonify({'error': 'Не найдено'}), 404
+    return jsonify({'pack_id': sticker.pack_id})
+
 
 if __name__ == '__main__':
     import sys

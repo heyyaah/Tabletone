@@ -762,6 +762,7 @@ body {
     background: var(--bg-primary);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
+    position: relative;
 }
 
 #message-form {
@@ -4078,4 +4079,35 @@ body[data-theme="dark"] .channel-mute-btn:hover {
     font-size: 12px;
     color: #ed8936;
     margin-bottom: 8px;
+}
+
+/* ── Стикеры ─────────────────────────────────────────────────────────────── */
+.sticker-message {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 4px !important;
+}
+
+.sticker-message img {
+    display: block;
+    transition: transform 0.15s ease;
+}
+
+.sticker-message img:hover {
+    transform: scale(1.05);
+}
+
+.message.sent .sticker-message,
+.message.received .sticker-message {
+    background: transparent !important;
+}
+
+/* ── Кастомные реакции ───────────────────────────────────────────────────── */
+.custom-reactions-row {
+    animation: fadeIn 0.2s ease;
+}
+
+.reaction-chip img {
+    vertical-align: middle;
 }

@@ -62,6 +62,32 @@
         <i class="fas fa-plus"></i> Создать бота
       </button>
 
+      <!-- Стикеры и реакции -->
+      <div class="profile-section" style="margin-top:30px;">
+        <h3><i class="fas fa-sticky-note"></i> Стикеры и реакции</h3>
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:14px;">
+          Создавайте собственные паки стикеров и кастомных реакций. Стикеры доступны всем, кастомные реакции — только для Premium.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" style="flex:1;min-width:160px;" onclick="showCreateStickerPackModal()">
+            <i class="fas fa-sticky-note"></i> Создать пак стикеров
+          </button>
+          {% if user.is_premium %}
+          <button class="btn btn-primary" style="flex:1;min-width:160px;background:linear-gradient(135deg,#667eea,#764ba2);" onclick="showCreateReactionPackModal()">
+            <i class="fas fa-smile"></i> ✨ Создать пак реакций
+          </button>
+          {% else %}
+          <button class="btn" style="flex:1;min-width:160px;background:var(--bg-secondary);color:var(--text-secondary);cursor:not-allowed;" title="Только для Premium">
+            <i class="fas fa-smile"></i> ✨ Реакции (Premium)
+          </button>
+          {% endif %}
+        </div>
+        <div id="sticker-packs-list" style="margin-top:16px;"></div>
+        {% if user.is_premium %}
+        <div id="reaction-packs-list" style="margin-top:8px;"></div>
+        {% endif %}
+      </div>
+
       <!-- Документация API -->
       <div class="profile-section" style="margin-top:30px;">
         <h3><i class="fas fa-book"></i> Bot API</h3>
@@ -562,5 +588,178 @@ function showPremiumModal(message) {
   document.getElementById('premium-modal-msg').textContent = message || 'Эта функция доступна только для Premium пользователей.';
   modal.style.display = 'flex';
 }
+
+// ===== СТИКЕРЫ =====
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+function showCreateStickerPackModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal active';
+  modal.id = 'create-sticker-modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-sticky-note"></i> Создать пак стикеров</h3>
+        <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Название пака</label>
+          <input type="text" id="sp-name" class="form-control" placeholder="Мои стикеры" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Стикеры (PNG/GIF/WebP, до 20 штук)</label>
+          <input type="file" id="sp-files" accept="image/png,image/gif,image/webp,image/jpeg" multiple class="form-control">
+        </div>
+        <div id="sp-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Отмена</button>
+        <button class="btn btn-primary" onclick="submitCreateStickerPack()">Создать</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.getElementById('sp-files').addEventListener('change', function() {
+    const preview = document.getElementById('sp-preview');
+    preview.innerHTML = '';
+    Array.from(this.files).slice(0, 20).forEach(f => {
+      const url = URL.createObjectURL(f);
+      preview.innerHTML += `<img src="${url}" style="width:56px;height:56px;object-fit:contain;border-radius:6px;border:1px solid var(--border-color);">`;
+    });
+  });
+}
+
+async function submitCreateStickerPack() {
+  const name = document.getElementById('sp-name')?.value.trim();
+  const files = document.getElementById('sp-files')?.files;
+  if (!name) { alert('Введите название'); return; }
+  if (!files || files.length === 0) { alert('Выберите файлы'); return; }
+  const fd = new FormData();
+  fd.append('name', name);
+  Array.from(files).slice(0, 20).forEach(f => fd.append('stickers', f));
+  try {
+    const r = await fetch('/stickers/pack/create', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('create-sticker-modal')?.remove();
+      loadStickerPacks();
+    } else { alert(d.error || 'Ошибка'); }
+  } catch(e) { alert('Ошибка создания'); }
+}
+
+async function loadStickerPacks() {
+  const el = document.getElementById('sticker-packs-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/stickers/my');
+    const d = await r.json();
+    const all = [...(d.owned || []), ...(d.added || [])];
+    if (!all.length) { el.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;">Нет паков стикеров</p>'; return; }
+    el.innerHTML = all.map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-secondary);border-radius:10px;margin-bottom:8px;">
+        <img src="${p.cover_url || ''}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#f0f0f0;">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${escapeHtml(p.name)}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${p.stickers.length} стикеров${p.is_owner ? ' · Ваш пак' : ''}</div>
+        </div>
+        ${p.is_owner ? `<button onclick="deleteStickerPack(${p.id})" style="background:none;border:none;cursor:pointer;color:#e53e3e;font-size:16px;" title="Удалить"><i class="fas fa-trash"></i></button>` : ''}
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function deleteStickerPack(packId) {
+  if (!confirm('Удалить пак стикеров?')) return;
+  const r = await fetch(`/stickers/pack/${packId}/delete`, { method: 'POST' });
+  const d = await r.json();
+  if (d.success) loadStickerPacks();
+  else alert(d.error || 'Ошибка');
+}
+
+// ===== КАСТОМНЫЕ РЕАКЦИИ =====
+function showCreateReactionPackModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal active';
+  modal.id = 'create-reaction-modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h3>✨ Создать пак реакций</h3>
+        <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Название пака</label>
+          <input type="text" id="rp-name" class="form-control" placeholder="Мои реакции" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>Изображения реакций (PNG/GIF/WebP)</label>
+          <input type="file" id="rp-files" accept="image/png,image/gif,image/webp,image/jpeg" multiple class="form-control">
+        </div>
+        <div id="rp-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Отмена</button>
+        <button class="btn btn-primary" style="background:linear-gradient(135deg,#667eea,#764ba2);" onclick="submitCreateReactionPack()">Создать</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.getElementById('rp-files').addEventListener('change', function() {
+    const preview = document.getElementById('rp-preview');
+    preview.innerHTML = '';
+    Array.from(this.files).slice(0, 20).forEach(f => {
+      const url = URL.createObjectURL(f);
+      preview.innerHTML += `<img src="${url}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;border:1px solid var(--border-color);">`;
+    });
+  });
+}
+
+async function submitCreateReactionPack() {
+  const name = document.getElementById('rp-name')?.value.trim();
+  const files = document.getElementById('rp-files')?.files;
+  if (!name) { alert('Введите название'); return; }
+  if (!files || files.length === 0) { alert('Выберите файлы'); return; }
+  const fd = new FormData();
+  fd.append('name', name);
+  Array.from(files).slice(0, 20).forEach(f => fd.append('reactions', f));
+  try {
+    const r = await fetch('/reactions/pack/create', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.success) {
+      document.getElementById('create-reaction-modal')?.remove();
+      loadReactionPacks();
+    } else if (d.error === 'premium_required') {
+      showPremiumModal('Кастомные реакции доступны только для Premium');
+    } else { alert(d.error || 'Ошибка'); }
+  } catch(e) { alert('Ошибка создания'); }
+}
+
+async function loadReactionPacks() {
+  const el = document.getElementById('reaction-packs-list');
+  if (!el) return;
+  try {
+    const r = await fetch('/reactions/my');
+    const d = await r.json();
+    if (d.error) return;
+    const all = [...(d.owned || []), ...(d.added || [])];
+    if (!all.length) { el.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;">Нет паков реакций</p>'; return; }
+    el.innerHTML = all.map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-secondary);border-radius:10px;margin-bottom:8px;">
+        <div style="display:flex;gap:3px;">
+          ${p.reactions.slice(0,3).map(rx => `<img src="${rx.image_url}" style="width:32px;height:32px;object-fit:contain;border-radius:6px;">`).join('')}
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:600;">✨ ${escapeHtml(p.name)}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">${p.reactions.length} реакций${p.is_owner ? ' · Ваш пак' : ''}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadStickerPacks();
+  loadReactionPacks();
+});
 </script>
 {% endblock %}
