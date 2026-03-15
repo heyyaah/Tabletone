@@ -3555,6 +3555,41 @@ def admin_warn_user(user_id):
     db.session.commit()
     return jsonify({'success': True, 'total_warnings': total, 'demoted': demoted})
 
+@app.route('/admin/users/<int:user_id>/warnings', methods=['GET'])
+def get_user_warnings(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    issuer = User.query.get(session['user_id'])
+    if not issuer or not _has_role(issuer, 'owner'):
+        return jsonify({'error': 'Только owner'}), 403
+    warnings = AdminWarning.query.filter_by(user_id=user_id).order_by(AdminWarning.created_at.desc()).all()
+    return jsonify({'warnings': [{
+        'id': w.id,
+        'reason': w.reason,
+        'created_at': w.created_at.strftime('%d.%m.%Y %H:%M'),
+        'is_read': w.is_read
+    } for w in warnings]})
+
+@app.route('/admin/warning/<int:warning_id>/cancel', methods=['POST'])
+def cancel_admin_warning(warning_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    issuer = User.query.get(session['user_id'])
+    if not issuer or not _has_role(issuer, 'owner'):
+        return jsonify({'error': 'Только owner'}), 403
+    warning = AdminWarning.query.get_or_404(warning_id)
+    target_id = warning.user_id
+    db.session.delete(warning)
+    db.session.flush()
+    # Если после удаления стало < 3 — восстанавливаем блокировку заявок если была
+    remaining = AdminWarning.query.filter_by(user_id=target_id).count()
+    if remaining < 3:
+        target = User.query.get(target_id)
+        if target:
+            target.admin_apply_blocked_until = None
+    db.session.commit()
+    return jsonify({'success': True, 'remaining': remaining})
+
 @app.route('/admin/check-warning', methods=['GET'])
 def check_admin_warning():
     if 'user_id' not in session:
@@ -3584,64 +3619,6 @@ def mark_warning_read(warning_id):
     return jsonify({'success': True})
 
 # Список заявок на верификацию (для админа)
-@app.route('/admin/verification-requests', methods=['GET'])
-
-@app.route('/admin/users/<int:user_id>/warn', methods=['POST'])
-def admin_warn_user(user_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    issuer = User.query.get(session['user_id'])
-    if not issuer or not _has_role(issuer, 'owner'):
-        return jsonify({'error': 'Только owner'}), 403
-    target = User.query.get_or_404(user_id)
-    data = request.get_json() or {}
-    reason = (data.get('reason') or '').strip()
-    if not reason:
-        return jsonify({'error': 'Укажите причину'}), 400
-
-    warning = AdminWarning(user_id=user_id, reason=reason, issued_by=issuer.id)
-    db.session.add(warning)
-
-    # Считаем все предупреждения
-    total = AdminWarning.query.filter_by(user_id=user_id).count() + 1  # +1 текущее
-    if total >= 3:
-        # Снимаем роль
-        target.admin_role = None
-        target.is_admin = False
-        # Блокируем подачу заявки на 1 день
-        target.admin_apply_blocked_until = datetime.utcnow() + timedelta(days=1)
-
-    db.session.commit()
-    return jsonify({'success': True, 'total_warnings': total, 'demoted': total >= 3})
-
-@app.route('/admin/check-warning', methods=['GET'])
-def check_admin_warning():
-    """Проверяет непрочитанные предупреждения для текущего пользователя."""
-    if 'user_id' not in session:
-        return jsonify({'warning': None})
-    warning = AdminWarning.query.filter_by(user_id=session['user_id'], is_read=False)\
-        .order_by(AdminWarning.created_at.asc()).first()
-    if not warning:
-        return jsonify({'warning': None})
-    total = AdminWarning.query.filter_by(user_id=session['user_id']).count()
-    return jsonify({
-        'warning': {
-            'id': warning.id,
-            'reason': warning.reason,
-            'created_at': warning.created_at.strftime('%d.%m.%Y %H:%M'),
-            'total': total,
-            'demoted': total >= 3
-        }
-    })
-
-@app.route('/admin/warning/<int:warning_id>/read', methods=['POST'])
-def mark_warning_read(warning_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    warning = AdminWarning.query.filter_by(id=warning_id, user_id=session['user_id']).first_or_404()
-    warning.is_read = True
-    db.session.commit()
-    return jsonify({'success': True})
 @app.route('/admin/verification-requests', methods=['GET'])
 def get_verification_requests():
     if 'user_id' not in session:

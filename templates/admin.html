@@ -1586,9 +1586,12 @@ function warnAdmin(userId, displayName) {
             <p style="color:#718096;font-size:13px;margin:0 0 16px;">Выдать предупреждение пользователю <strong>${displayName}</strong></p>
             <textarea id="warn-reason" rows="3" placeholder="Причина предупреждения..." style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
             <p style="color:#e53e3e;font-size:12px;margin:8px 0 16px;"><i class="fas fa-info-circle"></i> После 3-го предупреждения администратор будет снят с поста и не сможет подавать заявки 24 часа.</p>
-            <div style="display:flex;gap:10px;justify-content:flex-end;">
-                <button onclick="this.closest('#warn-modal').remove()" style="padding:10px 20px;border:1px solid #e2e8f0;border-radius:8px;background:none;cursor:pointer;color:#718096;font-size:14px;">Отмена</button>
-                <button onclick="submitWarn(${userId})" style="padding:10px 20px;background:#d97706;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Выдать</button>
+            <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;">
+                <button onclick="viewWarnings(${userId}, '${displayName}')" style="padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;background:none;cursor:pointer;color:#667eea;font-size:13px;"><i class="fas fa-list"></i> История</button>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="this.closest('#warn-modal').remove()" style="padding:10px 20px;border:1px solid #e2e8f0;border-radius:8px;background:none;cursor:pointer;color:#718096;font-size:14px;">Отмена</button>
+                    <button onclick="submitWarn(${userId})" style="padding:10px 20px;background:#d97706;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Выдать</button>
+                </div>
             </div>
         </div>
     `;
@@ -1607,14 +1610,76 @@ function submitWarn(userId) {
         document.getElementById('warn-modal')?.remove();
         if (d.success) {
             const msg = d.demoted
-                ? `⚠️ Выдано 3-е предупреждение. Администратор снят с поста.`
-                : `✅ Предупреждение выдано (всего: ${d.total_warnings}/3)`;
+                ? `🚫 Выдано ${d.total_warnings}-е предупреждение. Администратор снят с поста.`
+                : `✅ Предупреждение выдано (${d.total_warnings}/3)`;
             alert(msg);
             loadUsers();
         } else {
             alert(d.error || 'Ошибка');
         }
     });
+}
+
+function viewWarnings(userId, displayName) {
+    document.getElementById('warn-modal')?.remove();
+    let modal = document.getElementById('warnings-list-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'warnings-list-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);border-radius:14px;width:90%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid #e2e8f0;">
+                <h3 style="margin:0;font-size:15px;color:#d97706;"><i class="fas fa-exclamation-triangle"></i> Предупреждения: ${displayName}</h3>
+                <button onclick="this.closest('#warnings-list-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">&times;</button>
+            </div>
+            <div id="warnings-body" style="overflow-y:auto;flex:1;padding:12px 16px;">
+                <div style="text-align:center;padding:20px;color:#718096;"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+            <div style="padding:14px 20px;border-top:1px solid #e2e8f0;">
+                <button onclick="warnAdmin(${userId}, '${displayName}')" style="width:100%;padding:10px;background:#d97706;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;"><i class="fas fa-plus"></i> Выдать новое предупреждение</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    fetch(`/admin/users/${userId}/warnings`)
+        .then(r => r.json())
+        .then(d => {
+            const body = document.getElementById('warnings-body');
+            if (!d.warnings || d.warnings.length === 0) {
+                body.innerHTML = '<div style="text-align:center;padding:20px;color:#718096;">Предупреждений нет</div>';
+                return;
+            }
+            body.innerHTML = d.warnings.map((w, i) => `
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 0;border-bottom:1px solid #f0f0f0;gap:10px;">
+                    <div style="flex:1;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:700;">⚠️ #${d.warnings.length - i}</span>
+                            <span style="font-size:11px;color:#a0aec0;">${w.created_at}</span>
+                            ${w.is_read ? '' : '<span style="background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:6px;font-size:11px;">Не прочитано</span>'}
+                        </div>
+                        <div style="font-size:14px;color:#2d3748;line-height:1.4;">${w.reason}</div>
+                    </div>
+                    <button onclick="cancelWarning(${w.id}, ${userId}, '${displayName}')" style="padding:5px 10px;background:#fee2e2;color:#e53e3e;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;"><i class="fas fa-times"></i> Отменить</button>
+                </div>
+            `).join('');
+        });
+}
+
+function cancelWarning(warningId, userId, displayName) {
+    if (!confirm('Отменить это предупреждение?')) return;
+    fetch(`/admin/warning/${warningId}/cancel`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                viewWarnings(userId, displayName);
+                loadUsers();
+            } else {
+                alert(d.error || 'Ошибка');
+            }
+        });
 }
 {% endif %}
 </script>
