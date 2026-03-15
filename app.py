@@ -608,8 +608,6 @@ class StickerBotState(db.Model):
     pack_name = db.Column(db.String(100), nullable=True)
     count = db.Column(db.Integer, default=0)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    user = db.relationship('User', foreign_keys=[user_id])
-    pack = db.relationship('StickerPack', foreign_keys=[pack_id])
 
 # ── Кастомные реакции (Premium) ───────────────────────────────────────────────
 class CustomReactionPack(db.Model):
