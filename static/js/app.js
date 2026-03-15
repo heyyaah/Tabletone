@@ -4868,6 +4868,60 @@ function hideTypingIndicator(userId) {
 document.addEventListener('DOMContentLoaded', function() {
     setupTypingIndicator();
     // Socket.IO typing handlers вешаем в connectSocketIO через initTypingSocketHandlers()
+
+    // Вставка изображения из буфера (Ctrl+V)
+    document.addEventListener('paste', function(e) {
+        if (!currentChatUserId && !currentGroupId) return;
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (!file) return;
+                // Показываем превью перед отправкой
+                const url = URL.createObjectURL(file);
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;';
+                modal.innerHTML = `
+                    <div style="background:var(--bg-primary,#fff);border-radius:16px;padding:20px;max-width:480px;width:90%;text-align:center;">
+                        <p style="margin:0 0 12px;font-weight:600;color:var(--text-primary,#000);">Отправить изображение?</p>
+                        <img src="${url}" style="max-width:100%;max-height:300px;border-radius:10px;object-fit:contain;margin-bottom:12px;">
+                        <textarea id="paste-caption" placeholder="Подпись (необязательно)..." style="width:100%;padding:8px;border:1px solid var(--border-color,#e2e8f0);border-radius:8px;background:var(--bg-secondary,#f7fafc);color:var(--text-primary,#000);resize:none;height:60px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;"></textarea>
+                        <div style="display:flex;gap:10px;">
+                            <button id="paste-cancel" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--bg-secondary,#f0f0f0);color:var(--text-muted,#666);cursor:pointer;">Отмена</button>
+                            <button id="paste-send" style="flex:2;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:600;cursor:pointer;">Отправить</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+                modal.querySelector('#paste-cancel').onclick = () => { modal.remove(); URL.revokeObjectURL(url); };
+                modal.addEventListener('click', e => { if (e.target === modal) { modal.remove(); URL.revokeObjectURL(url); } });
+                modal.querySelector('#paste-send').onclick = async () => {
+                    const caption = modal.querySelector('#paste-caption').value.trim();
+                    modal.remove();
+                    URL.revokeObjectURL(url);
+                    // Отправляем через существующий механизм загрузки файлов
+                    if (typeof selectedFiles !== 'undefined') {
+                        selectedFiles = [file];
+                        if (caption) {
+                            // Отправляем напрямую
+                        }
+                        const formData = new FormData();
+                        formData.append('files', file);
+                        if (caption) formData.append('caption', caption);
+                        if (currentChatUserId) formData.append('receiver_id', currentChatUserId);
+                        if (currentGroupId) formData.append('group_id', currentGroupId);
+                        try {
+                            const r = await fetch('/send_multiple_files', { method: 'POST', body: formData });
+                            const d = await r.json();
+                            if (!d.success) showError(d.error || 'Ошибка отправки');
+                        } catch(e) { showError('Ошибка отправки'); }
+                    }
+                };
+                break;
+            }
+        }
+    });
 });
 
 // ============================================
