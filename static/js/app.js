@@ -62,16 +62,13 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('open_chat_on_load');
         try {
             const _c = JSON.parse(_pendingChat);
+            console.log('[open_chat_on_load]', _c);
             if (_c.byUsername) {
-                // Ждём инициализации сокета и списка пользователей
                 const _tryOpen = (attempts) => {
-                    if (typeof openChatByUsername === 'function') {
-                        openChatByUsername(_c.id);
-                    } else if (attempts > 0) {
-                        setTimeout(() => _tryOpen(attempts - 1), 300);
-                    }
+                    console.log('[open_chat_on_load] trying openChatByUsername, attempts left:', attempts);
+                    openChatByUsername(_c.id);
                 };
-                setTimeout(() => _tryOpen(10), 1000);
+                setTimeout(() => _tryOpen(10), 1200);
             } else {
                 setTimeout(() => openChat(_c.id, _c.name), 800);
             }
@@ -1468,26 +1465,28 @@ window.showMessageMenu = showMessageMenu;
 window.editMessage = editMessage;
 
 async function openChatByUsername(username) {
+    console.log('[openChatByUsername] looking up:', username);
     try {
-        // Сначала пробуем точный поиск по username
         const r = await fetch(`/api/user-by-username/${encodeURIComponent(username)}`);
+        console.log('[openChatByUsername] api status:', r.status);
         if (r.ok) {
             const d = await r.json();
+            console.log('[openChatByUsername] api result:', d);
             if (d && d.id) {
                 openChat(d.id, d.display_name || d.username);
                 return;
             }
         }
-        // Fallback через поиск
         const r2 = await fetch(`/search?q=${encodeURIComponent(username)}`);
         const d2 = await r2.json();
+        console.log('[openChatByUsername] search result:', d2);
         const user = (d2.users || []).find(u => u.username === username);
         if (user) {
             openChat(user.id, user.display_name || user.username);
         } else {
             showError('Бот не найден');
         }
-    } catch(e) { showError('Ошибка открытия чата'); }
+    } catch(e) { console.error('[openChatByUsername] error:', e); showError('Ошибка открытия чата'); }
 }
 window.openChatByUsername = openChatByUsername;
 window.deleteMessage = deleteMessage;
