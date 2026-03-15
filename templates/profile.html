@@ -471,10 +471,10 @@ function buyPremium() {
 // Сохраняем текущий аккаунт в localStorage для быстрого переключения
 (function() {
     const acc = {
-        username: '{{ user.username }}',
-        display_name: '{{ user.display_name or user.username }}',
-        avatar_color: '{{ user.avatar_color }}',
-        avatar_url: '{{ user.avatar_url or "" }}'
+        username: {{ user.username | tojson }},
+        display_name: {{ (user.display_name or user.username) | tojson }},
+        avatar_color: {{ user.avatar_color | tojson }},
+        avatar_url: {{ (user.avatar_url or '') | tojson }}
     };
     try {
         let accounts = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
