@@ -2437,13 +2437,18 @@ async function joinGroupFromSearch(groupId) {
         const data = await response.json();
         
         if (data.success) {
-            // Скрываем результаты поиска
             document.getElementById('search-results').style.display = 'none';
             document.getElementById('search-input').value = '';
-            
-            // Переключаемся на вкладку групп и обновляем список
-            switchTab('groups');
-            showError('Вы успешно вступили в группу!', 'success');
+            await loadAllChats();
+            if (!data.already_member) {
+                showError('Вы успешно вступили в группу!', 'success');
+            }
+            openGroupChat(groupId);
+        } else if (data.error && data.error.includes('уже состоите')) {
+            // Уже в группе — просто открываем её
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('search-input').value = '';
+            openGroupChat(groupId);
         } else {
             showError(data.error || 'Не удалось вступить в группу');
         }

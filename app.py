@@ -56,6 +56,9 @@ online_users = {}
 # Список жалоб (in-memory)
 reports = []
 
+# Режим обслуживания (True = мессенджер отключён для обычных пользователей)
+MAINTENANCE_MODE = False
+
 # Глобальный обработчик ошибок для подавления ошибок разрыва соединения
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -1383,12 +1386,17 @@ def index():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    user = User.query.get( session['user_id'])
+    user = User.query.get(session['user_id'])
     
     # Проверяем, не забанен ли пользователь
     if user and user.is_banned:
         session.pop('user_id', None)
         return redirect(url_for('login'))
+    
+    # Режим обслуживания — обычным пользователям показываем заглушку
+    is_staff = user and user.admin_role in ('moderator', 'admin', 'senior_admin', 'owner')
+    if MAINTENANCE_MODE and not is_staff:
+        return render_template('maintenance.html')
     
     return render_template('index.html', user=user)
 
@@ -2897,6 +2905,21 @@ def admin():
     
     return render_template('admin.html', admin_role=user.admin_role or 'moderator')
 
+# Управление режимом обслуживания
+@app.route('/admin/maintenance', methods=['GET', 'POST'])
+def admin_maintenance():
+    global MAINTENANCE_MODE
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    if not user or user.admin_role != 'owner':
+        return jsonify({'error': 'Только owner'}), 403
+    if request.method == 'GET':
+        return jsonify({'maintenance': MAINTENANCE_MODE})
+    data = request.get_json()
+    MAINTENANCE_MODE = bool(data.get('maintenance', False))
+    return jsonify({'success': True, 'maintenance': MAINTENANCE_MODE})
+
 # API для админ панели - список пользователей
 @app.route('/admin/users')
 def admin_users():
@@ -3937,7 +3960,7 @@ def join_group(group_id):
     # Проверяем, не состоит ли уже
     existing = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
     if existing:
-        return jsonify({'error': 'Вы уже состоите в этой группе'}), 400
+        return jsonify({'success': True, 'already_member': True})
     
     # Добавляем участника
     member = GroupMember(

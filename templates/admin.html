@@ -6,9 +6,15 @@
 <div class="admin-container">
     <div class="admin-header">
         <h1><i class="fas fa-shield-alt"></i> Админ панель</h1>
-        <a href="/" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Назад
-        </a>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div id="maintenance-toggle" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.15);padding:8px 14px;border-radius:10px;">
+                <span style="font-size:13px;font-weight:600;" id="maintenance-label">Загрузка...</span>
+                <button id="maintenance-btn" onclick="toggleMaintenance()" style="padding:7px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">...</button>
+            </div>
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Назад
+            </a>
+        </div>
     </div>
     
     <div class="admin-tabs">
@@ -1472,6 +1478,41 @@ function saveEditProfile() {
         else alert('Ошибка: ' + (d.error || 'неизвестно'));
     });
 }
+// ── Режим обслуживания ───────────────────────────────────────────────────
+function updateMaintenanceUI(isOn) {
+    const label = document.getElementById('maintenance-label');
+    const btn = document.getElementById('maintenance-btn');
+    if (!label || !btn) return;
+    if (isOn) {
+        label.innerHTML = '<i class="fas fa-tools" style="color:#e53e3e;"></i> Мессенджер: <span style="color:#e53e3e;">Отключён</span>';
+        btn.textContent = '✅ Включить';
+        btn.style.background = '#38a169';
+        btn.style.color = 'white';
+    } else {
+        label.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Мессенджер: <span style="color:#38a169;">Работает</span>';
+        btn.textContent = '🔧 Отключить';
+        btn.style.background = '#e53e3e';
+        btn.style.color = 'white';
+    }
+}
+
+async function toggleMaintenance() {
+    const resp = await fetch('/admin/maintenance');
+    const cur = await resp.json();
+    const newState = !cur.maintenance;
+    const action = newState ? 'отключить мессенджер для пользователей' : 'включить мессенджер';
+    if (!confirm(`Вы уверены что хотите ${action}?`)) return;
+    const r = await fetch('/admin/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ maintenance: newState })
+    });
+    const d = await r.json();
+    if (d.success) updateMaintenanceUI(d.maintenance);
+}
+
+// Загружаем статус при старте
+fetch('/admin/maintenance').then(r => r.json()).then(d => updateMaintenanceUI(d.maintenance)).catch(() => {});
 {% endif %}
 </script>
 {% endblock %}
