@@ -350,6 +350,53 @@ body[data-theme="dark"] {
     gap: 8px;
     min-width: 120px;
 }
+
+@media (max-width: 600px) {
+    .admin-container {
+        padding: 15px 12px;
+    }
+
+    .admin-header {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .admin-header h1 {
+        font-size: 20px;
+    }
+
+    .user-item, .verification-item, .report-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .user-actions, .report-actions {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        gap: 8px !important;
+        width: 100%;
+        min-width: unset !important;
+    }
+
+    .action-btn {
+        flex: 1;
+        min-width: 100px;
+        padding: 10px 12px;
+        font-size: 13px;
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .report-info, .user-info {
+        width: 100%;
+    }
+}
 </style>
 
 <script>
