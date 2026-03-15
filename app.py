@@ -1332,13 +1332,18 @@ def _pay_tg_send(token, chat_id, text, reply_markup=None, parse_mode='Markdown')
     payload = {'chat_id': chat_id, 'text': text, 'parse_mode': parse_mode}
     if reply_markup:
         payload['reply_markup'] = reply_markup
-    data = json.dumps(payload).encode()
+    raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     req = _ur.Request(f"https://api.telegram.org/bot{token}/sendMessage",
-                      data=data, headers={'Content-Type': 'application/json'})
+                      data=raw, headers={'Content-Type': 'application/json; charset=utf-8'})
     try:
-        return json.loads(_ur.urlopen(req, timeout=8).read())
+        resp = _ur.urlopen(req, timeout=8).read()
+        result = json.loads(resp)
+        if not result.get('ok'):
+            print(f"pay_tg_send TG error: {result}")
+        return result
     except Exception as e:
         print(f"pay_tg_send error: {e}")
+        import traceback; traceback.print_exc()
 
 def _pay_tg_answer(token, callback_id):
     import urllib.request as _ur
@@ -1496,9 +1501,13 @@ def payment_webhook():
     ud = _pay_user_data.setdefault(chat_id, {})
 
     if text_msg.startswith('/start'):
-        ud.clear()
-        _pay_tg_send(token, chat_id,
-            "👋 Привет! Я бот оплаты *Tabletone*.\n\nВыбери что хочешь купить 👇", _pay_main_kb())
+        try:
+            ud.clear()
+            _pay_tg_send(token, chat_id,
+                "👋 Привет! Я бот оплаты *Tabletone*.\n\nВыбери что хочешь купить 👇", _pay_main_kb())
+        except Exception as e:
+            print(f"payment_webhook /start error: {e}")
+            import traceback; traceback.print_exc()
     elif text_msg.startswith('/givepremium') and tg_user.get('id') == owner_tg_id:
         parts = text_msg.split()
         if len(parts) >= 3:
