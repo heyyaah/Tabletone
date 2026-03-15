@@ -1275,6 +1275,9 @@ def admin_approve_application(app_id):
     # Назначаем роль пользователю
     a.user.is_admin = True
     a.user.admin_role = role
+    # Сбрасываем все предупреждения и блокировку заявок
+    AdminWarning.query.filter_by(user_id=a.user_id).delete()
+    a.user.admin_apply_blocked_until = None
     db.session.commit()
     return jsonify({'success': True})
 
@@ -3579,9 +3582,12 @@ def cancel_admin_warning(warning_id):
         return jsonify({'error': 'Только owner'}), 403
     warning = AdminWarning.query.get_or_404(warning_id)
     target_id = warning.user_id
+    # Нельзя отменять если уже 3 предупреждения (снятие с поста необратимо)
+    total = AdminWarning.query.filter_by(user_id=target_id).count()
+    if total >= 3:
+        return jsonify({'error': 'Нельзя отменить: достигнут лимит 3 предупреждения'}), 403
     db.session.delete(warning)
     db.session.flush()
-    # Если после удаления стало < 3 — восстанавливаем блокировку заявок если была
     remaining = AdminWarning.query.filter_by(user_id=target_id).count()
     if remaining < 3:
         target = User.query.get(target_id)
