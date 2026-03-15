@@ -1121,7 +1121,8 @@ def create_report():
             if user and not user.is_spam_blocked:
                 from datetime import timedelta
                 user.is_spam_blocked = True
-                user.spam_block_until = datetime.utcnow() + timedelta(days=1)
+                block_hours = 12 if user.is_premium else 24
+                user.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
                 db.session.commit()
 
     return jsonify({"success": True, "report": report})
@@ -3809,7 +3810,8 @@ def give_spamblock(user_id):
 
     from datetime import timedelta
     user.is_spam_blocked = True
-    user.spam_block_until = datetime.utcnow() + timedelta(days=1)
+    block_hours = 12 if user.is_premium else 24
+    user.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
     db.session.commit()
     return jsonify({'success': True})
 
