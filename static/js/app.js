@@ -4582,6 +4582,11 @@ async function submitPoll() {
 
 async function loadAndShowPoll(pollId, msgEl) {
     try {
+        // msgEl может быть строкой (id элемента) или DOM-элементом
+        if (typeof msgEl === 'string') {
+            msgEl = document.getElementById(msgEl);
+        }
+        if (!msgEl) return;
         const r = await fetch(`/poll/${pollId}`);
         const d = await r.json();
         if (!d.poll) return;
@@ -4598,8 +4603,8 @@ async function loadAndShowPoll(pollId, msgEl) {
             </div>`;
         });
         html += `</div><div class="poll-footer">${poll.total_votes} голосов${poll.is_anonymous?' • Анонимный':''}</div></div>`;
-        const contentEl = msgEl.querySelector('.message-content');
-        if (contentEl) contentEl.innerHTML = html;
+        const contentEl = msgEl.querySelector('.message-content') || msgEl;
+        contentEl.innerHTML = html;
     } catch(e) { console.error(e); }
 }
 
