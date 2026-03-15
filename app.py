@@ -216,7 +216,11 @@ class GroupMember(db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     is_muted = db.Column(db.Boolean, default=False)  # Уведомления отключены
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    # Права администратора (JSON: {"delete_messages":true,"ban_members":true,"pin_messages":true,"invite_users":true,"edit_group":true})
+    admin_permissions = db.Column(db.Text, default='{}')
+    # Ограничения участника (JSON: {"can_send_messages":true,"can_send_media":true,"can_react":true,"allowed_reactions":[]})
+    member_restrictions = db.Column(db.Text, default='{}')
+
     group = db.relationship('Group', foreign_keys=[group_id])
     user = db.relationship('User', foreign_keys=[user_id])
 
@@ -604,6 +608,8 @@ with app.app_context():
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS spam_keywords TEXT DEFAULT \'[]\'',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE',
+            'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS admin_permissions TEXT DEFAULT \'{}\'',
+            'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS member_restrictions TEXT DEFAULT \'{}\'',
         ]
     else:
         migrations = [
@@ -631,6 +637,8 @@ with app.app_context():
             "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
             "ALTER TABLE 'group' ADD COLUMN spam_keywords TEXT DEFAULT '[]'",
             "ALTER TABLE 'group' ADD COLUMN is_verified BOOLEAN DEFAULT 0",
+            "ALTER TABLE group_member ADD COLUMN admin_permissions TEXT DEFAULT '{}'",
+            "ALTER TABLE group_member ADD COLUMN member_restrictions TEXT DEFAULT '{}'",
         ]
 
     with db.engine.connect() as conn:
@@ -1290,7 +1298,7 @@ def telegram_webhook():
             return
         import urllib.request as _ur
         payload = json.dumps({'chat_id': chat_id, 'text': msg, 'parse_mode': 'HTML'}).encode()
-        req = urllib.request.Request(
+        req = _ur.Request(
             f"https://api.telegram.org/bot{token}/sendMessage",
             data=payload, headers={'Content-Type': 'application/json'}
         )
@@ -1305,14 +1313,13 @@ def telegram_webhook():
         code = parts[1] if len(parts) > 1 else ''
         if code in _tg_link_codes:
             user_id = _tg_link_codes.pop(code)
-            with app.app_context():
-                u = User.query.get(user_id)
-                if u:
-                    u.telegram_chat_id = chat_id
-                    db.session.commit()
-                    tg_reply(f"✅ Telegram успешно привязан к аккаунту <b>@{u.username}</b> в Tabletone!\n\nТеперь коды входа будут приходить сюда.")
-                else:
-                    tg_reply("❌ Пользователь не найден.")
+            u = User.query.get(user_id)
+            if u:
+                u.telegram_chat_id = chat_id
+                db.session.commit()
+                tg_reply(f"✅ Telegram успешно привязан к аккаунту <b>@{u.username}</b> в Tabletone!\n\nТеперь коды входа будут приходить сюда.")
+            else:
+                tg_reply("❌ Пользователь не найден.")
         else:
             tg_reply("👋 Привет! Чтобы привязать Telegram к Tabletone, перейди в профиль мессенджера и нажми «Привязать Telegram».")
     return jsonify({'ok': True})
@@ -4083,7 +4090,7 @@ def remove_group_member(group_id, user_id):
     db.session.commit()
     return jsonify({'success': True})
 
-# Повысить/понизить участника
+# Повысить/понизить участника + управление правами
 @app.route('/groups/<int:group_id>/members/<int:user_id>/role', methods=['POST'])
 def set_group_member_role(group_id, user_id):
     if 'user_id' not in session:
@@ -4098,8 +4105,81 @@ def set_group_member_role(group_id, user_id):
         return jsonify({'error': 'Участник не найден'}), 404
     data = request.get_json() or {}
     target.is_admin = bool(data.get('is_admin', False))
+    if 'admin_permissions' in data:
+        target.admin_permissions = json.dumps(data['admin_permissions'])
     db.session.commit()
     return jsonify({'success': True, 'is_admin': target.is_admin})
+
+# Управление ограничениями участника
+@app.route('/groups/<int:group_id>/members/<int:user_id>/restrictions', methods=['POST'])
+def set_member_restrictions(group_id, user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({'error': 'Группа не найдена'}), 404
+    me = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not me or not me.is_admin:
+        return jsonify({'error': 'Только админы'}), 403
+    if group.creator_id == user_id:
+        return jsonify({'error': 'Нельзя ограничить создателя'}), 400
+    target = GroupMember.query.filter_by(group_id=group_id, user_id=user_id).first()
+    if not target:
+        return jsonify({'error': 'Участник не найден'}), 404
+    data = request.get_json() or {}
+    target.member_restrictions = json.dumps(data.get('restrictions', {}))
+    db.session.commit()
+    return jsonify({'success': True})
+
+# Передача канала/группы другому пользователю (требует 2FA)
+@app.route('/groups/<int:group_id>/transfer', methods=['POST'])
+def transfer_group(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({'error': 'Группа не найдена'}), 404
+    if group.creator_id != session['user_id']:
+        return jsonify({'error': 'Только создатель может передать группу'}), 403
+    data = request.get_json() or {}
+    new_owner_username = data.get('username', '').strip().lstrip('@')
+    tfa_code = data.get('tfa_code', '').strip()
+    me = User.query.get(session['user_id'])
+    # Проверяем 2FA если включена
+    if me.two_fa_enabled:
+        if not tfa_code:
+            return jsonify({'error': 'Требуется код 2FA', 'need_2fa': True}), 400
+        if me.two_fa_code != tfa_code or (me.two_fa_code_expires and me.two_fa_code_expires < datetime.utcnow()):
+            return jsonify({'error': 'Неверный или истёкший код 2FA'}), 400
+    new_owner = User.query.filter_by(username=new_owner_username).first()
+    if not new_owner:
+        return jsonify({'error': f'Пользователь @{new_owner_username} не найден'}), 404
+    if new_owner.id == session['user_id']:
+        return jsonify({'error': 'Нельзя передать самому себе'}), 400
+    # Убеждаемся что новый владелец — участник
+    new_member = GroupMember.query.filter_by(group_id=group_id, user_id=new_owner.id).first()
+    if not new_member:
+        new_member = GroupMember(group_id=group_id, user_id=new_owner.id, is_admin=True)
+        db.session.add(new_member)
+    else:
+        new_member.is_admin = True
+    group.creator_id = new_owner.id
+    db.session.commit()
+    return jsonify({'success': True})
+
+# Получить права участника
+@app.route('/groups/<int:group_id>/members/<int:user_id>/info', methods=['GET'])
+def get_member_info(group_id, user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    target = GroupMember.query.filter_by(group_id=group_id, user_id=user_id).first()
+    if not target:
+        return jsonify({'error': 'Не найден'}), 404
+    return jsonify({
+        'is_admin': target.is_admin,
+        'admin_permissions': json.loads(target.admin_permissions or '{}'),
+        'member_restrictions': json.loads(target.member_restrictions or '{}'),
+    })
 
 # Инвайт-ссылка
 @app.route('/groups/<int:group_id>/invite_link', methods=['GET', 'POST'])
@@ -4659,7 +4739,8 @@ def _send_tabletone_welcome(user_id):
 
 
 def _send_2fa_code(user_id, code):
-    """Отправляет код 2FA через @tabletonebot и на email если указан."""
+    """Отправляет код 2FA через @tabletonebot и в Telegram если привязан."""
+    user = User.query.get(user_id)
     bot_user = User.query.filter_by(username='tabletonebot').first()
     text = (
         f"🔐 Код для входа в Tabletone:\n\n"
@@ -4671,7 +4752,7 @@ def _send_2fa_code(user_id, code):
     if bot_user:
         _bot_send_message(bot_user.id, user_id, text)
 
-    # Отправка в Telegram
+    # Отправка в Telegram если привязан
     if user and user.telegram_chat_id:
         try:
             _send_telegram_2fa(user.telegram_chat_id, code)
@@ -5205,6 +5286,13 @@ def react_group_message(msg_id):
     membership = GroupMember.query.filter_by(group_id=msg.group_id, user_id=uid).first()
     if not membership:
         return jsonify({'error': 'Нет доступа'}), 403
+    # Проверяем ограничения участника
+    restrictions = json.loads(membership.member_restrictions or '{}')
+    if restrictions.get('can_react') == False:
+        return jsonify({'error': 'Реакции запрещены для вас'}), 403
+    allowed = restrictions.get('allowed_reactions', [])
+    if allowed and emoji not in allowed:
+        return jsonify({'error': f'Реакция {emoji} вам недоступна'}), 403
     existing = MessageReaction.query.filter_by(user_id=uid, group_message_id=msg_id, emoji=emoji).first()
     if existing:
         db.session.delete(existing)
@@ -6261,6 +6349,27 @@ def _run_payment_bot():
 import threading
 _bot_thread = threading.Thread(target=_run_payment_bot, daemon=True)
 _bot_thread.start()
+
+def _auto_register_telegram_webhook():
+    """Авто-регистрация вебхука Telegram бота при старте."""
+    import time as _t, urllib.request as _ur
+    _t.sleep(8)  # ждём пока Flask поднимется
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    site_url = os.environ.get('SITE_URL', '').rstrip('/')
+    if not token or not site_url:
+        return
+    webhook_url = f"{site_url}/telegram/webhook"
+    try:
+        url = f"https://api.telegram.org/bot{token}/setWebhook"
+        data = json.dumps({'url': webhook_url, 'allowed_updates': ['message']}).encode()
+        req = _ur.Request(url, data=data, headers={'Content-Type': 'application/json'})
+        resp = json.loads(_ur.urlopen(req, timeout=10).read())
+        print(f"✅ Telegram webhook: {resp.get('description', resp)}")
+    except Exception as e:
+        print(f"⚠️ Telegram webhook auto-register error: {e}")
+
+_wh_thread = threading.Thread(target=_auto_register_telegram_webhook, daemon=True)
+_wh_thread.start()
 
 if __name__ == '__main__':
     import sys
