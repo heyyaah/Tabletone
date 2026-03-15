@@ -1179,14 +1179,9 @@ async function openChat(userId, username) {
     document.getElementById('chat-active').style.display = 'flex';
     document.getElementById('chat-username').textContent = username;
 
-    // Показываем кнопки сразу — скроем если окажется бот
-    const _callBtn = document.getElementById('call-btn');
-    const _videoCallBtn = document.getElementById('video-call-btn');
-    const _clearBtn = document.getElementById('clear-history-btn');
-    if (_callBtn) _callBtn.style.display = 'flex';
-    if (_videoCallBtn) _videoCallBtn.style.display = 'flex';
-    if (_clearBtn) _clearBtn.style.display = 'flex';
-    
+    // Показываем кнопки личного чата через CSS-класс
+    const _chatArea = document.getElementById('chat-area');
+    if (_chatArea) _chatArea.classList.add('personal-chat-open');
     // На мобильных устройствах скрываем sidebar и показываем chat-area
     const sidebar = document.getElementById('sidebar');
     const chatArea = document.getElementById('chat-area');
@@ -1261,23 +1256,20 @@ async function openChat(userId, username) {
             }
 
             // Показываем кнопку звонка только для обычных пользователей (не ботов)
-            const callBtn = document.getElementById('call-btn');
-            if (callBtn) callBtn.style.display = userData.is_bot ? 'none' : 'flex';
-            const videoCallBtn = document.getElementById('video-call-btn');
-            if (videoCallBtn) videoCallBtn.style.display = userData.is_bot ? 'none' : 'flex';
-            // Кнопка очистки истории — всегда видна в личных чатах
-            const clearBtn = document.getElementById('clear-history-btn');
-            if (clearBtn) clearBtn.style.display = 'flex';
+            if (userData.is_bot) {
+                document.getElementById('call-btn')?.classList.add('bot-hidden');
+                document.getElementById('video-call-btn')?.classList.add('bot-hidden');
+            } else {
+                document.getElementById('call-btn')?.classList.remove('bot-hidden');
+                document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
+            }
+            // Кнопка очистки истории — всегда видна в личных чатах (управляется CSS классом personal-chat-open)
         }
     } catch (error) {
         console.error('Error loading user info:', error);
-        // Fallback: показываем кнопки звонка и очистки (не бот по умолчанию)
-        const callBtn = document.getElementById('call-btn');
-        const videoCallBtn = document.getElementById('video-call-btn');
-        const clearBtn = document.getElementById('clear-history-btn');
-        if (callBtn) callBtn.style.display = 'flex';
-        if (videoCallBtn) videoCallBtn.style.display = 'flex';
-        if (clearBtn) clearBtn.style.display = 'flex';
+        // Fallback: кнопки управляются CSS классом personal-chat-open (уже добавлен выше)
+        document.getElementById('call-btn')?.classList.remove('bot-hidden');
+        document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
     }
     
     // Загружаем сообщения
@@ -2965,6 +2957,10 @@ async function openGroup(groupId, groupName) {
     currentChatUserId = null;
     _favoritesOpen = false;
     currentGroupId = groupId;
+
+    // Скрываем кнопки личного чата
+    const _chatArea = document.getElementById('chat-area');
+    if (_chatArea) _chatArea.classList.remove('personal-chat-open');
     
     // Загружаем данные группы
     try {
@@ -3366,6 +3362,7 @@ function backToChats() {
         // Скрываем активный чат
         document.getElementById('chat-active').style.display = 'none';
         document.getElementById('chat-welcome').style.display = 'flex';
+        document.getElementById('chat-area')?.classList.remove('personal-chat-open');
 
         // Сбрасываем текущий чат
         currentChatUserId = null;

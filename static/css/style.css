@@ -419,6 +419,12 @@ body[data-theme="liquid"] .app-logo {
     color: var(--primary);
 }
 
+/* Кнопки только для личных чатов — скрыты по умолчанию */
+.chat-personal-btn { display: none; }
+.chat-area.personal-chat-open .chat-personal-btn { display: flex; }
+/* Скрыть кнопки звонка для ботов */
+.bot-hidden { display: none !important; }
+
 .logout-btn:hover {
     background: #fef2f2;
     color: #ef4444;
@@ -2942,10 +2948,9 @@ body[data-theme="dark"] .profile-card {
         gap: 4px;
     }
 
-    .chat-header .icon-btn:not(.back-btn):not(#add-to-chat-btn) { display: none; }
+    .chat-header .icon-btn:not(.back-btn):not(#add-to-chat-btn):not(#call-btn):not(#video-call-btn):not(#clear-history-btn) { display: none; }
     .chat-header .icon-btn[onclick="viewChatInfo()"],
     .chat-header .icon-btn[onclick="showReportModal()"] { display: flex; }
-    #call-btn[style*="flex"], #video-call-btn[style*="flex"], #clear-history-btn[style*="flex"] { display: flex !important; }
 
     .chat-user-info { flex: 1; min-width: 0; }
     .chat-user-info h3 {
