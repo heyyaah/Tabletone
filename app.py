@@ -6339,7 +6339,8 @@ def _auto_register_telegram_webhook():
     except Exception as e:
         print(f"⚠️ Telegram webhook auto-register error: {e}")
 
-_wh_thread = threading.Thread(target=_auto_register_telegram_webhook, daemon=True)
+import threading as _threading
+_wh_thread = _threading.Thread(target=_auto_register_telegram_webhook, daemon=True)
 _wh_thread.start()
 
 if __name__ == '__main__':
