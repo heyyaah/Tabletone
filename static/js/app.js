@@ -113,6 +113,13 @@ function connectSocketIO() {
                 if (data.chat_type === 'private' && currentChatUserId) hideTypingIndicator();
                 else if (data.chat_type === 'group' && currentGroupId === data.group_id) hideTypingIndicator();
             });
+            // Обновляем галочки прочтения
+            socket.on('messages_read', function(data) {
+                (data.message_ids || []).forEach(id => {
+                    const el = document.querySelector(`[data-msg-status="${id}"]`);
+                    if (el) el.innerHTML = '<i class="fas fa-check-double read"></i>';
+                });
+            });
             // Reload messages on reconnect to catch anything missed while disconnected
             if (currentChatUserId) loadMessages(currentChatUserId);
             else if (currentGroupId) loadGroupMessages(currentGroupId);
@@ -1535,7 +1542,10 @@ function createMessageHTML(msg) {
             ${msg.reply_to ? `<div class="reply-preview" onclick="scrollToMsg(${msg.reply_to.id})"><span class="reply-sender">${escapeHtml(msg.reply_to.sender_name)}</span><span class="reply-text">${escapeHtml((msg.reply_to.content||'').slice(0,80))}</span></div>` : ''}
             ${content}
             ${renderBotButtons(msg.bot_buttons)}
-            <div class="message-time">${msg.timestamp_iso ? formatMsgTime(msg.timestamp_iso) : msg.timestamp}</div>
+            <div class="message-time">
+                ${msg.timestamp_iso ? formatMsgTime(msg.timestamp_iso) : msg.timestamp}
+                ${msg.is_mine ? `<span class="msg-status" data-msg-status="${msg.id}">${msg.is_read ? '<i class="fas fa-check-double read"></i>' : '<i class="fas fa-check"></i>'}</span>` : ''}
+            </div>
         </div>
     `;
 }
@@ -5502,7 +5512,7 @@ async function setMsgTimer(msgId, seconds, isGroup, modal) {
         showError('Таймер установлен', 'success');
         // Запускаем локальный таймер удаления
         setTimeout(() => {
-            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+            const el = document.querySelector(`[data-message-id="${msgId}"]`);
             if (el) el.remove();
         }, seconds * 1000);
     } else showError(d.error || 'Ошибка');

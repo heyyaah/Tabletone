@@ -902,10 +902,19 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
     font-size: 11px;
     opacity: 0.65;
     text-align: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
 }
 
 .message.received .message-time { color: var(--text-secondary); }
 .message.sent .message-time { color: rgba(255,255,255,0.8); }
+
+.msg-status { font-size: 10px; line-height: 1; }
+.msg-status .fa-check { color: rgba(255,255,255,0.7); }
+.msg-status .fa-check-double { color: rgba(255,255,255,0.7); }
+.msg-status .fa-check-double.read { color: #fff; }
 
 /* Reply preview */
 .reply-preview {

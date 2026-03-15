@@ -2221,8 +2221,25 @@ def mark_chat_as_read(user_id):
                     last_read_message_id=last_message.id
                 )
                 db.session.add(last_read)
+
+            # Помечаем все непрочитанные сообщения от этого пользователя как прочитанные
+            unread_msgs = Message.query.filter(
+                Message.sender_id == user_id,
+                Message.receiver_id == session['user_id'],
+                Message.is_read == False
+            ).all()
+            msg_ids = [m.id for m in unread_msgs]
+            for m in unread_msgs:
+                m.is_read = True
             
             db.session.commit()
+
+            # Уведомляем отправителя что его сообщения прочитаны
+            if msg_ids:
+                socketio.emit('messages_read', {
+                    'by_user_id': session['user_id'],
+                    'message_ids': msg_ids
+                }, room=f'user_{user_id}', namespace='/')
         
         return jsonify({'success': True})
     except Exception as e:
