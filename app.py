@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import case
 import os
 import json
@@ -115,6 +115,7 @@ class User(db.Model):
     admin_role = db.Column(db.String(20), default=None)  # moderator, admin, senior_admin, owner
     is_banned = db.Column(db.Boolean, default=False)
     is_premium = db.Column(db.Boolean, default=False)
+    premium_until = db.Column(db.DateTime, nullable=True)  # Дата окончания Premium
     is_spam_blocked = db.Column(db.Boolean, default=False)
     spam_block_until = db.Column(db.DateTime, nullable=True)
     premium_emoji = db.Column(db.String(10))  # Эмодзи для премиум пользователей
@@ -587,7 +588,7 @@ with app.app_context():
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS theme_schedule TEXT",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS hidden_chat_pin VARCHAR(6)",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS chat_folders TEXT DEFAULT '[]'",
-            "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP",            "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
             "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
             "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
             "ALTER TABLE message ADD COLUMN IF NOT EXISTS is_hidden_chat BOOLEAN DEFAULT FALSE",
@@ -612,6 +613,7 @@ with app.app_context():
             f"ALTER TABLE {user_table} ADD COLUMN theme_schedule TEXT",
             f"ALTER TABLE {user_table} ADD COLUMN hidden_chat_pin VARCHAR(6)",
             f"ALTER TABLE {user_table} ADD COLUMN chat_folders TEXT DEFAULT '[]'",
+            f"ALTER TABLE {user_table} ADD COLUMN premium_until DATETIME",
             "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
             "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
             "ALTER TABLE message ADD COLUMN expires_at DATETIME",
@@ -3197,8 +3199,12 @@ def toggle_premium(user_id):
         return jsonify({'error': 'Пользователь не найден'}), 404
     
     user.is_premium = not user.is_premium
+    if user.is_premium:
+        # При ручном включении через админку — даём 30 дней по умолчанию
+        user.premium_until = datetime.utcnow() + timedelta(days=30)
+    else:
+        user.premium_until = None
     db.session.commit()
-    
     return jsonify({'success': True, 'is_premium': user.is_premium})
 
 # Обновление премиум эмодзи
@@ -6058,10 +6064,13 @@ def payment_activate_premium():
     user = User.query.filter_by(username=username).first()
     if not user:
         return jsonify({'error': f'Пользователь @{username} не найден'}), 404
+    # Продлеваем от текущей даты окончания или от сейчас
+    base = user.premium_until if (user.premium_until and user.premium_until > datetime.utcnow()) else datetime.utcnow()
     user.is_premium = True
+    user.premium_until = base + timedelta(days=days)
     db.session.commit()
-    print(f"✅ Premium активирован для @{username} на {days} дней")
-    return jsonify({'success': True, 'username': username, 'days': days})
+    print(f"✅ Premium активирован для @{username} до {user.premium_until}")
+    return jsonify({'success': True, 'username': username, 'days': days, 'until': user.premium_until.isoformat()})
 
 @app.route('/api/payment/add-sparks', methods=['POST'])
 def payment_add_sparks():
@@ -6097,6 +6106,30 @@ logging.getLogger('eventlet').setLevel(logging.CRITICAL)
 
 # Подавляем warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
+
+# ── Фоновая задача: снятие Premium по истечении срока ────────────────────────
+def _premium_expiry_worker():
+    """Каждые 10 минут проверяет истёкшие Premium и снимает их."""
+    import time as _time
+    while True:
+        _time.sleep(600)  # 10 минут
+        try:
+            with app.app_context():
+                expired = User.query.filter(
+                    User.is_premium == True,
+                    User.premium_until != None,
+                    User.premium_until <= datetime.utcnow()
+                ).all()
+                for u in expired:
+                    u.is_premium = False
+                    print(f"⏰ Premium истёк у @{u.username}")
+                if expired:
+                    db.session.commit()
+        except Exception as e:
+            print(f"Ошибка premium_expiry_worker: {e}")
+
+# Запускаем воркер в фоне через eventlet
+eventlet.spawn(_premium_expiry_worker)
 
 if __name__ == '__main__':
     import sys
