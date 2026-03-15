@@ -83,13 +83,29 @@ function connectSocketIO() {
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionAttempts: 5
+            reconnectionAttempts: Infinity,
+            reconnectionDelayMax: 5000
         });
         
         socket.on('connect', function() {
             console.log('Socket.IO connected');
-            // Настраиваем обработчики для групп после подключения
             setupGroupSocketHandlers();
+            // Reload messages on reconnect to catch anything missed while disconnected
+            if (currentChatUserId) loadMessages(currentChatUserId);
+            else if (currentGroupId) loadGroupMessages(currentGroupId);
+        });
+
+        // Mobile: reconnect when tab becomes visible again
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                if (!socket.connected) {
+                    socket.connect();
+                } else {
+                    // Refresh messages to catch anything missed in background
+                    if (currentChatUserId) loadMessages(currentChatUserId);
+                    else if (currentGroupId) loadGroupMessages(currentGroupId);
+                }
+            }
         });
         
         socket.on('online_users_list', function(data) {
@@ -561,6 +577,63 @@ function _cancelReply() {
 }
 window._startReply = _startReply;
 window._cancelReply = _cancelReply;
+
+// ── Swipe to reply (mobile) ──────────────────────────────────────────────────
+function _attachSwipeReplyEl(el) {
+    let startX = 0, startY = 0, dx = 0;
+    let triggered = false;
+    const THRESHOLD = 60; // px to trigger reply
+
+    el.addEventListener('touchstart', function(e) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        dx = 0;
+        triggered = false;
+        el.style.transition = 'none';
+    }, { passive: true });
+
+    el.addEventListener('touchmove', function(e) {
+        dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        // Only horizontal swipe
+        if (Math.abs(dy) > Math.abs(dx)) return;
+        const isMine = el.getAttribute('data-is-mine') === '1';
+        // Mine: swipe right (dx > 0), theirs: swipe left (dx < 0)
+        const validDir = isMine ? dx > 0 : dx < 0;
+        if (!validDir) return;
+        const shift = Math.min(Math.abs(dx), THRESHOLD) * (isMine ? 1 : -1);
+        el.style.transform = `translateX(${shift}px)`;
+        if (Math.abs(dx) >= THRESHOLD && !triggered) {
+            triggered = true;
+            if (navigator.vibrate) navigator.vibrate(30);
+        }
+    }, { passive: true });
+
+    el.addEventListener('touchend', function() {
+        el.style.transition = 'transform 0.2s ease';
+        el.style.transform = 'translateX(0)';
+        if (triggered) {
+            const msgId = parseInt(el.getAttribute('data-message-id'));
+            const contentEl = el.querySelector('.message-content');
+            const text = contentEl ? contentEl.textContent.trim() : '';
+            const isMine = el.getAttribute('data-is-mine') === '1';
+            // Get sender name
+            let senderName = isMine ? (document.getElementById('current-user-display-name')?.textContent || 'Вы') : (document.querySelector('.chat-username')?.textContent || '');
+            _startReply(msgId, text, senderName);
+        }
+    }, { passive: true });
+}
+
+function _attachSwipeReply(container) {
+    container.querySelectorAll('.message').forEach(el => {
+        // Avoid double-attaching
+        if (!el.dataset.swipeAttached) {
+            el.dataset.swipeAttached = '1';
+            _attachSwipeReplyEl(el);
+        }
+    });
+}
+window._attachSwipeReply = _attachSwipeReply;
 
 function scrollToMsg(msgId) {
     const el = document.querySelector(`[data-message-id="${msgId}"]`);
@@ -1268,6 +1341,7 @@ function displayMessages(messages) {
     container.innerHTML = html;
     _fixStickerImages(container);
     _reattachCtxMenu();
+    _attachSwipeReply(container);
 }
 
 // Создание HTML для сообщения
@@ -1657,6 +1731,9 @@ function addMessageToChat(message) {
     const messageHtml = createMessageHTML(message);
     container.insertAdjacentHTML('beforeend', messageHtml);
     _fixStickerImages(container);
+    // Attach swipe to the newly added message element
+    const newEl = container.querySelector(`[data-message-id="${message.id}"]`);
+    if (newEl) _attachSwipeReplyEl(newEl);
     scrollToBottom();
 }
 
@@ -2881,6 +2958,7 @@ function displayGroupMessages(messages) {
     container.innerHTML = html;
     _fixStickerImages(container);
     _reattachCtxMenu();
+    _attachSwipeReply(container);
 }
 
 // Создание HTML для группового сообщения
