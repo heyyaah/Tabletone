@@ -857,7 +857,7 @@ function displayAllChats(chats) {
             ` : '';
             
             html += `
-                <div class="chat-item user-chat-item" data-user-id="${chat.id}" data-username="${escapeHtml(chat.display_name || chat.username)}" data-avatar-color="${chat.avatar_color}" data-avatar-letter="${chat.avatar_letter}">
+                <div class="chat-item user-chat-item" data-user-id="${chat.id}" data-username="${escapeHtml(chat.display_name || chat.username)}" data-avatar-color="${chat.avatar_color}" data-avatar-letter="${chat.avatar_letter}" data-is-bot="${chat.is_bot ? 'true' : 'false'}">
                     <div class="chat-avatar" style="${avatarStyle}">
                         ${avatarContent}
                     </div>
@@ -1812,6 +1812,13 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
     currentGroupId = null; // Сбрасываем текущую группу
     openedChats.add(userId); // Помечаем чат как открытый — бейдж не показываем
 
+    // Показываем кнопки личного чата
+    ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.setAttribute('data-visible', '1'); el.style.setProperty('display', 'flex', 'important'); }
+    });
+    document.getElementById('chat-area')?.classList.add('personal-chat-open');
+
     // Сразу показываем форму ввода и убираем кнопку платного поста
     updateMessageInputVisibility(false, true);
     const paidPostBtn = document.getElementById('paid-post-btn');
@@ -1905,6 +1912,15 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
     // Фокус на поле ввода
     setTimeout(() => {
         document.getElementById('message-input').focus();
+        // Скрываем кнопки звонка для ботов
+        const _item = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
+        if (_item && _item.dataset.isBot === 'true') {
+            document.getElementById('call-btn')?.classList.add('bot-hidden');
+            document.getElementById('video-call-btn')?.classList.add('bot-hidden');
+        } else {
+            document.getElementById('call-btn')?.classList.remove('bot-hidden');
+            document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
+        }
     }, 100);
     
     // Скрываем результаты поиска
