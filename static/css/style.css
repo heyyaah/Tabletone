@@ -2038,33 +2038,42 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
 .typing-indicator {
     display: none;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-style: italic;
+    padding: 4px 12px;
+    margin-bottom: 4px;
+}
+
+/* Пузырь с точками — как входящее сообщение */
+.typing-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 18px 18px 18px 4px;
+    padding: 10px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
 .typing-dots {
     display: inline-flex;
-    gap: 3px;
+    gap: 4px;
     align-items: center;
 }
 
 .typing-dots span {
-    width: 5px;
-    height: 5px;
-    background: var(--primary);
+    width: 7px;
+    height: 7px;
+    background: var(--text-muted, #a0aec0);
     border-radius: 50%;
-    animation: typingBounce 1.2s infinite;
+    animation: typingBounce 1.2s ease-in-out infinite;
 }
 
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes typingBounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-5px); }
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-6px); opacity: 1; }
 }
 
 /* ── Pinned Bar ───────────────────────────────────────────── */

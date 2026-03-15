@@ -1370,6 +1370,8 @@ async function loadMessages(userId) {
 // Отображение сообщений
 function displayMessages(messages) {
     const container = document.getElementById('messages-container');
+    // Убираем индикатор печатания при перерисовке
+    hideTypingIndicator();
     
     if (!messages || messages.length === 0) {
         container.innerHTML = `
@@ -4763,7 +4765,7 @@ function showTypingIndicator(name) {
         const container = document.getElementById('messages-container');
         if (container) container.appendChild(el);
     }
-    el.innerHTML = `<span class="typing-dots"><span></span><span></span><span></span></span> <span>${escapeHtml(name)} печатает...</span>`;
+    el.innerHTML = `<div class="typing-bubble"><span class="typing-dots"><span></span><span></span><span></span></span></div>`;
     el.style.display = 'flex';
     scrollToBottom();
 }
