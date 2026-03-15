@@ -1025,6 +1025,9 @@ async function openChat(userId, username) {
     currentChatUserId = userId;
     _favoritesOpen = false;
     openedChats.add(userId);
+
+    // Сразу показываем форму ввода (личный чат — не канал)
+    updateMessageInputVisibility(false, true);
     
     // Восстанавливаем кнопки личного чата (скрытые при просмотре группы)
     const addContactBtn = document.querySelector('.chat-header .icon-btn[onclick="addContactFromChat()"]');
