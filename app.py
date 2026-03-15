@@ -2234,6 +2234,10 @@ def send_message():
     # Premium Support доступен только для Premium пользователей
     if receiver.username == 'premium_support' and not sender.is_premium:
         return jsonify({'error': 'premium_required', 'message': 'Premium Support доступен только для Premium пользователей'}), 403
+
+    # Обычная поддержка недоступна для Premium пользователей
+    if receiver.username == 'tabletone_supportbot' and sender.is_premium:
+        return jsonify({'error': 'premium_required', 'message': 'У вас Premium — используйте Premium Support (@premium_support)'}), 403
     message = Message(
         sender_id=session['user_id'],
         receiver_id=receiver_id,
