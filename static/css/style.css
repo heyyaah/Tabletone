@@ -2968,10 +2968,10 @@ body[data-theme="dark"] .profile-card {
 
     body:not(.messenger-page) {
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
+        align-items: stretch;
         min-height: 100vh;
-        padding: 16px 0;
+        padding: 0;
     }
 
     body:not(.messenger-page) .container {
@@ -3047,12 +3047,28 @@ button, a, .chat-item, .search-result-item, .group-item {
     color: var(--text-secondary, #888);
     border-top: 1px solid var(--border-color, #e0e0e0);
     flex-wrap: wrap;
+    margin-top: auto;
+    width: 100%;
 }
 .site-footer a {
     color: var(--accent-color, #667eea);
     text-decoration: none;
 }
 .site-footer a:hover { text-decoration: underline; }
+
+/* Растягиваем контейнер на всю высоту для корректного позиционирования футера */
+body:not(.messenger-page) {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 0;
+}
+body:not(.messenger-page) .container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
 
 /* ── Privacy Page ────────────────────────────────────────────────────────── */
 .privacy-page {
