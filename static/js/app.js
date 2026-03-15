@@ -5371,26 +5371,43 @@ async function transferGroup(groupId) {
 }
 window.transferGroup = transferGroup;
 
-// ===== СТИКЕРЫ =====
+// ===== СТИКЕРЫ + ЭМОДЗИ =====
+
+const EMOJI_CATEGORIES = [
+    { id: 'people', icon: '😀', label: 'Люди', emojis: ['😀','😃','😄','😁','😆','🥹','😅','😂','🤣','🥲','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥸','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🫣','🤗','🫡','🤔','🫠','🤭','🤫','🤥','😶','🫥','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🫨','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','🤡','💩','👻','💀','☠️','👽','👾','🤖','🎃','😺','😸','😹','😻','😼','😽','🙀','😿','😾'] },
+    { id: 'animals', icon: '🐶', label: 'Животные', emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪲','🦟','🦗','🕷','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿','🦔'] },
+    { id: 'food', icon: '🍎', label: 'Еда', emojis: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶','🫑','🧄','🧅','🥔','🍠','🫘','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥮','🍢','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🧃','🥤','🧋','☕','🍵','🫖','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾'] },
+    { id: 'sports', icon: '⚽', label: 'Спорт', emojis: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🥍','🏑','🏏','🪃','🥅','⛳','🪁','🎣','🤿','🎽','🎿','🛷','🥌','🎯','🪃','🏹','🎣','🤸','🏋️','🤼','🤺','🏇','⛷','🏂','🪂','🏊','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖','🎗','🎫','🎟','🎪','🤹','🎭','🎨','🎬','🎤','🎧','🎼','🎹','🥁','🪘','🎷','🎺','🎸','🪕','🎻','🎲','♟','🎯','🎳','🎮','🕹'] },
+    { id: 'travel', icon: '🚗', label: 'Транспорт', emojis: ['🚗','🚕','🚙','🚌','🚎','🏎','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍','🛵','🛺','🚲','🛴','🛹','🛼','🚏','🛣','🛤','⛽','🚨','🚥','🚦','🛑','🚧','⚓','🛟','⛵','🚤','🛥','🛳','⛴','🚢','✈️','🛩','🛫','🛬','🪂','💺','🚁','🚟','🚠','🚡','🛰','🚀','🛸','🪐','🌍','🌎','🌏','🗺','🧭','🏔','⛰','🌋','🗻','🏕','🏖','🏜','🏝','🏞','🏟','🏛','🏗','🧱','🪨','🪵','🛖','🏘','🏚','🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩','🕋'] },
+    { id: 'objects', icon: '💡', label: 'Объекты', emojis: ['💡','🔦','🕯','🪔','🧯','🛢','💰','🪙','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒','🛠','⛏','🪚','🔩','🪤','🧲','🔫','💣','🪓','🔪','🗡','⚔️','🛡','🪃','🏹','🪝','🧲','🪜','🧪','🧫','🧬','🔭','🔬','🩺','🩻','💊','💉','🩹','🩼','🩺','🩻','🚪','🛏','🛋','🪑','🚽','🪠','🚿','🛁','🪤','🧴','🧷','🧹','🧺','🧻','🪣','🧼','🫧','🪥','🧽','🧯','🛒','🚪','🪞','🪟','🛏','🛋','🪑','🚽','🚿','🛁','🧴','🧷','🧹','🧺','🧻','🧼','🧽','🛒'] },
+    { id: 'symbols', icon: '❤️', label: 'Символы', emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈂️','🛂','🛃','🛄','🛅'] },
+    { id: 'flags', icon: '🏳️', label: 'Флаги', emojis: ['🏳️','🏴','🏁','🚩','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️','🇦🇫','🇦🇱','🇩🇿','🇦🇩','🇦🇴','🇦🇬','🇦🇷','🇦🇲','🇦🇺','🇦🇹','🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇾','🇧🇪','🇧🇿','🇧🇯','🇧🇹','🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇨🇻','🇰🇭','🇨🇲','🇨🇦','🇨🇫','🇹🇩','🇨🇱','🇨🇳','🇨🇴','🇰🇲','🇨🇬','🇨🇩','🇨🇷','🇨🇮','🇭🇷','🇨🇺','🇨🇾','🇨🇿','🇩🇰','🇩🇯','🇩🇲','🇩🇴','🇪🇨','🇪🇬','🇸🇻','🇬🇶','🇪🇷','🇪🇪','🇸🇿','🇪🇹','🇫🇯','🇫🇮','🇫🇷','🇬🇦','🇬🇲','🇬🇪','🇩🇪','🇬🇭','🇬🇷','🇬🇩','🇬🇹','🇬🇳','🇬🇼','🇬🇾','🇭🇹','🇭🇳','🇭🇺','🇮🇸','🇮🇳','🇮🇩','🇮🇷','🇮🇶','🇮🇪','🇮🇱','🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪','🇰🇮','🇰🇼','🇰🇬','🇱🇦','🇱🇻','🇱🇧','🇱🇸','🇱🇷','🇱🇾','🇱🇮','🇱🇹','🇱🇺','🇲🇬','🇲🇼','🇲🇾','🇲🇻','🇲🇱','🇲🇹','🇲🇭','🇲🇷','🇲🇺','🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇦','🇲🇿','🇲🇲','🇳🇦','🇳🇷','🇳🇵','🇳🇱','🇳🇿','🇳🇮','🇳🇪','🇳🇬','🇳🇴','🇴🇲','🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇵🇪','🇵🇭','🇵🇱','🇵🇹','🇶🇦','🇷🇴','🇷🇺','🇷🇼','🇰🇳','🇱🇨','🇻🇨','🇼🇸','🇸🇲','🇸🇹','🇸🇦','🇸🇳','🇷🇸','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇧','🇸🇴','🇿🇦','🇸🇸','🇪🇸','🇱🇰','🇸🇩','🇸🇷','🇸🇪','🇨🇭','🇸🇾','🇹🇼','🇹🇯','🇹🇿','🇹🇭','🇹🇱','🇹🇬','🇹🇴','🇹🇹','🇹🇳','🇹🇷','🇹🇲','🇹🇻','🇺🇬','🇺🇦','🇦🇪','🇬🇧','🇺🇸','🇺🇾','🇺🇿','🇻🇺','🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼'] },
+];
 
 let _stickerPanelOpen = false;
 let _stickerPacks = [];
+let _emojiPanelTab = 'emoji'; // 'emoji' | 'stickers'
+let _emojiActiveCat = 0;
 
 async function toggleStickerPanel() {
     const existing = document.getElementById('sticker-panel');
     if (existing) { existing.remove(); _stickerPanelOpen = false; return; }
     _stickerPanelOpen = true;
+
     const panel = document.createElement('div');
     panel.id = 'sticker-panel';
-    panel.style.cssText = 'position:absolute;bottom:60px;right:0;width:320px;max-height:380px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:1000;display:flex;flex-direction:column;overflow:hidden;';
+    panel.style.cssText = 'position:absolute;bottom:60px;right:0;width:340px;max-height:420px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.22);z-index:1000;display:flex;flex-direction:column;overflow:hidden;';
     panel.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border-color);flex-shrink:0;">
-            <span style="font-weight:600;font-size:14px;">Стикеры</span>
-            <button onclick="showCreateStickerPackModal()" style="background:var(--primary-color);color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;">+ Создать</button>
+        <div id="emoji-cat-bar" style="display:flex;align-items:center;gap:2px;padding:6px 8px;border-bottom:1px solid var(--border-color);overflow-x:auto;flex-shrink:0;scrollbar-width:none;">
+            ${EMOJI_CATEGORIES.map((c,i) => `<button data-cat="${i}" onclick="_emojiSwitchCat(${i})" title="${c.label}" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px 5px;border-radius:8px;flex-shrink:0;opacity:${i===0?1:0.5};transition:opacity .15s;">${c.icon}</button>`).join('')}
         </div>
         <div id="sticker-panel-body" style="overflow-y:auto;flex:1;padding:8px;"></div>
+        <div style="display:flex;border-top:1px solid var(--border-color);flex-shrink:0;">
+            <button id="ep-tab-emoji" onclick="_emojiTabSwitch('emoji')" style="flex:1;padding:10px;border:none;background:var(--primary-color);color:#fff;font-size:13px;font-weight:600;cursor:pointer;border-radius:0 0 0 16px;">Эмодзи</button>
+            <button id="ep-tab-stickers" onclick="_emojiTabSwitch('stickers')" style="flex:1;padding:10px;border:none;background:var(--bg-secondary);color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;border-radius:0 0 16px 0;">Стикеры</button>
+        </div>
     `;
-    // Вставляем относительно input-area
+
     const inputArea = document.querySelector('.message-input-container') || document.querySelector('.input-area') || document.querySelector('#message-input')?.parentElement;
     if (inputArea) {
         inputArea.style.position = 'relative';
@@ -5398,7 +5415,11 @@ async function toggleStickerPanel() {
     } else {
         document.body.appendChild(panel);
     }
-    await _loadStickerPanel();
+
+    _emojiPanelTab = 'emoji';
+    _emojiActiveCat = 0;
+    _renderEmojiTab();
+
     setTimeout(() => document.addEventListener('click', function h(e) {
         if (!panel.contains(e.target) && !e.target.closest('#sticker-btn')) {
             panel.remove(); _stickerPanelOpen = false;
@@ -5407,6 +5428,61 @@ async function toggleStickerPanel() {
     }), 100);
 }
 window.toggleStickerPanel = toggleStickerPanel;
+
+function _emojiTabSwitch(tab) {
+    _emojiPanelTab = tab;
+    const catBar = document.getElementById('emoji-cat-bar');
+    const tabEmoji = document.getElementById('ep-tab-emoji');
+    const tabStickers = document.getElementById('ep-tab-stickers');
+    if (!tabEmoji) return;
+    if (tab === 'emoji') {
+        tabEmoji.style.background = 'var(--primary-color)'; tabEmoji.style.color = '#fff';
+        tabStickers.style.background = 'var(--bg-secondary)'; tabStickers.style.color = 'var(--text-secondary)';
+        catBar.style.display = 'flex';
+        _renderEmojiTab();
+    } else {
+        tabStickers.style.background = 'var(--primary-color)'; tabStickers.style.color = '#fff';
+        tabEmoji.style.background = 'var(--bg-secondary)'; tabEmoji.style.color = 'var(--text-secondary)';
+        catBar.style.display = 'none';
+        _loadStickerPanel();
+    }
+}
+window._emojiTabSwitch = _emojiTabSwitch;
+
+function _emojiSwitchCat(idx) {
+    _emojiActiveCat = idx;
+    document.querySelectorAll('#emoji-cat-bar button').forEach((b, i) => {
+        b.style.opacity = i === idx ? '1' : '0.5';
+        b.style.background = i === idx ? 'var(--hover-color)' : 'none';
+    });
+    _renderEmojiTab();
+}
+window._emojiSwitchCat = _emojiSwitchCat;
+
+function _renderEmojiTab() {
+    const body = document.getElementById('sticker-panel-body');
+    if (!body) return;
+    const cat = EMOJI_CATEGORIES[_emojiActiveCat];
+    body.innerHTML = `
+        <div style="font-size:11px;color:var(--text-secondary);padding:2px 4px 6px;font-weight:600;letter-spacing:.5px;">${cat.label}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:2px;">
+            ${cat.emojis.map(e => `<button onclick="_insertEmoji('${e}')" style="background:none;border:none;cursor:pointer;font-size:24px;padding:4px;border-radius:8px;line-height:1;transition:background .1s;" onmouseover="this.style.background='var(--hover-color)'" onmouseout="this.style.background='none'">${e}</button>`).join('')}
+        </div>
+    `;
+}
+
+function _insertEmoji(emoji) {
+    const input = document.getElementById('message-input') || document.getElementById('group-message-input');
+    if (!input) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const val = input.value;
+    input.value = val.slice(0, start) + emoji + val.slice(end);
+    input.selectionStart = input.selectionEnd = start + emoji.length;
+    input.focus();
+    input.dispatchEvent(new Event('input'));
+}
+window._insertEmoji = _insertEmoji;
 
 async function _loadStickerPanel() {
     const body = document.getElementById('sticker-panel-body');
@@ -5422,6 +5498,11 @@ async function _loadStickerPanel() {
             return;
         }
         body.innerHTML = '';
+        // Кнопка создания пака
+        const createBtn = document.createElement('div');
+        createBtn.style.cssText = 'padding:4px 0 10px;';
+        createBtn.innerHTML = `<button onclick="showCreateStickerPackModal()" style="background:var(--primary-color);color:#fff;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px;width:100%;">+ Создать пак</button>`;
+        body.appendChild(createBtn);
         allPacks.forEach(pack => {
             const section = document.createElement('div');
             section.style.cssText = 'margin-bottom:12px;';
