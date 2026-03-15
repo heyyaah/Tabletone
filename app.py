@@ -1757,15 +1757,15 @@ def admin_get_dialogs():
     if not _has_role(admin, 'owner'):
         return jsonify({'error': 'Нет доступа'}), 403
     # Получаем уникальные пары пользователей
-    from sqlalchemy import func, or_, and_
+    from sqlalchemy import func, or_, and_, case
     pairs = db.session.query(
-        func.min(Message.sender_id, Message.receiver_id).label('u1'),
-        func.max(Message.sender_id, Message.receiver_id).label('u2'),
+        case((Message.sender_id < Message.receiver_id, Message.sender_id), else_=Message.receiver_id).label('u1'),
+        case((Message.sender_id < Message.receiver_id, Message.receiver_id), else_=Message.sender_id).label('u2'),
         func.max(Message.id).label('last_msg_id'),
         func.count(Message.id).label('msg_count')
     ).filter(Message.is_deleted == False).group_by(
-        func.min(Message.sender_id, Message.receiver_id),
-        func.max(Message.sender_id, Message.receiver_id)
+        case((Message.sender_id < Message.receiver_id, Message.sender_id), else_=Message.receiver_id),
+        case((Message.sender_id < Message.receiver_id, Message.receiver_id), else_=Message.sender_id)
     ).order_by(func.max(Message.id).desc()).limit(200).all()
 
     result = []
