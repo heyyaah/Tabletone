@@ -787,28 +787,73 @@ with app.app_context():
             {"label": "✨ 5000 искр — 799 ₽ (скидка 36%!)", "reply": "/buy_sparks_5000"},
         ])
         _buy_url = "https://t.me/kotakbaslife"
-        _buy_text = "💳 Для оплаты перейдите по ссылке:\n" + _buy_url + "\n\nПосле оплаты напишите нам — мы активируем вручную."
+        _buy_text = (
+            "💳 Для завершения покупки нажмите кнопку *Оплатить* ниже.\n"
+            "Вы попадёте в Telegram-бот, который покажет реквизиты и примет скриншот оплаты."
+        )
+        _pay_buttons_7   = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_7"},   {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_14  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_14"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_30  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_30"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_180 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_180"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_365 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_365"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_s100  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_100"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_s300  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_300"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_s700  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_700"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_s1500 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_1500"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+        _pay_buttons_s5000 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_5000"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
 
         _cmds = [
             BotCommand(bot_id=_pbot.id, trigger='/start', response_text=_start_text, buttons=_buttons, order_index=1),
             BotCommand(bot_id=_pbot.id, trigger='/premium', response_text="👑 Выберите срок Premium подписки:", buttons=_premium_buttons, order_index=2),
             BotCommand(bot_id=_pbot.id, trigger='/sparks', response_text="✨ Выберите количество Искр:", buttons=_sparks_buttons, order_index=3),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_7',   response_text=f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text}",   buttons='[]', order_index=4),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_14',  response_text=f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text}",  buttons='[]', order_index=5),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_30',  response_text=f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text}", buttons='[]', order_index=6),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_180', response_text=f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text}", buttons='[]', order_index=7),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_365', response_text=f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text}", buttons='[]', order_index=8),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_100',  response_text=f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text}",  buttons='[]', order_index=9),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_300',  response_text=f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text}",  buttons='[]', order_index=10),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_700',  response_text=f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text}", buttons='[]', order_index=11),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_1500', response_text=f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text}", buttons='[]', order_index=12),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_5000', response_text=f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text}", buttons='[]', order_index=13),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_7',   response_text=f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text}",   buttons=_pay_buttons_7,   order_index=4),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_14',  response_text=f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text}",  buttons=_pay_buttons_14,  order_index=5),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_30',  response_text=f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text}", buttons=_pay_buttons_30,  order_index=6),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_180', response_text=f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text}", buttons=_pay_buttons_180, order_index=7),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_365', response_text=f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text}", buttons=_pay_buttons_365, order_index=8),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_100',  response_text=f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text}",  buttons=_pay_buttons_s100,  order_index=9),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_300',  response_text=f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text}",  buttons=_pay_buttons_s300,  order_index=10),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_700',  response_text=f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text}", buttons=_pay_buttons_s700,  order_index=11),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_1500', response_text=f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text}", buttons=_pay_buttons_s1500, order_index=12),
+            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_5000', response_text=f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text}", buttons=_pay_buttons_s5000, order_index=13),
+            BotCommand(bot_id=_pbot.id, trigger='/pay_cancel', response_text="❌ Оплата отменена. Возвращайтесь когда будете готовы!", buttons='[]', order_index=14),
             BotCommand(bot_id=_pbot.id, trigger='*', response_text="Напишите /start чтобы увидеть меню 👑", buttons='[]', order_index=99),
         ]
         for _c in _cmds:
             db.session.add(_c)
         db.session.commit()
         print("✓ Бот Tabletone Premium создан")
+    else:
+        # Обновляем кнопки существующих команд /buy_* и добавляем /pay_cancel если нет
+        _pbot_obj = Bot.query.filter_by(user_id=_pbot_user.id).first()
+        if _pbot_obj:
+            _buy_text_upd = (
+                "💳 Для завершения покупки нажмите кнопку *Оплатить* ниже.\n"
+                "Вы попадёте в Telegram-бот, который покажет реквизиты и примет скриншот оплаты."
+            )
+            _upd_map = {
+                '/buy_7':   (f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text_upd}",   [{"label": "✅ Оплатить", "reply": "/pay_confirm_7"},   {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_14':  (f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_14"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_30':  (f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text_upd}", [{"label": "✅ Оплатить", "reply": "/pay_confirm_30"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_180': (f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_180"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_365': (f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text_upd}",      [{"label": "✅ Оплатить", "reply": "/pay_confirm_365"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_sparks_100':  (f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_100"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_sparks_300':  (f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_300"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_sparks_700':  (f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text_upd}", [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_700"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_sparks_1500': (f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_1500"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                '/buy_sparks_5000': (f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_5000"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+            }
+            for trigger, (resp, btns) in _upd_map.items():
+                cmd = BotCommand.query.filter_by(bot_id=_pbot_obj.id, trigger=trigger).first()
+                if cmd:
+                    cmd.response_text = resp
+                    cmd.buttons = json.dumps(btns)
+            # Добавить /pay_cancel если нет
+            if not BotCommand.query.filter_by(bot_id=_pbot_obj.id, trigger='/pay_cancel').first():
+                db.session.add(BotCommand(bot_id=_pbot_obj.id, trigger='/pay_cancel',
+                    response_text="❌ Оплата отменена. Возвращайтесь когда будете готовы!", buttons='[]', order_index=14))
+            db.session.commit()
+            print("✓ Команды бота Tabletone Premium обновлены")
 
     # ── Сид: бот Tabletone (официальный, приветствие + 2FA) ─────────────────
     _TBL_USERNAME = 'tabletonebot'
@@ -1664,6 +1709,34 @@ def payment_webhook():
     if text_msg.startswith('/start'):
         try:
             ud.clear()
+            # Deep link: /start pay_KEY_USERNAME — сразу к реквизитам
+            parts = text_msg.split(maxsplit=1)
+            start_param = parts[1] if len(parts) > 1 else ''
+            if start_param.startswith('pay_'):
+                # Формат: pay_premium_7_username или pay_sparks_100_username
+                rest = start_param[4:]  # убираем "pay_"
+                # Ищем ключ плана
+                matched_key = None
+                for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()):
+                    if rest.startswith(k + '_'):
+                        matched_key = k
+                        username = rest[len(k)+1:]
+                        break
+                if matched_key and username:
+                    plan = PAY_PREMIUM_PLANS.get(matched_key) or PAY_SPARKS_PLANS.get(matched_key)
+                    ud['pending_key'] = matched_key
+                    ud['tabletone_username'] = username
+                    ud['awaiting_username'] = False
+                    ud['awaiting_screenshot'] = True
+                    _pay_tg_send(token, chat_id,
+                        f"✅ Вы выбрали: *{plan['label']}* — *{plan['price']}*\n\n"
+                        f"💳 *Реквизиты для оплаты:*\n\n"
+                        f"📱 Номер: `{PAY_CARD}`\n"
+                        f"🏦 по номеру телефона (СБП / любой банк)\n"
+                        f"💰 Сумма: *{plan['price']}*\n\n"
+                        f"После перевода пришлите *скриншот* подтверждения оплаты.\n⏳ У вас есть *10 минут*.")
+                    return jsonify({'ok': True})
+            # Обычный /start
             _pay_tg_send(token, chat_id,
                 "👋 Привет! Я бот оплаты *Tabletone*.\n\nВыбери что хочешь купить 👇", _pay_main_kb())
         except Exception as e:
@@ -5459,6 +5532,30 @@ def _trigger_webhook(bot, update):
                     if not text.startswith('/'):
                         _handle_support_message(bot, sender_id, text)
                         return
+
+            # ── Перехват /pay_confirm_* для premium бота ─────────────────────
+            is_premium_bot = bot_user_obj and bot_user_obj.username == 'tabletone_premiumbot'
+            if is_premium_bot and text.lower().startswith('/pay_confirm_'):
+                plan_key_raw = text[len('/pay_confirm_'):].strip()
+                _plan_map = {
+                    '7': 'premium_7', '14': 'premium_14', '30': 'premium_30',
+                    '180': 'premium_180', '365': 'premium_365',
+                    'sparks_100': 'sparks_100', 'sparks_300': 'sparks_300',
+                    'sparks_700': 'sparks_700', 'sparks_1500': 'sparks_1500',
+                    'sparks_5000': 'sparks_5000',
+                }
+                plan_key = _plan_map.get(plan_key_raw)
+                if plan_key:
+                    sender_user = User.query.get(sender_id)
+                    username = sender_user.username if sender_user else 'unknown'
+                    pay_bot_username = os.environ.get('PAYMENT_BOT_USERNAME', 'TabletonePayBot')
+                    deep_link = f"https://t.me/{pay_bot_username}?start=pay_{plan_key}_{username}"
+                    _bot_send_message(bot.user_id, sender_id,
+                        f"💳 Перейдите в Telegram-бот для оплаты.\n"
+                        f"Бот уже знает ваш выбор и сразу покажет реквизиты.",
+                        buttons=[{"label": "💳 Перейти к оплате в Telegram", "url": deep_link}]
+                    )
+                return
 
             _bot_auto_reply(bot, sender_id, text)
         return

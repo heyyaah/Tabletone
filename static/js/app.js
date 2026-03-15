@@ -582,6 +582,9 @@ function renderBotButtons(buttons) {
     return '<div class="bot-buttons">' +
         buttons.map(b => {
             if (!b.label) return '';
+            if (b.url) {
+                return `<a class="bot-btn" href="${escapeHtml(b.url)}" target="_blank" rel="noopener">${escapeHtml(b.label)}</a>`;
+            }
             const cmd = (b.reply || '').replace(/'/g, "\\'");
             return `<button class="bot-btn" onclick="window.sendBotCommand('${cmd}')">${escapeHtml(b.label)}</button>`;
         }).join('') +
