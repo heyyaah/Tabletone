@@ -351,6 +351,40 @@
                 </button>
             </div>
 
+            <!-- Premium статус -->
+            {% if user.is_premium %}
+            <div class="profile-section" style="background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.3);border-radius:12px;padding:16px;">
+                <h3 style="color:#c05621;"><i class="fas fa-crown" style="color:#f6ad55;"></i> Premium активен</h3>
+                {% if user.premium_until %}
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Действует до: <strong>{{ user.premium_until.strftime('%d.%m.%Y') }}</strong></p>
+                {% endif %}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Загрузка аватара</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Обои для чата</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Неограниченные боты</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Истории</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Кастомные реакции</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Premium Support</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Кастомный эмодзи</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Приоритет в поиске</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="profile-section" style="background:var(--bg-secondary);border-radius:12px;padding:16px;">
+                <h3><i class="fas fa-crown" style="color:#a0aec0;"></i> Получить Premium</h3>
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Разблокируйте все возможности Tabletone</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:14px;">
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Загрузка аватара</div>
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Обои для чата</div>
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Неограниченные боты</div>
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Premium Support</div>
+                </div>
+                <a href="https://t.me/tabletone_premiumbot" target="_blank" class="btn btn-primary" style="display:inline-block;text-decoration:none;background:linear-gradient(135deg,#f6ad55,#ed8936);">
+                    <i class="fas fa-crown"></i> Купить Premium
+                </a>
+            </div>
+            {% endif %}
+
             <!-- Сменить аккаунт -->
             <div class="profile-section">
                 <h3><i class="fas fa-exchange-alt"></i> Сменить аккаунт</h3>

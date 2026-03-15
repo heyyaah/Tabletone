@@ -902,6 +902,69 @@ with app.app_context():
         db.session.commit()
         print("✓ Бот Stickers создан")
 
+    # ── Сид: бот Premium Support ─────────────────────────────────────────────
+    _PRM_USERNAME = 'premium_support'
+    if not User.query.filter_by(username=_PRM_USERNAME).first():
+        _prm_user = User(
+            username=_PRM_USERNAME,
+            display_name='⭐ Premium Support',
+            bio='Премиальная поддержка от разработчика — только для Premium пользователей',
+            avatar_color='#f6ad55',
+            is_bot=True, is_verified=True, is_premium=True,
+            password_hash=generate_password_hash(secrets.token_hex(32))
+        )
+        db.session.add(_prm_user)
+        db.session.flush()
+        _prm_bot = Bot(
+            user_id=_prm_user.id, owner_id=_PREMIUM_OWNER_ID,
+            token=f"{_prm_user.id}:{secrets.token_urlsafe(32)}",
+            description='Премиальная поддержка от разработчика', is_active=True, review_status='approved'
+        )
+        db.session.add(_prm_bot)
+        db.session.flush()
+        _prm_buttons = json.dumps([
+            {"label": "🐛 Сообщить об ошибке", "reply": "/bug"},
+            {"label": "💡 Предложить идею", "reply": "/idea"},
+            {"label": "❓ Вопрос разработчику", "reply": "/ask"},
+        ])
+        _prm_cmds = [
+            BotCommand(bot_id=_prm_bot.id, trigger='/start', order_index=1,
+                response_text=(
+                    "⭐ *Добро пожаловать в Premium Support!*\n\n"
+                    "Вы получаете приоритетную поддержку от разработчика Tabletone.\n\n"
+                    "Ваши обращения рассматриваются в первую очередь.\n\n"
+                    "Выберите тему обращения:"
+                ), buttons=_prm_buttons),
+            BotCommand(bot_id=_prm_bot.id, trigger='/bug', order_index=2,
+                response_text=(
+                    "🐛 *Сообщение об ошибке*\n\n"
+                    "Опишите проблему следующим сообщением:\n"
+                    "— Что происходит?\n"
+                    "— Как воспроизвести?\n"
+                    "— На каком устройстве/браузере?\n\n"
+                    "Разработчик получит ваш отчёт и ответит в ближайшее время."
+                ), buttons='[]'),
+            BotCommand(bot_id=_prm_bot.id, trigger='/idea', order_index=3,
+                response_text=(
+                    "💡 *Предложение по улучшению*\n\n"
+                    "Опишите вашу идею следующим сообщением.\n"
+                    "Лучшие идеи от Premium пользователей реализуются в первую очередь! 🚀"
+                ), buttons='[]'),
+            BotCommand(bot_id=_prm_bot.id, trigger='/ask', order_index=4,
+                response_text=(
+                    "❓ *Вопрос разработчику*\n\n"
+                    "Напишите ваш вопрос следующим сообщением.\n"
+                    "Отвечаем в течение нескольких часов."
+                ), buttons='[]'),
+            BotCommand(bot_id=_prm_bot.id, trigger='*', order_index=99,
+                response_text="⭐ Ваше обращение принято! Разработчик ответит вам в ближайшее время.\n\nНапишите /start чтобы увидеть меню.",
+                buttons='[]'),
+        ]
+        for _c in _prm_cmds:
+            db.session.add(_c)
+        db.session.commit()
+        print("✓ Бот Premium Support создан")
+
     # ── Сид: каталог подарков ────────────────────────────────────────────────
     if GiftType.query.count() == 0:
         _default_gifts = [
@@ -2221,6 +2284,13 @@ def send_message():
     
     # Если получатель — бот, триггерим его webhook
     if receiver.is_bot:
+        # Проверка: бот @premium_support доступен только Premium пользователям
+        if receiver.username == 'premium_support' and not sender.is_premium and not sender.is_admin:
+            _bot_send_message(receiver_id, sender.id,
+                "⭐ *Premium Support* доступен только для Premium пользователей.\n\n"
+                "Оформите Premium чтобы получить приоритетную поддержку от разработчика.\n\n"
+                "Для обычной поддержки напишите боту @tabletone_supportbot")
+            return jsonify({'success': True, 'message': {'id': message.id}})
         bot = Bot.query.filter_by(user_id=receiver_id, is_active=True).first()
         if bot:
             _trigger_webhook(bot, {
@@ -7305,6 +7375,131 @@ def sticker_find_by_url():
     if not sticker:
         return jsonify({'error': 'Не найдено'}), 404
     return jsonify({'pack_id': sticker.pack_id})
+
+
+# ── Web Push уведомления ──────────────────────────────────────────────────────
+import json as _json
+
+# Генерируем VAPID ключи при первом запуске (храним в env или файле)
+_VAPID_PRIVATE = os.environ.get('VAPID_PRIVATE_KEY', '')
+_VAPID_PUBLIC  = os.environ.get('VAPID_PUBLIC_KEY', '')
+
+class PushSubscription(db.Model):
+    """Web Push подписка пользователя."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.Text)
+    auth = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', foreign_keys=[user_id])
+
+with app.app_context():
+    db.create_all()
+
+@app.route('/push/vapid-key')
+def push_vapid_key():
+    return jsonify({'public_key': _VAPID_PUBLIC or 'not_configured'})
+
+@app.route('/push/subscribe', methods=['POST'])
+def push_subscribe():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    data = request.get_json() or {}
+    endpoint = data.get('endpoint', '')
+    keys = data.get('keys', {})
+    if not endpoint:
+        return jsonify({'error': 'No endpoint'}), 400
+    existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if not existing:
+        sub = PushSubscription(
+            user_id=session['user_id'],
+            endpoint=endpoint,
+            p256dh=keys.get('p256dh', ''),
+            auth=keys.get('auth', '')
+        )
+        db.session.add(sub)
+        db.session.commit()
+    return jsonify({'success': True})
+
+def _send_push_notification(user_id, title, body, url='/'):
+    """Отправляет Web Push уведомление пользователю."""
+    if not _VAPID_PRIVATE or not _VAPID_PUBLIC:
+        return
+    try:
+        from pywebpush import webpush, WebPushException
+        subs = PushSubscription.query.filter_by(user_id=user_id).all()
+        payload = _json.dumps({'title': title, 'body': body, 'url': url})
+        for sub in subs:
+            try:
+                webpush(
+                    subscription_info={'endpoint': sub.endpoint, 'keys': {'p256dh': sub.p256dh, 'auth': sub.auth}},
+                    data=payload,
+                    vapid_private_key=_VAPID_PRIVATE,
+                    vapid_claims={'sub': 'mailto:support@tabletone.app'}
+                )
+            except WebPushException as e:
+                if '410' in str(e) or '404' in str(e):
+                    db.session.delete(sub)
+                    db.session.commit()
+    except ImportError:
+        pass  # pywebpush не установлен — тихо пропускаем
+
+# ── Превью ссылок ─────────────────────────────────────────────────────────────
+@app.route('/link-preview')
+def link_preview():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    url = request.args.get('url', '').strip()
+    if not url or not url.startswith('http'):
+        return jsonify({'error': 'Invalid URL'}), 400
+    try:
+        import urllib.request
+        from html.parser import HTMLParser
+
+        class OGParser(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.og = {}
+                self.title = ''
+                self._in_title = False
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if tag == 'meta':
+                    prop = attrs.get('property', '') or attrs.get('name', '')
+                    content = attrs.get('content', '')
+                    if prop in ('og:title', 'og:description', 'og:image', 'og:url', 'twitter:title', 'twitter:description', 'twitter:image'):
+                        key = prop.replace('og:', '').replace('twitter:', '')
+                        if key not in self.og:
+                            self.og[key] = content
+                if tag == 'title':
+                    self._in_title = True
+            def handle_data(self, data):
+                if self._in_title and not self.og.get('title'):
+                    self.title += data
+            def handle_endtag(self, tag):
+                if tag == 'title':
+                    self._in_title = False
+
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            html = resp.read(32768).decode('utf-8', errors='ignore')
+
+        parser = OGParser()
+        parser.feed(html)
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc
+
+        preview = {
+            'title': parser.og.get('title') or parser.title.strip() or domain,
+            'description': parser.og.get('description', ''),
+            'image': parser.og.get('image', ''),
+            'url': parser.og.get('url') or url,
+            'domain': domain
+        }
+        return jsonify({'preview': preview})
+    except Exception:
+        return jsonify({'preview': None})
 
 
 if __name__ == '__main__':

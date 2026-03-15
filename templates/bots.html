@@ -88,6 +88,30 @@
         {% endif %}
       </div>
 
+      <!-- Premium Support -->
+      {% if user.is_premium %}
+      <div class="profile-section" style="margin-top:20px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.3);border-radius:12px;padding:16px;">
+        <h3 style="color:#c05621;"><i class="fas fa-crown" style="color:#f6ad55;"></i> Premium Support</h3>
+        <p style="color:#718096;font-size:14px;margin-bottom:12px;">
+          Как Premium пользователь вы получаете приоритетную поддержку от разработчика.
+          Ваши обращения рассматриваются в первую очередь.
+        </p>
+        <button class="btn btn-primary" style="background:linear-gradient(135deg,#f6ad55,#ed8936);border:none;" onclick="openPremiumSupportChat()">
+          <i class="fas fa-headset"></i> Открыть Premium Support
+        </button>
+      </div>
+      {% else %}
+      <div class="profile-section" style="margin-top:20px;background:var(--bg-secondary);border-radius:12px;padding:16px;">
+        <h3><i class="fas fa-crown" style="color:#a0aec0;"></i> Premium Support</h3>
+        <p style="color:#a0aec0;font-size:14px;margin-bottom:12px;">
+          Приоритетная поддержка от разработчика доступна только для Premium пользователей.
+        </p>
+        <button class="btn" style="background:#e2e8f0;color:#a0aec0;cursor:not-allowed;" disabled>
+          <i class="fas fa-lock"></i> Только для Premium
+        </button>
+      </div>
+      {% endif %}
+
       <!-- Документация API -->
       <div class="profile-section" style="margin-top:30px;">
         <h3><i class="fas fa-book"></i> Bot API</h3>
@@ -604,6 +628,20 @@ function openStickersBotChat() {
         alert('Бот @stickers не найден');
       }
     })
+
+function openPremiumSupportChat() {
+  fetch('/search?q=premium_support')
+    .then(r => r.json())
+    .then(d => {
+      const bot = (d.users || []).find(u => u.username === 'premium_support');
+      if (bot) {
+        localStorage.setItem('open_chat_on_load', JSON.stringify({id: bot.id, name: bot.display_name || 'Premium Support'}));
+        window.location.href = '/';
+      } else {
+        alert('Бот @premium_support не найден');
+      }
+    });
+}
     .catch(() => alert('Ошибка поиска бота'));
 }
 

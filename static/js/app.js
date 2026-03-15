@@ -5583,3 +5583,129 @@ async function submitCreateStickerPack() {
     } catch(e) { showError('Ошибка создания'); }
 }
 window.submitCreateStickerPack = submitCreateStickerPack;
+
+// ── Web Push уведомления ──────────────────────────────────────────────────────
+async function initWebPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+        const reg = await navigator.serviceWorker.register('/static/js/sw.js');
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+        const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: await getVapidKey()
+        });
+        await fetch('/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub)
+        });
+    } catch(e) { console.log('Push init error:', e); }
+}
+
+async function getVapidKey() {
+    const r = await fetch('/push/vapid-key');
+    const d = await r.json();
+    const base64 = d.public_key;
+    const raw = atob(base64.replace(/-/g,'+').replace(/_/g,'/'));
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// Запускаем после загрузки
+document.addEventListener('DOMContentLoaded', () => {
+    // Небольшая задержка чтобы не мешать основной загрузке
+    setTimeout(initWebPush, 3000);
+});
+
+// ── Drag & Drop файлов в чат ──────────────────────────────────────────────────
+(function initDragDrop() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatArea = document.getElementById('chat-area');
+        if (!chatArea) return;
+
+        let dragCounter = 0;
+
+        // Создаём оверлей
+        const overlay = document.createElement('div');
+        overlay.id = 'drag-drop-overlay';
+        overlay.style.cssText = `
+            display:none; position:fixed; inset:0; background:rgba(102,126,234,0.15);
+            backdrop-filter:blur(2px); z-index:9999; align-items:center; justify-content:center;
+            pointer-events:none;
+        `;
+        overlay.innerHTML = `
+            <div style="background:var(--bg-primary,#fff);border:3px dashed #667eea;border-radius:20px;
+                padding:40px 60px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <i class="fas fa-cloud-upload-alt" style="font-size:48px;color:#667eea;display:block;margin-bottom:12px;"></i>
+                <div style="font-size:18px;font-weight:600;color:#667eea;">Отпустите для отправки</div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        document.addEventListener('dragenter', e => {
+            if (!e.dataTransfer.types.includes('Files')) return;
+            dragCounter++;
+            overlay.style.display = 'flex';
+        });
+
+        document.addEventListener('dragleave', e => {
+            dragCounter--;
+            if (dragCounter <= 0) { dragCounter = 0; overlay.style.display = 'none'; }
+        });
+
+        document.addEventListener('dragover', e => e.preventDefault());
+
+        document.addEventListener('drop', e => {
+            e.preventDefault();
+            dragCounter = 0;
+            overlay.style.display = 'none';
+            const files = Array.from(e.dataTransfer.files);
+            if (!files.length) return;
+            // Используем существующую систему выбора файлов
+            if (typeof showFilesPreviewModal === 'function') {
+                window.selectedFiles = files;
+                showFilesPreviewModal();
+            }
+        });
+    });
+})();
+
+// ── Превью ссылок в сообщениях ────────────────────────────────────────────────
+const _linkPreviewCache = {};
+
+async function fetchLinkPreview(url) {
+    if (_linkPreviewCache[url] !== undefined) return _linkPreviewCache[url];
+    try {
+        const r = await fetch('/link-preview?url=' + encodeURIComponent(url));
+        if (!r.ok) { _linkPreviewCache[url] = null; return null; }
+        const d = await r.json();
+        _linkPreviewCache[url] = d.preview || null;
+        return _linkPreviewCache[url];
+    } catch { _linkPreviewCache[url] = null; return null; }
+}
+
+function renderLinkPreview(preview) {
+    if (!preview || !preview.title) return '';
+    return `
+    <div class="link-preview" style="margin-top:8px;border-left:3px solid #667eea;padding:8px 12px;
+        background:var(--bg-secondary,#f8fafc);border-radius:0 8px 8px 0;max-width:320px;cursor:pointer;"
+        onclick="window.open('${escapeHtml(preview.url)}','_blank')">
+        ${preview.image ? `<img src="${escapeHtml(preview.image)}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.remove()">` : ''}
+        <div style="font-weight:600;font-size:13px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(preview.title)}</div>
+        ${preview.description ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(preview.description)}</div>` : ''}
+        <div style="font-size:11px;color:#a0aec0;margin-top:4px;">${escapeHtml(preview.domain || '')}</div>
+    </div>`;
+}
+
+// Вызывается после рендера сообщения — ищет ссылки и добавляет превью
+async function attachLinkPreviews(msgEl, text) {
+    const urlRegex = /https?:\/\/[^\s<>"]+/g;
+    const urls = text.match(urlRegex);
+    if (!urls || !urls.length) return;
+    const url = urls[0]; // только первая ссылка
+    const preview = await fetchLinkPreview(url);
+    if (!preview) return;
+    const previewEl = document.createElement('div');
+    previewEl.innerHTML = renderLinkPreview(preview);
+    msgEl.appendChild(previewEl.firstChild);
+}
+window.attachLinkPreviews = attachLinkPreviews;

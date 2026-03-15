@@ -4116,3 +4116,27 @@ body[data-theme="dark"] .channel-mute-btn:hover {
 .reaction-chip img {
     vertical-align: middle;
 }
+
+/* ── Drag & Drop overlay ─────────────────────────────────────────────────── */
+#drag-drop-overlay {
+    transition: opacity 0.2s ease;
+}
+
+/* ── Link preview ────────────────────────────────────────────────────────── */
+.link-preview {
+    transition: background 0.2s ease;
+}
+.link-preview:hover {
+    background: var(--bg-secondary, #f0f4ff) !important;
+}
+
+/* ── Premium badge в боковой панели ─────────────────────────────────────── */
+.premium-support-badge {
+    background: linear-gradient(135deg, #f6ad55, #ed8936);
+    color: white;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 700;
+    margin-left: 4px;
+}
