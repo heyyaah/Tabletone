@@ -3351,14 +3351,19 @@ def delete_message(message_id):
     
     # Отправляем событие через Socket.IO обоим пользователям
     delete_data = {
-        'message_id': message.id
+        'message_id': message.id,
+        'other_user_id': message.receiver_id  # для отправителя
     }
-    
+    delete_data_receiver = {
+        'message_id': message.id,
+        'other_user_id': message.sender_id  # для получателя
+    }
+
     try:
         # Отправителю
         socketio.emit('message_deleted', delete_data, room=f'user_{message.sender_id}', namespace='/')
         # Получателю
-        socketio.emit('message_deleted', delete_data, room=f'user_{message.receiver_id}', namespace='/')
+        socketio.emit('message_deleted', delete_data_receiver, room=f'user_{message.receiver_id}', namespace='/')
     except Exception as e:
         print(f"Error emitting message_deleted: {e}")
     
