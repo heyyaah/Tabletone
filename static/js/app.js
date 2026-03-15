@@ -1026,6 +1026,12 @@ async function openChat(userId, username) {
     _favoritesOpen = false;
     openedChats.add(userId);
     
+    // Восстанавливаем кнопки личного чата (скрытые при просмотре группы)
+    const addContactBtn = document.querySelector('.chat-header .icon-btn[onclick="addContactFromChat()"]');
+    if (addContactBtn) addContactBtn.style.display = 'flex';
+    const settingsBtn = document.getElementById('group-settings-btn');
+    if (settingsBtn) settingsBtn.style.display = 'none';
+
     // Обновляем UI
     document.getElementById('chat-welcome').style.display = 'none';
     document.getElementById('chat-active').style.display = 'flex';
@@ -2735,8 +2741,12 @@ async function openGroup(groupId, groupName) {
             if (infoBtn) chatHeader.insertBefore(settingsBtn, infoBtn);
         }
         settingsBtn.onclick = () => { showGroupInfo(groupId); setTimeout(() => switchGinfoTab('settings'), 50); };
-        settingsBtn.style.display = data.group.is_admin ? 'block' : 'none';
-        
+        settingsBtn.style.display = data.group.is_admin ? 'flex' : 'none';
+
+        // Скрываем кнопки не нужные в группах/каналах
+        const addContactBtn = document.querySelector('.chat-header .icon-btn[onclick="addContactFromChat()"]');
+        if (addContactBtn) addContactBtn.style.display = 'none';
+
         // Обновляем видимость формы сообщений (для каналов показываем заглушку если не админ)
         updateMessageInputVisibility(data.group.is_channel, data.group.is_admin);
         
@@ -3290,6 +3300,11 @@ function _renderGroupInfoModal(data, groupId) {
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;">
                             ${m.is_admin ? `<span style="background:var(--primary-color);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">АДМИН</span>` : ''}
+                            ${canManage ? `
+                                <button onclick="showMemberPermissions(${groupId},${m.id},'${escapeHtml(m.display_name)}')" title="Права" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:14px;padding:4px;">
+                                    <i class="fas fa-sliders-h"></i>
+                                </button>
+                            ` : ''}
                             ${canManage && isCreator ? `
                                 <button onclick="setMemberRole(${groupId},${m.id},${m.is_admin})" title="${m.is_admin ? 'Снять права' : 'Сделать админом'}" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:14px;padding:4px;">
                                     <i class="fas fa-${m.is_admin ? 'user-minus' : 'user-shield'}"></i>
@@ -3374,6 +3389,9 @@ function _renderGroupInfoModal(data, groupId) {
                 ${isCreator ? `
                 <button onclick="deleteGroup(${groupId})" style="width:100%;padding:10px;background:#e53e3e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">
                     <i class="fas fa-trash"></i> Удалить ${typeNameAcc}
+                </button>
+                <button onclick="showTransferGroup(${groupId})" style="width:100%;padding:10px;background:#744210;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;margin-top:8px;">
+                    <i class="fas fa-exchange-alt"></i> Передать ${typeNameAcc}
                 </button>` : ''}
             </div>` : ''}
 
@@ -3475,7 +3493,7 @@ async function setMemberRole(groupId, userId, isAdmin) {
         const r = await fetch(`/groups/${groupId}/members/${userId}/role`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: isAdmin ? 'member' : 'admin' })
+            body: JSON.stringify({ is_admin: !isAdmin })
         });
         const d = await r.json();
         if (d.success) {
@@ -4998,3 +5016,188 @@ async function saveSpamKeywords(groupId) {
     showError(d.success ? 'Ключевые слова сохранены' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
 }
 window.saveSpamKeywords = saveSpamKeywords;
+
+// ===== ПРАВА УЧАСТНИКОВ ГРУППЫ =====
+
+async function showMemberPermissions(groupId, userId, displayName) {
+    // Загружаем текущие права
+    let info = { is_admin: false, admin_permissions: {}, member_restrictions: {} };
+    try {
+        const r = await fetch(`/groups/${groupId}/members/${userId}/info`);
+        if (r.ok) info = await r.json();
+    } catch(e) {}
+
+    const ap = info.admin_permissions || {};
+    const mr = info.member_restrictions || {};
+
+    const ADMIN_PERMS = [
+        { key: 'delete_messages', label: 'Удалять сообщения' },
+        { key: 'ban_members',     label: 'Банить участников' },
+        { key: 'pin_messages',    label: 'Закреплять сообщения' },
+        { key: 'invite_users',    label: 'Приглашать пользователей' },
+        { key: 'edit_group',      label: 'Редактировать группу' },
+    ];
+    const REACTIONS = ['👍','👎','❤️','🔥','😂','😮','😢','🎉','💯','🤔'];
+
+    const adminSection = info.is_admin ? `
+        <div style="margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;">Права администратора</div>
+            ${ADMIN_PERMS.map(p => `
+                <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:14px;">
+                    <input type="checkbox" data-perm="${p.key}" ${ap[p.key] ? 'checked' : ''} style="width:16px;height:16px;">
+                    ${p.label}
+                </label>
+            `).join('')}
+            <button onclick="saveMemberPermissions(${groupId},${userId})" style="margin-top:8px;padding:8px 16px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;width:100%;">
+                <i class="fas fa-save"></i> Сохранить права
+            </button>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border-color);margin:12px 0;">
+    ` : '';
+
+    const allowedReactions = mr.allowed_reactions || REACTIONS;
+    const restrictSection = `
+        <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;">Ограничения участника</div>
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:14px;">
+                <input type="checkbox" id="restr-send-msg" ${mr.can_send_messages === false ? '' : 'checked'} style="width:16px;height:16px;">
+                Может отправлять сообщения
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:14px;">
+                <input type="checkbox" id="restr-send-media" ${mr.can_send_media === false ? '' : 'checked'} style="width:16px;height:16px;">
+                Может отправлять медиа
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:14px;">
+                <input type="checkbox" id="restr-react" ${mr.can_react === false ? '' : 'checked'} style="width:16px;height:16px;">
+                Может ставить реакции
+            </label>
+            <div style="margin-top:10px;">
+                <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">Разрешённые реакции:</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    ${REACTIONS.map(e => `
+                        <label style="cursor:pointer;font-size:20px;opacity:${allowedReactions.includes(e) ? '1' : '0.3'};" title="${e}">
+                            <input type="checkbox" data-reaction="${e}" ${allowedReactions.includes(e) ? 'checked' : ''} style="display:none;" onchange="this.parentElement.style.opacity=this.checked?'1':'0.3'">
+                            ${e}
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+            <button onclick="saveMemberRestrictions(${groupId},${userId})" style="margin-top:12px;padding:8px 16px;background:#e53e3e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;width:100%;">
+                <i class="fas fa-save"></i> Сохранить ограничения
+            </button>
+        </div>
+    `;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'member-perms-modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:420px;padding:0;overflow:hidden;max-height:90vh;display:flex;flex-direction:column;">
+            <div class="modal-header" style="padding:16px 20px;flex-shrink:0;">
+                <h2 style="font-size:16px;"><i class="fas fa-sliders-h"></i> Права: ${escapeHtml(displayName)}</h2>
+                <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="overflow-y:auto;flex:1;padding:16px;">
+                ${adminSection}
+                ${restrictSection}
+            </div>
+        </div>
+    `;
+    document.getElementById('member-perms-modal')?.remove();
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+window.showMemberPermissions = showMemberPermissions;
+
+async function saveMemberPermissions(groupId, userId) {
+    const checks = document.querySelectorAll('#member-perms-modal input[data-perm]');
+    const perms = {};
+    checks.forEach(c => { perms[c.dataset.perm] = c.checked; });
+    try {
+        const r = await fetch(`/groups/${groupId}/members/${userId}/role`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_admin: true, admin_permissions: perms })
+        });
+        const d = await r.json();
+        showError(d.success ? 'Права сохранены' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+    } catch(e) { showError('Ошибка сохранения'); }
+}
+window.saveMemberPermissions = saveMemberPermissions;
+
+async function saveMemberRestrictions(groupId, userId) {
+    const canSendMsg   = document.getElementById('restr-send-msg')?.checked !== false;
+    const canSendMedia = document.getElementById('restr-send-media')?.checked !== false;
+    const canReact     = document.getElementById('restr-react')?.checked !== false;
+    const reactionChecks = document.querySelectorAll('#member-perms-modal input[data-reaction]');
+    const allowedReactions = [];
+    reactionChecks.forEach(c => { if (c.checked) allowedReactions.push(c.dataset.reaction); });
+
+    const restrictions = {
+        can_send_messages: document.getElementById('restr-send-msg')?.checked ?? true,
+        can_send_media:    document.getElementById('restr-send-media')?.checked ?? true,
+        can_react:         document.getElementById('restr-react')?.checked ?? true,
+        allowed_reactions: allowedReactions,
+    };
+    try {
+        const r = await fetch(`/groups/${groupId}/members/${userId}/restrictions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restrictions })
+        });
+        const d = await r.json();
+        showError(d.success ? 'Ограничения сохранены' : (d.error || 'Ошибка'), d.success ? 'success' : 'error');
+    } catch(e) { showError('Ошибка сохранения'); }
+}
+window.saveMemberRestrictions = saveMemberRestrictions;
+
+function showTransferGroup(groupId) {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'transfer-group-modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:380px;">
+            <div class="modal-header">
+                <h2 style="font-size:16px;"><i class="fas fa-exchange-alt"></i> Передать группу/канал</h2>
+                <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="padding:16px;">
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">
+                    Введите username нового владельца. Он должен быть участником группы.
+                </p>
+                <input id="transfer-username" type="text" placeholder="@username" style="width:100%;padding:9px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:10px;">
+                <input id="transfer-2fa" type="text" placeholder="Код 2FA (если включена)" style="width:100%;padding:9px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:14px;">
+                <button onclick="transferGroup(${groupId})" style="width:100%;padding:10px;background:#744210;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">
+                    <i class="fas fa-exchange-alt"></i> Подтвердить передачу
+                </button>
+            </div>
+        </div>
+    `;
+    document.getElementById('transfer-group-modal')?.remove();
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+window.showTransferGroup = showTransferGroup;
+
+async function transferGroup(groupId) {
+    const username = document.getElementById('transfer-username')?.value.trim().replace(/^@/, '');
+    const tfaCode  = document.getElementById('transfer-2fa')?.value.trim();
+    if (!username) { showError('Введите username'); return; }
+    try {
+        const r = await fetch(`/groups/${groupId}/transfer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, tfa_code: tfaCode })
+        });
+        const d = await r.json();
+        if (d.success) {
+            showError('Группа передана', 'success');
+            document.getElementById('transfer-group-modal')?.remove();
+            document.getElementById('group-info-modal')?.remove();
+            loadAllChats();
+        } else {
+            showError(d.error || 'Ошибка передачи');
+        }
+    } catch(e) { showError('Ошибка передачи'); }
+}
+window.transferGroup = transferGroup;
