@@ -60,6 +60,114 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown", reply_markup=kb
     )
 
+# ── Owner-команды ─────────────────────────────────────────────────────────────
+def owner_only(func):
+    """Декоратор — только для владельца."""
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.effective_user.id != OWNER_TELEGRAM_ID:
+            await update.message.reply_text("⛔ Нет доступа.")
+            return
+        await func(update, context)
+    return wrapper
+
+@owner_only
+async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /givepremium <username> <days>
+    Пример: /givepremium romancev228 30
+    """
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text(
+            "Использование: `/givepremium <username> <дней>`\n"
+            "Пример: `/givepremium romancev228 30`",
+            parse_mode="Markdown"
+        )
+        return
+    username = args[0].lstrip("@")
+    try:
+        days = int(args[1])
+    except ValueError:
+        await update.message.reply_text("❌ Количество дней должно быть числом.")
+        return
+
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            resp = await session.post(
+                f"{SITE_URL}/api/payment/activate-premium",
+                json={"username": username, "days": days, "secret": PAYMENT_SECRET},
+                timeout=aiohttp.ClientTimeout(total=10)
+            )
+            data = await resp.json()
+        if data.get("success"):
+            await update.message.reply_text(
+                f"✅ Premium на *{days} дней* выдан пользователю @{username}.",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text(f"❌ Ошибка: {data.get('error', 'неизвестно')}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка соединения: {e}")
+
+@owner_only
+async def cmd_give_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /givesparks <username> <количество>
+    Пример: /givesparks romancev228 500
+    """
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text(
+            "Использование: `/givesparks <username> <количество>`\n"
+            "Пример: `/givesparks romancev228 500`",
+            parse_mode="Markdown"
+        )
+        return
+    username = args[0].lstrip("@")
+    try:
+        sparks = int(args[1])
+    except ValueError:
+        await update.message.reply_text("❌ Количество искр должно быть числом.")
+        return
+    if sparks == 0:
+        await update.message.reply_text("❌ Количество не может быть 0.")
+        return
+
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            resp = await session.post(
+                f"{SITE_URL}/api/payment/add-sparks",
+                json={"username": username, "sparks": sparks, "secret": PAYMENT_SECRET},
+                timeout=aiohttp.ClientTimeout(total=10)
+            )
+            data = await resp.json()
+        if data.get("success"):
+            sign = "+" if sparks > 0 else ""
+            await update.message.reply_text(
+                f"✅ {sign}{sparks} ✨ Искр {'начислено' if sparks > 0 else 'снято'} у @{username}.",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text(f"❌ Ошибка: {data.get('error', 'неизвестно')}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка соединения: {e}")
+
+@owner_only
+async def cmd_owner_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🔧 *Owner-команды:*\n\n"
+        "`/givepremium <username> <дней>` — выдать Premium\n"
+        "`/givesparks <username> <кол-во>` — начислить Искры\n"
+        "_(отрицательное число — снять Искры)_\n\n"
+        "Примеры:\n"
+        "`/givepremium romancev228 30`\n"
+        "`/givesparks romancev228 1000`\n"
+        "`/givesparks romancev228 -200`",
+        parse_mode="Markdown"
+    )
+
 # ── Меню Premium ──────────────────────────────────────────────────────────────
 async def menu_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -333,6 +441,9 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("givepremium", cmd_give_premium))
+    app.add_handler(CommandHandler("givesparks", cmd_give_sparks))
+    app.add_handler(CommandHandler("ownerhelp", cmd_owner_help))
     app.add_handler(CallbackQueryHandler(callback_router))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))

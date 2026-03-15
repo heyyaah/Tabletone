@@ -6070,13 +6070,20 @@ def payment_add_sparks():
         return jsonify({'error': 'Forbidden'}), 403
     username = data.get('username', '').strip().lstrip('@')
     sparks = int(data.get('sparks', 0))
-    if not username or sparks <= 0:
+    if not username or sparks == 0:
         return jsonify({'error': 'Bad request'}), 400
     user = User.query.filter_by(username=username).first()
     if not user:
         return jsonify({'error': f'Пользователь @{username} не найден'}), 404
-    _add_sparks(user.id, sparks, 'purchase', None)
-    print(f"✅ {sparks} искр зачислено @{username}")
+    if sparks > 0:
+        _add_sparks(user.id, sparks, 'purchase', None)
+    else:
+        # Снятие искр (отрицательное значение)
+        balance = _get_spark_balance(user.id)
+        remove = min(abs(sparks), balance)
+        if remove > 0:
+            _spend_sparks(user.id, remove, 'admin_remove', None)
+    print(f"✅ {sparks:+} искр у @{username}")
     return jsonify({'success': True, 'username': username, 'sparks': sparks})
 
 # Подавление ошибок разрыва соединения
