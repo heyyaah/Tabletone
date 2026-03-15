@@ -5424,8 +5424,16 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
             ext = text.rsplit('.', 1)[-1].lower() if '.' in text else ''
             if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
                 count = state.get('count', 0)
-                # Конвертируем файл в base64 чтобы не зависеть от ephemeral filesystem
-                image_url = text  # store URL path directly  # fallback на URL если файл недоступен
+                # Конвертируем в base64 — файлы на Render ephemeral, base64 хранится в БД
+                try:
+                    import base64 as _b64
+                    fpath = os.path.join(os.getcwd(), text.lstrip('/').replace('/', os.sep))
+                    mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                            'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
+                    with open(fpath, 'rb') as fh:
+                        image_url = f"data:{mime};base64,{_b64.b64encode(fh.read()).decode()}"
+                except Exception:
+                    image_url = text  # fallback если файл недоступен
                 sticker = Sticker(pack_id=pack_id, image_url=image_url, order_index=count)
                 db.session.add(sticker)
                 if count == 0:
