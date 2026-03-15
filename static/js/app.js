@@ -1233,6 +1233,9 @@ async function openChat(userId, username) {
             if (callBtn) callBtn.style.display = userData.is_bot ? 'none' : 'flex';
             const videoCallBtn = document.getElementById('video-call-btn');
             if (videoCallBtn) videoCallBtn.style.display = userData.is_bot ? 'none' : 'flex';
+            // Кнопка очистки истории — всегда видна в личных чатах
+            const clearBtn = document.getElementById('clear-history-btn');
+            if (clearBtn) clearBtn.style.display = 'flex';
         }
     } catch (error) {
         console.error('Error loading user info:', error);
@@ -1561,6 +1564,39 @@ function updateMessageDeleted(messageId) {
 window.openChat = openChat;
 window.showMessageMenu = showMessageMenu;
 window.editMessage = editMessage;
+
+async function clearChatHistory() {
+    if (!currentChatUserId) return;
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:14px;padding:24px;max-width:320px;width:90%;text-align:center;">
+            <i class="fas fa-trash-alt" style="font-size:32px;color:#e53e3e;margin-bottom:12px;"></i>
+            <h3 style="margin:0 0 8px;font-size:17px;">Очистить историю?</h3>
+            <p style="margin:0 0 20px;color:#718096;font-size:14px;">Сообщения будут удалены только у вас. Собеседник их не потеряет.</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button id="clear-confirm-btn" style="background:#e53e3e;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;">Очистить</button>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:#e2e8f0;color:#4a5568;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;">Отмена</button>
+            </div>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    document.getElementById('clear-confirm-btn').onclick = async () => {
+        modal.remove();
+        try {
+            const r = await fetch(`/chat/${currentChatUserId}/clear`, { method: 'POST' });
+            const d = await r.json();
+            if (d.success) {
+                document.getElementById('messages-container').innerHTML = '';
+                showError('История очищена', 'success');
+            } else {
+                showError(d.error || 'Ошибка');
+            }
+        } catch (e) {
+            showError('Ошибка сети');
+        }
+    };
+}
 
 async function openChatByUsername(username) {
     console.log('[openChatByUsername] looking up:', username);

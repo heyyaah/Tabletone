@@ -164,6 +164,8 @@ class Message(db.Model):
     bot_buttons = db.Column(db.Text, default='[]')  # JSON кнопки бота
     expires_at = db.Column(db.DateTime, nullable=True)  # Самоуничтожение
     is_hidden_chat = db.Column(db.Boolean, default=False)  # Скрытый чат
+    hidden_for_sender = db.Column(db.Boolean, default=False)   # Скрыто отправителем (очистка истории)
+    hidden_for_receiver = db.Column(db.Boolean, default=False) # Скрыто получателем (очистка истории)
     
     sender = db.relationship('User', foreign_keys=[sender_id])
     receiver = db.relationship('User', foreign_keys=[receiver_id])
@@ -1419,6 +1421,8 @@ def admin_run_migrations():
         'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(20)',
         # Новые таблицы создаются через db.create_all() — здесь только колонки
         'ALTER TABLE sticker ALTER COLUMN image_url TYPE TEXT',
+        'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_receiver BOOLEAN DEFAULT FALSE',
         'ALTER TABLE sticker_pack ALTER COLUMN cover_url TYPE TEXT',
     ]
     with db.engine.connect() as conn:
@@ -2116,9 +2120,14 @@ def get_chat(user_id):
     # Получаем параметр last_check для polling
     last_check = request.args.get('last_check')
     
+    uid = session['user_id']
     query = Message.query.filter(
-        ((Message.sender_id == session['user_id']) & (Message.receiver_id == user_id)) |
-        ((Message.sender_id == user_id) & (Message.receiver_id == session['user_id']))
+        db.or_(
+            db.and_(Message.sender_id == uid, Message.receiver_id == user_id,
+                    Message.hidden_for_sender == False),
+            db.and_(Message.sender_id == user_id, Message.receiver_id == uid,
+                    Message.hidden_for_receiver == False)
+        )
     )
     
     # Если есть last_check, фильтруем только новые сообщения
@@ -2131,7 +2140,7 @@ def get_chat(user_id):
     
     messages = query.order_by(Message.timestamp.asc()).all()
     
-    other_user = User.query.get( user_id)
+    other_user = User.query.get(user_id)
     
     return jsonify({
         'other_user': {
@@ -7791,6 +7800,27 @@ def handle_call_reject(data):
     socketio.emit('call_rejected', {
         'from_user_id': session['user_id']
     }, room=f'user_{to_user_id}', namespace='/')
+
+@app.route('/chat/<int:other_id>/clear', methods=['POST'])
+def clear_chat_history(other_id):
+    """Удаляет историю чата только для текущего пользователя (soft delete через hidden_messages)."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    # Помечаем все сообщения между двумя пользователями как скрытые для текущего пользователя
+    msgs = Message.query.filter(
+        db.or_(
+            db.and_(Message.sender_id == uid, Message.receiver_id == other_id),
+            db.and_(Message.sender_id == other_id, Message.receiver_id == uid)
+        )
+    ).all()
+    for msg in msgs:
+        if uid == msg.sender_id:
+            msg.hidden_for_sender = True
+        else:
+            msg.hidden_for_receiver = True
+    db.session.commit()
+    return jsonify({'success': True, 'cleared': len(msgs)})
 
 with app.app_context():
     db.create_all()
