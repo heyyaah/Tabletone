@@ -2225,19 +2225,6 @@ def send_message():
     if receiver_id == session['user_id']:
         return jsonify({'error': 'Вы не можете отправить сообщение самому себе'}), 400
 
-    # Проверка контактов: если получатель не бот и не admin — нужны взаимные контакты
-    # (исключение: если уже есть переписка — разрешаем продолжать)
-    if not receiver.is_bot and not receiver.is_admin:
-        uid = session['user_id']
-        i_added = Contact.query.filter_by(user_id=uid, contact_id=receiver_id).first() is not None
-        they_added = Contact.query.filter_by(user_id=receiver_id, contact_id=uid).first() is not None
-        # Проверяем есть ли уже переписка
-        existing_msg = Message.query.filter(
-            ((Message.sender_id == uid) & (Message.receiver_id == receiver_id)) |
-            ((Message.sender_id == receiver_id) & (Message.receiver_id == uid))
-        ).first()
-        if not existing_msg and not (i_added and they_added):
-            return jsonify({'error': 'contacts_required', 'message': 'Чтобы написать этому пользователю, добавьте его в контакты и дождитесь взаимного добавления'}), 403
     
     message = Message(
         sender_id=session['user_id'],
