@@ -721,8 +721,12 @@ function sendBotCommand(cmd) {
 }
 window.sendBotCommand = sendBotCommand;
 
+let _isSending = false;
+
 async function _doSendText(content) {
     if (!content || (!currentChatUserId && !currentGroupId)) return;
+    if (_isSending) return;
+    _isSending = true;
     const input = document.getElementById('message-input');
     // Сбрасываем typing
     hideTypingIndicator();
@@ -757,6 +761,8 @@ async function _doSendText(content) {
         }
     } catch (err) {
         showError('Не удалось отправить сообщение');
+    } finally {
+        _isSending = false;
     }
 }
 
@@ -1183,6 +1189,7 @@ async function openChat(userId, username) {
     currentChatUserId = userId;
     _favoritesOpen = false;
     openedChats.add(userId);
+    _isSending = false;
 
     // Принудительно показываем кнопки личного чата
     ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
@@ -3012,6 +3019,7 @@ function setupGroupItemListeners() {
 async function openGroup(groupId, groupName) {
     console.log('openGroup called:', groupId, groupName);
     currentChatUserId = null;
+    _isSending = false;
     _favoritesOpen = false;
     currentGroupId = groupId;
 
