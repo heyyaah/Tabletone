@@ -598,6 +598,16 @@ class UserStickerPack(db.Model):
     pack_id = db.Column(db.Integer, db.ForeignKey('sticker_pack.id'), nullable=False)
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('user_id', 'pack_id', name='_user_stickerpack_uc'),)
+
+class StickerBotState(db.Model):
+    """Состояние диалога пользователя с ботом @stickers (персистентное)."""
+    __tablename__ = 'sticker_bot_state'
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    state = db.Column(db.String(50), nullable=False)
+    pack_id = db.Column(db.Integer, nullable=True)
+    pack_name = db.Column(db.String(100), nullable=True)
+    count = db.Column(db.Integer, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = db.relationship('User', foreign_keys=[user_id])
     pack = db.relationship('StickerPack', foreign_keys=[pack_id])
 
@@ -5282,7 +5292,30 @@ _sticker_states = {}
 
 def _handle_stickers_bot(bot_user_id, sender_id, text):
     """Обработчик диалога бота @stickers."""
-    state = _sticker_states.get(sender_id, {})
+    # Загружаем состояние из БД (персистентное, не теряется при рестарте)
+    db_state = StickerBotState.query.get(sender_id)
+    state = {}
+    if db_state:
+        state = {'state': db_state.state, 'pack_id': db_state.pack_id,
+                 'pack_name': db_state.pack_name, 'count': db_state.count}
+
+    def _save_state(s):
+        row = StickerBotState.query.get(sender_id)
+        if row is None:
+            row = StickerBotState(user_id=sender_id)
+            db.session.add(row)
+        row.state = s.get('state', '')
+        row.pack_id = s.get('pack_id')
+        row.pack_name = s.get('pack_name')
+        row.count = s.get('count', 0)
+        db.session.commit()
+
+    def _clear_state():
+        row = StickerBotState.query.get(sender_id)
+        if row:
+            db.session.delete(row)
+            db.session.commit()
+
     cmd = text.strip().lower()
 
     def reply(msg, buttons=None):
@@ -5290,7 +5323,7 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
 
     # /start или /menu — главное меню
     if cmd in ('/start', '/menu', ''):
-        _sticker_states.pop(sender_id, None)
+        _clear_state()
         btns = [
             {"label": "📦 Создать пак", "reply": "/new"},
             {"label": "🗂 Мои паки", "reply": "/my"},
@@ -5300,13 +5333,13 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
 
     # /new — начать создание пака
     if cmd == '/new':
-        _sticker_states[sender_id] = {'state': 'waiting_name'}
+        _save_state({'state': 'waiting_name'})
         reply("📝 Введи название для нового пака стикеров:")
         return
 
     # /my — список паков
     if cmd == '/my':
-        _sticker_states.pop(sender_id, None)
+        _clear_state()
         owned = StickerPack.query.filter_by(creator_id=sender_id).all()
         added_ids = [r.pack_id for r in UserStickerPack.query.filter_by(user_id=sender_id).all()]
         added = StickerPack.query.filter(StickerPack.id.in_(added_ids), StickerPack.creator_id != sender_id).all()
@@ -5325,7 +5358,7 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
 
     # /cancel — отмена текущего действия
     if cmd == '/cancel':
-        _sticker_states.pop(sender_id, None)
+        _clear_state()
         reply("❌ Отменено. Напиши /menu чтобы вернуться в меню.")
         return
 
@@ -5345,10 +5378,10 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
         usp = UserStickerPack(user_id=sender_id, pack_id=pack.id)
         db.session.add(usp)
         db.session.commit()
-        _sticker_states[sender_id] = {'state': 'waiting_stickers', 'pack_id': pack.id, 'pack_name': name, 'count': 0}
+        _save_state({'state': 'waiting_stickers', 'pack_id': pack.id, 'pack_name': name, 'count': 0})
         reply(
             f"✅ Пак «{name}» создан!\n\n"
-            "Теперь отправляй стикеры (PNG, GIF, WebP) — по одному или несколько.\n"
+            "Теперь отправляй стикеры (PNG, GIF, WebP, JPG) — по одному или несколько.\n"
             "Когда закончишь — напиши /done\n"
             "Отмена — /cancel"
         )
@@ -5382,15 +5415,16 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
                     if pack:
                         pack.cover_url = image_url
                 db.session.commit()
-                _sticker_states[sender_id]['count'] = count + 1
-                reply(f"✅ Стикер {count + 1} добавлен! Отправляй ещё или напиши /done")
+                new_count = count + 1
+                _save_state({'state': 'waiting_stickers', 'pack_id': pack_id, 'pack_name': pack_name, 'count': new_count})
+                reply(f"✅ Стикер {new_count} добавлен! Отправляй ещё или напиши /done")
             else:
                 reply("⚠️ Поддерживаются только PNG, GIF, WebP, JPG.")
             return
 
         if cmd == '/done':
             count = state.get('count', 0)
-            _sticker_states.pop(sender_id, None)
+            _clear_state()
             if count == 0:
                 reply(f"⚠️ В паке «{pack_name}» нет стикеров. Отправь хотя бы один файл или /cancel.")
             else:
@@ -5398,7 +5432,7 @@ def _handle_stickers_bot(bot_user_id, sender_id, text):
                 reply(f"🎉 Пак «{pack_name}» готов! Добавлено стикеров: {count}\n\nТеперь ты можешь использовать их в чатах.", btns)
             return
 
-        reply("Отправляй файлы-стикеры (PNG/GIF/WebP), или напиши /done чтобы завершить, /cancel чтобы отменить.")
+        reply("Отправляй файлы-стикеры (PNG/GIF/WebP/JPG), или напиши /done чтобы завершить, /cancel чтобы отменить.")
         return
     btns = [{"label": "📦 Создать пак", "reply": "/new"}, {"label": "🗂 Мои паки", "reply": "/my"}]
     reply("Не понял 🤔 Выбери действие:", btns)
