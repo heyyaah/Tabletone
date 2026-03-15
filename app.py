@@ -2198,8 +2198,6 @@ def send_message():
         return jsonify({'error': 'Ваш аккаунт заблокирован'}), 403
 
     blocked, until_str = check_spam_block(sender)
-    if blocked:
-        return jsonify({'error': 'spam_blocked', 'until': until_str}), 403
     
     data = request.get_json()
     receiver_id = data.get('receiver_id')
@@ -2225,7 +2223,13 @@ def send_message():
     if receiver_id == session['user_id']:
         return jsonify({'error': 'Вы не можете отправить сообщение самому себе'}), 400
 
-    
+    # Если в спам-блоке — можно писать только взаимным контактам
+    if blocked:
+        uid = session['user_id']
+        i_added = Contact.query.filter_by(user_id=uid, contact_id=receiver_id).first() is not None
+        they_added = Contact.query.filter_by(user_id=receiver_id, contact_id=uid).first() is not None
+        if not (i_added and they_added):
+            return jsonify({'error': 'spam_blocked', 'until': until_str}), 403
     message = Message(
         sender_id=session['user_id'],
         receiver_id=receiver_id,
