@@ -1041,30 +1041,30 @@ with app.app_context():
         db.session.commit()
         print("✓ Бот Premium Support создан")
 
-    # ── Сид: бот Lumina AI ─────────────────────────────────────────────────────
-    _LUMINA_USERNAME = 'lumina'
-    if not User.query.filter_by(username=_LUMINA_USERNAME).first():
-        _lumina_user = User(
-            username=_LUMINA_USERNAME,
-            display_name='✨ Lumina',
-            bio='ИИ-ассистент на базе Gemini. Задай любой вопрос — отвечу мгновенно.',
+    # ── Сид: бот Nexus AI ─────────────────────────────────────────────────────
+    _NEXUS_USERNAME = 'nexus'
+    if not User.query.filter_by(username=_NEXUS_USERNAME).first():
+        _nexus_user = User(
+            username=_NEXUS_USERNAME,
+            display_name='⚡ Nexus',
+            bio='Умный ИИ-ассистент. Задай любой вопрос — отвечу мгновенно.',
             avatar_color='#7c3aed',
             is_bot=True, is_verified=True,
             password_hash=generate_password_hash(secrets.token_hex(32))
         )
-        db.session.add(_lumina_user)
+        db.session.add(_nexus_user)
         db.session.flush()
-        _lumina_bot = Bot(
-            user_id=_lumina_user.id, owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_lumina_user.id}:{secrets.token_urlsafe(32)}",
-            description='ИИ-ассистент на базе Google Gemini', is_active=True, review_status='approved'
+        _nexus_bot = Bot(
+            user_id=_nexus_user.id, owner_id=_PREMIUM_OWNER_ID,
+            token=f"{_nexus_user.id}:{secrets.token_urlsafe(32)}",
+            description='Умный ИИ-ассистент', is_active=True, review_status='approved'
         )
-        db.session.add(_lumina_bot)
+        db.session.add(_nexus_bot)
         db.session.flush()
-        _lumina_cmds = [
-            BotCommand(bot_id=_lumina_bot.id, trigger='/start', order_index=1,
+        _nexus_cmds = [
+            BotCommand(bot_id=_nexus_bot.id, trigger='/start', order_index=1,
                 response_text=(
-                    "✨ *Привет! Я Lumina — твой ИИ-ассистент.*\n\n"
+                    "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
                     "Я работаю на базе Google Gemini и могу помочь с:\n"
                     "• Ответами на любые вопросы\n"
                     "• Написанием текстов и кода\n"
@@ -1073,10 +1073,10 @@ with app.app_context():
                     "Просто напиши мне что-нибудь 💬"
                 ), buttons='[]'),
         ]
-        for _c in _lumina_cmds:
+        for _c in _nexus_cmds:
             db.session.add(_c)
         db.session.commit()
-        print("✓ Бот Lumina AI создан")
+        print("✓ Бот Nexus AI создан")
 
     # ── Сид: каталог подарков ────────────────────────────────────────────────
     if GiftType.query.count() == 0:
@@ -5765,10 +5765,10 @@ def _trigger_webhook(bot, update):
                     )
                 return
 
-            # ── Lumina AI (Gemini) ────────────────────────────────────────────
-            is_lumina = bot_user_obj and bot_user_obj.username == 'lumina'
-            if is_lumina:
-                _handle_lumina_bot(bot.user_id, sender_id, text)
+            # ── Nexus AI ────────────────────────────────────────────
+            is_nexus = bot_user_obj and bot_user_obj.username == 'nexus'
+            if is_nexus:
+                _handle_nexus_bot(bot.user_id, sender_id, text)
                 return
 
             _bot_auto_reply(bot, sender_id, text)
@@ -5791,14 +5791,14 @@ def _trigger_webhook(bot, update):
     threading.Thread(target=_post, daemon=True).start()
 
 
-def _handle_lumina_bot(bot_user_id, sender_id, text):
-    """Обрабатывает сообщения для Lumina AI (Google Gemini)."""
+def _handle_nexus_bot(bot_user_id, sender_id, text):
+    """Обрабатывает сообщения для Nexus AI."""
     import threading
 
     # /start — приветствие
     if text.strip().lower() == '/start':
         _bot_send_message(bot_user_id, sender_id,
-            "✨ *Привет! Я Lumina — твой ИИ-ассистент.*\n\n"
+            "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
             "Я работаю на базе Google Gemini и могу помочь с:\n"
             "• Ответами на любые вопросы\n"
             "• Написанием текстов и кода\n"
@@ -5811,7 +5811,7 @@ def _handle_lumina_bot(bot_user_id, sender_id, text):
     # Отправляем индикатор "печатает..."
     socketio.emit('user_typing', {
         'chat_type': 'private',
-        'name': 'Lumina'
+        'name': 'Nexus'
     }, room=f'user_{sender_id}', namespace='/')
 
     def _ask_gemini():
@@ -5827,9 +5827,11 @@ def _handle_lumina_bot(bot_user_id, sender_id, text):
             model = genai.GenerativeModel('gemini-1.5-flash')
 
             system_prompt = (
-                "Ты — Lumina, дружелюбный и умный ИИ-ассистент в мессенджере Tabletone. "
+                "Ты — Nexus, умный и дружелюбный ИИ-ассистент в мессенджере Tabletone. "
                 "Отвечай кратко, по делу и на том языке, на котором пишет пользователь. "
-                "Используй эмодзи умеренно. Не упоминай, что ты Gemini или Google."
+                "Используй эмодзи умеренно. "
+                "ВАЖНО: никогда не раскрывай, на какой технологии, модели или платформе ты основан. "
+                "Если спросят — скажи только что ты Nexus, собственный ИИ мессенджера Tabletone."
             )
 
             response = model.generate_content(
@@ -5842,7 +5844,7 @@ def _handle_lumina_bot(bot_user_id, sender_id, text):
             reply_text = response.text.strip() if response.text else "Не удалось получить ответ."
 
         except Exception as e:
-            print(f"Lumina Gemini error: {e}")
+            print(f"Nexus AI error: {e}")
             reply_text = "⚠️ Произошла ошибка при обращении к ИИ. Попробуй ещё раз."
 
         # Останавливаем индикатор
