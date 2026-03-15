@@ -693,6 +693,7 @@ with app.app_context():
             'ALTER TABLE message_reaction ALTER COLUMN emoji TYPE VARCHAR(500)',
             'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN DEFAULT FALSE',
             'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_receiver BOOLEAN DEFAULT FALSE',
+            'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE',
         ]
     else:
         migrations = [
@@ -726,6 +727,7 @@ with app.app_context():
             "ALTER TABLE group_member ADD COLUMN member_restrictions TEXT DEFAULT '{}'",
             "ALTER TABLE message ADD COLUMN hidden_for_sender BOOLEAN DEFAULT 0",
             "ALTER TABLE message ADD COLUMN hidden_for_receiver BOOLEAN DEFAULT 0",
+            "ALTER TABLE message ADD COLUMN is_read BOOLEAN DEFAULT 0",
         ]
 
     with db.engine.connect() as conn:
@@ -1427,6 +1429,7 @@ def admin_run_migrations():
         'ALTER TABLE sticker ALTER COLUMN image_url TYPE TEXT',
         'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN DEFAULT FALSE',
         'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_receiver BOOLEAN DEFAULT FALSE',
+        'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE',
         'ALTER TABLE sticker_pack ALTER COLUMN cover_url TYPE TEXT',
     ]
     with db.engine.connect() as conn:
