@@ -123,6 +123,7 @@ class User(db.Model):
     two_fa_enabled = db.Column(db.Boolean, default=False)  # Двухэтапная аутентификация
     two_fa_code = db.Column(db.String(8))           # Текущий код 2FA
     two_fa_code_expires = db.Column(db.DateTime)    # Срок действия кода
+    email = db.Column(db.String(200), nullable=True)  # Email для 2FA
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -2135,6 +2136,9 @@ def update_profile():
     
     if 'bio' in data:
         user.bio = data['bio'].strip()
+
+    if 'email' in data:
+        user.email = data['email'].strip() or None
     
     if 'avatar_color' in data:
         user.avatar_color = data['avatar_color']
@@ -4107,6 +4111,14 @@ def _send_2fa_code(user_id, code):
     )
     if bot_user:
         _bot_send_message(bot_user.id, user_id, text)
+
+    # Отправка на email
+    user = User.query.get(user_id)
+    if user and user.email:
+        try:
+            _send_email_2fa(user.email, code)
+        except Exception as e:
+            print(f"Email 2FA error: {e}")
 
 
 def _send_email_2fa(to_email, code):
