@@ -2718,46 +2718,60 @@ def send_multiple_files():
         # Сохраняем каждый файл
         media_files = []
         for index, file in enumerate(files):
-            if file and allowed_file(file.filename, ALLOWED_EXTENSIONS):
-                filename = secure_filename(file.filename)
-                timestamp = int(time.time() * 1000)
-                unique_filename = f"{filename.rsplit('.', 1)[0]}_{timestamp}.{filename.rsplit('.', 1)[1]}"
-                
-                # Определяем тип файла
-                if file.content_type.startswith('image/'):
-                    media_type = 'image'
-                    folder = 'images'
-                elif file.content_type.startswith('video/'):
-                    media_type = 'video'
-                    folder = 'videos'
-                else:
-                    media_type = 'file'
-                    folder = 'files'
-                
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], folder, unique_filename)
-                os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                file.save(filepath)
-                
-                media_url = f'/static/media/{folder}/{unique_filename}'
-                
-                # Создаем запись медиа
-                message_media = MessageMedia(
-                    message_id=message.id,
-                    media_type=media_type,
-                    media_url=media_url,
-                    file_name=filename,
-                    file_size=os.path.getsize(filepath),
-                    order_index=index
-                )
-                db.session.add(message_media)
-                media_files.append({
-                    'media_type': media_type,
-                    'media_url': media_url,
-                    'file_name': filename
-                })
-        
+            if not file or not file.filename:
+                continue
+            orig_filename = file.filename
+            if not allowed_file(orig_filename, ALLOWED_EXTENSIONS):
+                continue
+            filename = secure_filename(orig_filename)
+            if not filename:
+                filename = f'file_{index}'
+            # Определяем расширение
+            ext = orig_filename.rsplit('.', 1)[-1].lower() if '.' in orig_filename else 'bin'
+            base = filename.rsplit('.', 1)[0] if '.' in filename else filename
+            timestamp = int(time.time() * 1000)
+            unique_filename = f"{base}_{timestamp}.{ext}"
+
+            # Определяем тип файла по расширению (content_type может быть None)
+            content_type = file.content_type or ''
+            if content_type.startswith('image/') or ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+                media_type = 'image'
+                folder = 'images'
+            elif content_type.startswith('video/') or ext in ('mp4', 'webm'):
+                media_type = 'video'
+                folder = 'videos'
+            else:
+                media_type = 'file'
+                folder = 'files'
+
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], folder, unique_filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            file.save(filepath)
+
+            media_url = f'/static/media/{folder}/{unique_filename}'
+
+            # Создаем запись медиа
+            message_media = MessageMedia(
+                message_id=message.id,
+                media_type=media_type,
+                media_url=media_url,
+                file_name=filename,
+                file_size=os.path.getsize(filepath),
+                order_index=index
+            )
+            db.session.add(message_media)
+            media_files.append({
+                'media_type': media_type,
+                'media_url': media_url,
+                'file_name': filename
+            })
+
+        if not media_files:
+            db.session.rollback()
+            return jsonify({'error': 'Нет допустимых файлов для отправки'}), 400
+
         db.session.commit()
-        
+
         # Отправляем через Socket.IO получателю И отправителю
         try:
             sender = User.query.get(session['user_id'])
@@ -2859,44 +2873,57 @@ def send_multiple_files_group():
         # Сохраняем файлы
         media_files = []
         for index, file in enumerate(files):
-            if file and allowed_file(file.filename, ALLOWED_EXTENSIONS):
-                filename = secure_filename(file.filename)
-                timestamp = int(time.time() * 1000)
-                unique_filename = f"{filename.rsplit('.', 1)[0]}_{timestamp}.{filename.rsplit('.', 1)[1]}"
-                
-                if file.content_type.startswith('image/'):
-                    media_type = 'image'
-                    folder = 'images'
-                elif file.content_type.startswith('video/'):
-                    media_type = 'video'
-                    folder = 'videos'
-                else:
-                    media_type = 'file'
-                    folder = 'files'
-                
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], folder, unique_filename)
-                os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                file.save(filepath)
-                
-                media_url = f'/static/media/{folder}/{unique_filename}'
-                
-                # Сохраняем информацию о медиафайле в базу данных
-                media = GroupMessageMedia(
-                    message_id=message.id,
-                    media_type=media_type,
-                    media_url=media_url,
-                    file_name=filename,
-                    file_size=os.path.getsize(filepath),
-                    order_index=index
-                )
-                db.session.add(media)
-                
-                media_files.append({
-                    'media_type': media_type,
-                    'media_url': media_url,
-                    'file_name': filename
-                })
-        
+            if not file or not file.filename:
+                continue
+            orig_filename = file.filename
+            if not allowed_file(orig_filename, ALLOWED_EXTENSIONS):
+                continue
+            filename = secure_filename(orig_filename)
+            if not filename:
+                filename = f'file_{index}'
+            ext = orig_filename.rsplit('.', 1)[-1].lower() if '.' in orig_filename else 'bin'
+            base = filename.rsplit('.', 1)[0] if '.' in filename else filename
+            timestamp = int(time.time() * 1000)
+            unique_filename = f"{base}_{timestamp}.{ext}"
+
+            content_type = file.content_type or ''
+            if content_type.startswith('image/') or ext in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
+                media_type = 'image'
+                folder = 'images'
+            elif content_type.startswith('video/') or ext in ('mp4', 'webm'):
+                media_type = 'video'
+                folder = 'videos'
+            else:
+                media_type = 'file'
+                folder = 'files'
+
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], folder, unique_filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            file.save(filepath)
+
+            media_url = f'/static/media/{folder}/{unique_filename}'
+
+            # Сохраняем информацию о медиафайле в базу данных
+            media = GroupMessageMedia(
+                message_id=message.id,
+                media_type=media_type,
+                media_url=media_url,
+                file_name=filename,
+                file_size=os.path.getsize(filepath),
+                order_index=index
+            )
+            db.session.add(media)
+
+            media_files.append({
+                'media_type': media_type,
+                'media_url': media_url,
+                'file_name': filename
+            })
+
+        if not media_files:
+            db.session.rollback()
+            return jsonify({'error': 'Нет допустимых файлов для отправки'}), 400
+
         db.session.commit()
         
         # Получаем информацию об отправителе
