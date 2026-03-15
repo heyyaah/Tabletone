@@ -1324,6 +1324,260 @@ def telegram_webhook():
             tg_reply("👋 Привет! Чтобы привязать Telegram к Tabletone, перейди в профиль мессенджера и нажми «Привязать Telegram».")
     return jsonify({'ok': True})
 
+# ── Webhook платёжного бота ───────────────────────────────────────────────────
+_pay_user_data = {}  # tg_chat_id -> dict
+
+def _pay_tg_send(token, chat_id, text, reply_markup=None, parse_mode='Markdown'):
+    import urllib.request as _ur
+    payload = {'chat_id': chat_id, 'text': text, 'parse_mode': parse_mode}
+    if reply_markup:
+        payload['reply_markup'] = reply_markup
+    data = json.dumps(payload).encode()
+    req = _ur.Request(f"https://api.telegram.org/bot{token}/sendMessage",
+                      data=data, headers={'Content-Type': 'application/json'})
+    try:
+        return json.loads(_ur.urlopen(req, timeout=8).read())
+    except Exception as e:
+        print(f"pay_tg_send error: {e}")
+
+def _pay_tg_answer(token, callback_id):
+    import urllib.request as _ur
+    data = json.dumps({'callback_query_id': callback_id}).encode()
+    req = _ur.Request(f"https://api.telegram.org/bot{token}/answerCallbackQuery",
+                      data=data, headers={'Content-Type': 'application/json'})
+    try: _ur.urlopen(req, timeout=5)
+    except: pass
+
+def _pay_tg_edit(token, chat_id, msg_id, text, reply_markup=None):
+    import urllib.request as _ur
+    payload = {'chat_id': chat_id, 'message_id': msg_id, 'text': text, 'parse_mode': 'Markdown'}
+    if reply_markup:
+        payload['reply_markup'] = reply_markup
+    data = json.dumps(payload).encode()
+    req = _ur.Request(f"https://api.telegram.org/bot{token}/editMessageText",
+                      data=data, headers={'Content-Type': 'application/json'})
+    try: _ur.urlopen(req, timeout=8)
+    except: pass
+
+def _pay_tg_send_photo(token, chat_id, photo, caption, reply_markup=None):
+    import urllib.request as _ur
+    payload = {'chat_id': chat_id, 'photo': photo, 'caption': caption, 'parse_mode': 'Markdown'}
+    if reply_markup:
+        payload['reply_markup'] = reply_markup
+    data = json.dumps(payload).encode()
+    req = _ur.Request(f"https://api.telegram.org/bot{token}/sendPhoto",
+                      data=data, headers={'Content-Type': 'application/json'})
+    try: _ur.urlopen(req, timeout=8)
+    except Exception as e: print(f"pay send_photo error: {e}")
+
+PAY_PREMIUM_PLANS = {
+    "premium_7":   {"label": "Premium 7 дней",    "price": "59 ₽",  "days": 7},
+    "premium_14":  {"label": "Premium 14 дней",   "price": "99 ₽",  "days": 14},
+    "premium_30":  {"label": "Premium 30 дней",   "price": "149 ₽", "days": 30},
+    "premium_180": {"label": "Premium 6 месяцев", "price": "499 ₽", "days": 180},
+    "premium_365": {"label": "Premium 1 год",     "price": "799 ₽", "days": 365},
+}
+PAY_SPARKS_PLANS = {
+    "sparks_100":  {"label": "100 Искр ✨",  "price": "29 ₽",  "sparks": 100},
+    "sparks_300":  {"label": "300 Искр ✨",  "price": "79 ₽",  "sparks": 300},
+    "sparks_700":  {"label": "700 Искр ✨",  "price": "149 ₽", "sparks": 700},
+    "sparks_1500": {"label": "1500 Искр ✨", "price": "299 ₽", "sparks": 1500},
+    "sparks_5000": {"label": "5000 Искр ✨", "price": "799 ₽", "sparks": 5000},
+}
+PAY_CARD = "+79519603466"
+
+def _pay_main_kb():
+    return {"inline_keyboard": [
+        [{"text": "👑 Купить Premium", "callback_data": "menu_premium"}],
+        [{"text": "✨ Купить Искры",   "callback_data": "menu_sparks"}],
+    ]}
+
+@app.route('/payment/webhook', methods=['POST'])
+def payment_webhook():
+    token = os.environ.get('PAYMENT_BOT_TOKEN', '8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M')
+    owner_tg_id = int(os.environ.get('OWNER_TELEGRAM_ID', '8081350794'))
+    site_url_pay = os.environ.get('SITE_URL', 'https://hi-latest.onrender.com')
+    pay_secret = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
+    data = request.get_json(silent=True) or {}
+
+    # ── Callback query ────────────────────────────────────────────────────────
+    if 'callback_query' in data:
+        cq = data['callback_query']
+        cq_id = cq['id']
+        cq_data = cq.get('data', '')
+        chat_id = str(cq['message']['chat']['id'])
+        msg_id = cq['message']['message_id']
+        ud = _pay_user_data.setdefault(chat_id, {})
+        _pay_tg_answer(token, cq_id)
+
+        if cq_data == 'menu_main':
+            _pay_tg_edit(token, chat_id, msg_id, "Выбери что хочешь купить 👇", _pay_main_kb())
+        elif cq_data == 'menu_premium':
+            buttons = [[{"text": f"{p['label']} — {p['price']}", "callback_data": f"buy_{k}"}]
+                       for k, p in PAY_PREMIUM_PLANS.items()]
+            buttons.append([{"text": "◀️ Назад", "callback_data": "menu_main"}])
+            _pay_tg_edit(token, chat_id, msg_id, "👑 *Выберите срок Premium:*", {"inline_keyboard": buttons})
+        elif cq_data == 'menu_sparks':
+            buttons = [[{"text": f"{p['label']} — {p['price']}", "callback_data": f"buy_{k}"}]
+                       for k, p in PAY_SPARKS_PLANS.items()]
+            buttons.append([{"text": "◀️ Назад", "callback_data": "menu_main"}])
+            _pay_tg_edit(token, chat_id, msg_id, "✨ *Выберите количество Искр:*", {"inline_keyboard": buttons})
+        elif cq_data.startswith('buy_'):
+            key = cq_data[4:]
+            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+            if plan:
+                ud['pending_key'] = key
+                ud['awaiting_username'] = True
+                ud['awaiting_screenshot'] = False
+                _pay_tg_edit(token, chat_id, msg_id,
+                    f"✅ Вы выбрали: *{plan['label']}* — *{plan['price']}*\n\nВведите ваш *username* в Tabletone (без @):",
+                    {"inline_keyboard": [[{"text": "◀️ Отмена", "callback_data": "menu_main"}]]})
+        elif cq_data.startswith('confirm_') or cq_data.startswith('reject_'):
+            if cq['from']['id'] != owner_tg_id:
+                return jsonify({'ok': True})
+            action = 'confirm' if cq_data.startswith('confirm_') else 'reject'
+            raw = cq_data[len(action)+1:]
+            key = None
+            for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()):
+                if raw.startswith(k + '_'):
+                    key = k
+                    raw = raw[len(k)+1:]
+                    break
+            if not key:
+                return jsonify({'ok': True})
+            last_ = raw.rfind('_')
+            username = raw[:last_]
+            user_chat_id = raw[last_+1:]
+            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+            import urllib.request as _ur_pay
+            if action == 'confirm':
+                activated = False
+                try:
+                    if key.startswith('premium'):
+                        ep = f"{site_url_pay}/api/payment/activate-premium"
+                        pl = json.dumps({"username": username, "days": plan["days"], "secret": pay_secret}).encode()
+                    else:
+                        ep = f"{site_url_pay}/api/payment/add-sparks"
+                        pl = json.dumps({"username": username, "sparks": plan["sparks"], "secret": pay_secret}).encode()
+                    req = _ur_pay.Request(ep, data=pl, headers={'Content-Type': 'application/json'})
+                    resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                    activated = resp.get('success', False)
+                except Exception as e:
+                    print(f"pay activate error: {e}")
+                if key.startswith('premium'):
+                    user_msg = f"🎉 *Оплата подтверждена!*\n\n👑 Premium на *{plan['days']} дней* активирован для @{username}!"
+                else:
+                    user_msg = f"🎉 *Оплата подтверждена!*\n\n✨ *{plan['sparks']} Искр* зачислено для @{username}!"
+                if not activated:
+                    user_msg += "\n\n_(Автоактивация не удалась — администратор активирует вручную)_"
+                _pay_tg_send(token, user_chat_id, user_msg)
+                cap = cq['message'].get('caption', '') + f"\n\n✅ Подтверждено! {'✓' if activated else 'вручную'}"
+            else:
+                _pay_tg_send(token, user_chat_id,
+                    "❌ *Оплата отклонена.*\n\nАдминистратор не подтвердил перевод.\n"
+                    "Если вы уверены что оплатили — напишите @kotakbaslife.")
+                cap = cq['message'].get('caption', '') + "\n\n❌ Отклонено."
+            cap_pl = json.dumps({'chat_id': owner_tg_id, 'message_id': msg_id,
+                                 'caption': cap, 'parse_mode': 'Markdown'}).encode()
+            req_cap = _ur_pay.Request(f"https://api.telegram.org/bot{token}/editMessageCaption",
+                                      data=cap_pl, headers={'Content-Type': 'application/json'})
+            try: _ur_pay.urlopen(req_cap, timeout=5)
+            except: pass
+        return jsonify({'ok': True})
+
+    # ── Обычное сообщение ─────────────────────────────────────────────────────
+    message = data.get('message', {})
+    if not message:
+        return jsonify({'ok': True})
+    chat_id = str(message.get('chat', {}).get('id', ''))
+    text_msg = message.get('text', '').strip()
+    photos = message.get('photo', [])
+    tg_user = message.get('from', {})
+    ud = _pay_user_data.setdefault(chat_id, {})
+
+    if text_msg.startswith('/start'):
+        ud.clear()
+        _pay_tg_send(token, chat_id,
+            "👋 Привет! Я бот оплаты *Tabletone*.\n\nВыбери что хочешь купить 👇", _pay_main_kb())
+    elif text_msg.startswith('/givepremium') and tg_user.get('id') == owner_tg_id:
+        parts = text_msg.split()
+        if len(parts) >= 3:
+            uname = parts[1].lstrip('@')
+            try:
+                import urllib.request as _ur_pay
+                pl = json.dumps({"username": uname, "days": int(parts[2]), "secret": pay_secret}).encode()
+                req = _ur_pay.Request(f"{site_url_pay}/api/payment/activate-premium",
+                                      data=pl, headers={'Content-Type': 'application/json'})
+                resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                _pay_tg_send(token, chat_id,
+                    f"✅ Premium на *{parts[2]} дней* выдан @{uname}." if resp.get('success')
+                    else f"❌ Ошибка: {resp.get('error','?')}")
+            except Exception as e:
+                _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+        else:
+            _pay_tg_send(token, chat_id, "Использование: `/givepremium <username> <дней>`")
+    elif text_msg.startswith('/givesparks') and tg_user.get('id') == owner_tg_id:
+        parts = text_msg.split()
+        if len(parts) >= 3:
+            uname = parts[1].lstrip('@')
+            try:
+                import urllib.request as _ur_pay
+                pl = json.dumps({"username": uname, "sparks": int(parts[2]), "secret": pay_secret}).encode()
+                req = _ur_pay.Request(f"{site_url_pay}/api/payment/add-sparks",
+                                      data=pl, headers={'Content-Type': 'application/json'})
+                resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                _pay_tg_send(token, chat_id,
+                    f"✅ {int(parts[2]):+} Искр у @{uname}." if resp.get('success')
+                    else f"❌ Ошибка: {resp.get('error','?')}")
+            except Exception as e:
+                _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+        else:
+            _pay_tg_send(token, chat_id, "Использование: `/givesparks <username> <кол-во>`")
+    elif text_msg.startswith('/ownerhelp') and tg_user.get('id') == owner_tg_id:
+        _pay_tg_send(token, chat_id,
+            "🔧 *Owner-команды:*\n\n`/givepremium <username> <дней>`\n`/givesparks <username> <кол-во>`")
+    elif ud.get('awaiting_username') and text_msg and not text_msg.startswith('/'):
+        username = text_msg.lstrip('@')
+        if len(username) < 3:
+            _pay_tg_send(token, chat_id, "❌ Слишком короткий username. Попробуйте ещё раз:")
+        else:
+            key = ud.get('pending_key')
+            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+            if plan:
+                ud['tabletone_username'] = username
+                ud['awaiting_username'] = False
+                ud['awaiting_screenshot'] = True
+                _pay_tg_send(token, chat_id,
+                    f"💳 *Реквизиты для оплаты:*\n\n"
+                    f"📱 Номер: `{PAY_CARD}`\n"
+                    f"🏦 по номеру телефона (СБП / любой банк)\n"
+                    f"💰 Сумма: *{plan['price']}*\n\n"
+                    f"После перевода пришлите *скриншот* подтверждения оплаты.\n⏳ У вас есть *10 минут*.")
+    elif ud.get('awaiting_screenshot') and photos:
+        ud['awaiting_screenshot'] = False
+        key = ud.get('pending_key')
+        username = ud.get('tabletone_username', '?')
+        plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+        if not plan:
+            _pay_tg_send(token, chat_id, "Что-то пошло не так. Напишите /start")
+            return jsonify({'ok': True})
+        photo_file_id = photos[-1]['file_id']
+        user_info = f"@{tg_user.get('username')}" if tg_user.get('username') else f"id:{tg_user.get('id')}"
+        _pay_tg_send(token, chat_id,
+            "📨 Скриншот получен! Ожидайте подтверждения от администратора.\nОбычно это занимает до 15 минут.")
+        confirm_kb = {"inline_keyboard": [[
+            {"text": "✅ Подтвердить", "callback_data": f"confirm_{key}_{username}_{chat_id}"},
+            {"text": "❌ Отклонить",   "callback_data": f"reject_{key}_{username}_{chat_id}"},
+        ]]}
+        _pay_tg_send_photo(token, owner_tg_id, photo_file_id,
+            f"⚠️ *Новая заявка на оплату!*\n\n"
+            f"👤 TG: {user_info}\n🎮 Tabletone: @{username}\n"
+            f"🛒 Товар: {plan['label']}\n💰 Сумма: {plan['price']}\n\nПодтвердить перевод?",
+            confirm_kb)
+
+    return jsonify({'ok': True})
+
+
 @app.route('/admin/dialogs', methods=['GET'])
 def admin_get_dialogs():
     """Список всех личных диалогов — только owner."""
@@ -6322,22 +6576,36 @@ eventlet.spawn(_premium_expiry_worker)
 # Платёжный бот запускается отдельным процессом через Procfile (bot: python tg_payment_bot.py)
 
 def _auto_register_telegram_webhook():
-    """Авто-регистрация вебхука Telegram бота при старте."""
+    """Авто-регистрация вебхуков обоих Telegram ботов при старте."""
     import time as _t, urllib.request as _ur
-    _t.sleep(8)  # ждём пока Flask поднимется
-    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    _t.sleep(8)
     site_url = os.environ.get('SITE_URL', '').rstrip('/')
-    if not token or not site_url:
+    if not site_url:
         return
-    webhook_url = f"{site_url}/telegram/webhook"
-    try:
-        url = f"https://api.telegram.org/bot{token}/setWebhook"
-        data = json.dumps({'url': webhook_url, 'allowed_updates': ['message']}).encode()
-        req = _ur.Request(url, data=data, headers={'Content-Type': 'application/json'})
-        resp = json.loads(_ur.urlopen(req, timeout=10).read())
-        print(f"✅ Telegram webhook: {resp.get('description', resp)}")
-    except Exception as e:
-        print(f"⚠️ Telegram webhook auto-register error: {e}")
+
+    # Бот привязки 2FA
+    token_2fa = os.environ.get('TELEGRAM_BOT_TOKEN')
+    if token_2fa:
+        try:
+            url = f"https://api.telegram.org/bot{token_2fa}/setWebhook"
+            data = json.dumps({'url': f"{site_url}/telegram/webhook", 'allowed_updates': ['message']}).encode()
+            req = _ur.Request(url, data=data, headers={'Content-Type': 'application/json'})
+            resp = json.loads(_ur.urlopen(req, timeout=10).read())
+            print(f"✅ 2FA webhook: {resp.get('description', resp)}")
+        except Exception as e:
+            print(f"⚠️ 2FA webhook error: {e}")
+
+    # Платёжный бот
+    token_pay = os.environ.get('PAYMENT_BOT_TOKEN', '8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M')
+    if token_pay:
+        try:
+            url = f"https://api.telegram.org/bot{token_pay}/setWebhook"
+            data = json.dumps({'url': f"{site_url}/payment/webhook", 'allowed_updates': ['message', 'callback_query']}).encode()
+            req = _ur.Request(url, data=data, headers={'Content-Type': 'application/json'})
+            resp = json.loads(_ur.urlopen(req, timeout=10).read())
+            print(f"✅ Payment webhook: {resp.get('description', resp)}")
+        except Exception as e:
+            print(f"⚠️ Payment webhook error: {e}")
 
 import threading as _threading
 _wh_thread = _threading.Thread(target=_auto_register_telegram_webhook, daemon=True)
