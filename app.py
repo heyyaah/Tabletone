@@ -235,6 +235,7 @@ class GroupMessage(db.Model):
     reply_to_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=True)
     is_paid = db.Column(db.Boolean, default=False)    # Платный пост
     paid_price = db.Column(db.Integer, default=0)     # Цена в искрах
+    message_type = db.Column(db.String(50), default='text')  # text, sticker, poll, etc.
     
     group = db.relationship('Group', foreign_keys=[group_id])
     sender = db.relationship('User', foreign_keys=[sender_id])
@@ -4326,6 +4327,7 @@ def get_group(group_id):
                 'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
             } if msg.reply_to_id and msg.reply_to else None,
             'sticker_pack_id': _get_sticker_pack_id(msg.content) if (msg.content and (msg.content.startswith('[sticker]') or msg.content.startswith('/static/media/stickers/'))) else None,
+            'message_type': msg.message_type if msg.message_type else ('sticker' if (msg.content and msg.content.startswith('[sticker]')) else 'text'),
         })
     
     # Получаем участников
@@ -4440,6 +4442,7 @@ def send_group_message(group_id):
         'content': content,
         'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
             'timestamp_iso': message.timestamp.isoformat() + 'Z',
+        'message_type': message.message_type or 'text',
         'media_files': []
     }
     
@@ -7205,7 +7208,7 @@ def sticker_send():
         member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
         if not member:
             return jsonify({'error': 'Вы не в группе'}), 403
-        msg = GroupMessage(group_id=group_id, sender_id=uid, content=content)
+        msg = GroupMessage(group_id=group_id, sender_id=uid, content=content, message_type='sticker')
         db.session.add(msg)
         db.session.commit()
         sender = User.query.get(uid)
