@@ -126,11 +126,8 @@
                 <button class="icon-btn" onclick="viewChatInfo()" title="Информация">
                     <i class="fas fa-info-circle"></i>
                 </button>
-                <button class="icon-btn" id="call-btn" onclick="startCall()" title="Позвонить">
+                <button class="icon-btn" id="call-btn" onclick="showCallTypeModal()" title="Позвонить">
                     <i class="fas fa-phone"></i>
-                </button>
-                <button class="icon-btn" id="video-call-btn" onclick="startVideoCall()" title="Видеозвонок">
-                    <i class="fas fa-video"></i>
                 </button>
                 <button class="icon-btn" onclick="showReportModal()" title="Пожаловаться">
                     <i class="fas fa-flag"></i>
@@ -140,24 +137,21 @@
                 </button>
             </div>
 
-            <!-- Pre-call модал (выбор типа звонка) -->
-            <div id="precall-modal" style="display:none;position:fixed;inset:0;background:#1a1a2e;z-index:10000;flex-direction:column;align-items:center;justify-content:center;color:#fff;">
-                <div id="precall-avatar" style="width:130px;height:130px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:24px;overflow:hidden;border:3px solid rgba(255,255,255,0.15);"></div>
-                <h2 id="precall-name" style="margin:0 0 10px;font-size:24px;font-weight:600;"></h2>
-                <p id="precall-hint" style="margin:0 0 60px;color:#a0aec0;font-size:14px;text-align:center;max-width:320px;">Если Вы хотите начать видеозвонок, нажмите на значок камеры.</p>
-                <div style="display:flex;gap:32px;align-items:flex-end;">
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                        <button id="precall-video-btn" onclick="precallToggleVideo()" style="width:64px;height:64px;border-radius:50%;background:#38a169;border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;"><i class="fas fa-video"></i></button>
-                        <span style="font-size:12px;color:#a0aec0;" id="precall-video-label">Вкл. видео</span>
+            <!-- Модал выбора типа звонка -->
+            <div id="call-type-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;align-items:center;justify-content:center;">
+                <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:28px 24px;max-width:320px;width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+                    <p style="margin:0 0 20px;font-size:17px;font-weight:600;">Вы хотите...</p>
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="startCall();document.getElementById('call-type-modal').style.display='none';" style="flex:1;padding:12px;border-radius:12px;border:none;background:#667eea;color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;">
+                            <i class="fas fa-phone" style="font-size:20px;"></i>
+                            Позвонить
+                        </button>
+                        <button onclick="startVideoCall();document.getElementById('call-type-modal').style.display='none';" style="flex:1;padding:12px;border-radius:12px;border:none;background:#38a169;color:#fff;font-size:14px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;">
+                            <i class="fas fa-video" style="font-size:20px;"></i>
+                            Видеочат
+                        </button>
                     </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                        <button onclick="closePrecallModal()" style="width:64px;height:64px;border-radius:50%;background:#718096;border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button>
-                        <span style="font-size:12px;color:#a0aec0;">Отменить</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-                        <button onclick="confirmCall()" style="width:64px;height:64px;border-radius:50%;background:#38a169;border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-phone"></i></button>
-                        <span style="font-size:12px;color:#a0aec0;">Позвонить</span>
-                    </div>
+                    <button onclick="document.getElementById('call-type-modal').style.display='none';" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:none;background:var(--bg-secondary,#f0f0f0);color:var(--text-muted,#666);font-size:14px;cursor:pointer;">Отмена</button>
                 </div>
             </div>
 

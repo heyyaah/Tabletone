@@ -1192,7 +1192,7 @@ async function openChat(userId, username) {
     _isSending = false;
 
     // Принудительно показываем кнопки личного чата
-    ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
+    ['call-btn', 'clear-history-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.classList.remove('bot-hidden');
@@ -1298,12 +1298,9 @@ async function openChat(userId, username) {
             // Показываем кнопку звонка только для обычных пользователей (не ботов)
             if (userData.is_bot) {
                 document.getElementById('call-btn')?.removeAttribute('data-visible');
-                document.getElementById('video-call-btn')?.removeAttribute('data-visible');
                 document.getElementById('call-btn')?.classList.add('bot-hidden');
-                document.getElementById('video-call-btn')?.classList.add('bot-hidden');
             } else {
                 document.getElementById('call-btn')?.classList.remove('bot-hidden');
-                document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
             }
             // Кнопка очистки истории — всегда видна в личных чатах (управляется data-visible)
         }
@@ -1311,7 +1308,6 @@ async function openChat(userId, username) {
         console.error('Error loading user info:', error);
         // Fallback: кнопки управляются CSS классом personal-chat-open (уже добавлен выше)
         document.getElementById('call-btn')?.classList.remove('bot-hidden');
-        document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
     }
     
     // Загружаем сообщения
@@ -1828,7 +1824,7 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
     openedChats.add(userId); // Помечаем чат как открытый — бейдж не показываем
 
     // Показываем кнопки личного чата
-    ['call-btn', 'video-call-btn', 'clear-history-btn'].forEach(id => {
+    ['call-btn', 'clear-history-btn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.classList.remove('bot-hidden');
@@ -1935,10 +1931,8 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
         const _item = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
         if (_item && _item.dataset.isBot === 'true') {
             document.getElementById('call-btn')?.classList.add('bot-hidden');
-            document.getElementById('video-call-btn')?.classList.add('bot-hidden');
         } else {
             document.getElementById('call-btn')?.classList.remove('bot-hidden');
-            document.getElementById('video-call-btn')?.classList.remove('bot-hidden');
         }
     }, 100);
     
@@ -3027,7 +3021,6 @@ async function openGroup(groupId, groupName) {
     const _chatArea = document.getElementById('chat-area');
     if (_chatArea) _chatArea.classList.remove('personal-chat-open');
     document.getElementById('call-btn')?.removeAttribute('data-visible');
-    document.getElementById('video-call-btn')?.removeAttribute('data-visible');
     document.getElementById('clear-history-btn')?.removeAttribute('data-visible');
     
     // Загружаем данные группы
@@ -3432,7 +3425,6 @@ function backToChats() {
         document.getElementById('chat-welcome').style.display = 'flex';
         document.getElementById('chat-area')?.classList.remove('personal-chat-open');
         document.getElementById('call-btn')?.removeAttribute('data-visible');
-        document.getElementById('video-call-btn')?.removeAttribute('data-visible');
         document.getElementById('clear-history-btn')?.removeAttribute('data-visible');
 
         // Сбрасываем текущий чат
