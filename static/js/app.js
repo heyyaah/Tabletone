@@ -1038,6 +1038,10 @@ async function openChat(userId, username) {
 
     // Сразу показываем форму ввода (личный чат — не канал)
     updateMessageInputVisibility(false, true);
+
+    // Убираем кнопку платного поста (она только для каналов)
+    const paidPostBtn = document.getElementById('paid-post-btn');
+    if (paidPostBtn) paidPostBtn.remove();
     
     // Восстанавливаем кнопки личного чата (скрытые при просмотре группы)
     const addContactBtn = document.querySelector('.chat-header .icon-btn[onclick="addContactFromChat()"]');
@@ -1492,6 +1496,11 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
     currentChatUserId = userId;
     currentGroupId = null; // Сбрасываем текущую группу
     openedChats.add(userId); // Помечаем чат как открытый — бейдж не показываем
+
+    // Сразу показываем форму ввода и убираем кнопку платного поста
+    updateMessageInputVisibility(false, true);
+    const paidPostBtn = document.getElementById('paid-post-btn');
+    if (paidPostBtn) paidPostBtn.remove();
     
     const isMobile = window.innerWidth <= 768;
     
@@ -2769,10 +2778,13 @@ async function openGroup(groupId, groupName) {
         if (addContactBtn) addContactBtn.style.display = 'none';
 
         // Обновляем видимость формы сообщений (для каналов показываем заглушку если не админ)
-        updateMessageInputVisibility(data.group.is_channel, data.group.is_admin);
-        
+        // Проверяем что пользователь не переключился на личный чат пока грузилась группа
+        if (currentGroupId === groupId) {
+            updateMessageInputVisibility(data.group.is_channel, data.group.is_admin);
+        }
+
         // Добавляем кнопку платного поста для владельцев каналов
-        setTimeout(_addPaidPostBtn, 100);
+        if (currentGroupId === groupId) setTimeout(_addPaidPostBtn, 100);
         
         // Сбрасываем placeholder поля ввода
         const msgInput = document.getElementById('message-input');
