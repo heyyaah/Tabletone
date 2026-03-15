@@ -2338,11 +2338,12 @@ def send_message():
                 return jsonify({'error': 'spam_blocked', 'until': until_str}), 403
 
     # Premium Support доступен только для Premium пользователей
-    if receiver.username == 'premium_support' and not sender.is_premium:
+    _sender_is_staff = sender.is_admin or bool(sender.admin_role)
+    if receiver.username == 'premium_support' and not sender.is_premium and not _sender_is_staff:
         return jsonify({'error': 'premium_required', 'message': 'Premium Support доступен только для Premium пользователей'}), 403
 
-    # Обычная поддержка недоступна для Premium пользователей
-    if receiver.username == 'tabletone_supportbot' and sender.is_premium:
+    # Обычная поддержка недоступна для Premium пользователей (кроме стаффа)
+    if receiver.username == 'tabletone_supportbot' and sender.is_premium and not _sender_is_staff:
         return jsonify({'error': 'premium_required', 'message': 'У вас Premium — используйте Premium Support (@premium_support)'}), 403
     message = Message(
         sender_id=session['user_id'],
@@ -7607,7 +7608,7 @@ def reactions_my():
         return jsonify({'error': 'Не авторизован'}), 401
     uid = session['user_id']
     user = User.query.get(uid)
-    if not user.is_premium:
+    if not user.is_premium and not user.is_admin and not user.admin_role:
         return jsonify({'error': 'premium_required'}), 403
 
     owned = CustomReactionPack.query.filter_by(creator_id=uid).all()
@@ -7653,7 +7654,7 @@ def reaction_pack_create():
         return jsonify({'error': 'Не авторизован'}), 401
     uid = session['user_id']
     user = User.query.get(uid)
-    if not user.is_premium:
+    if not user.is_premium and not user.is_admin and not user.admin_role:
         return jsonify({'error': 'premium_required', 'message': 'Кастомные реакции доступны только для Premium'}), 403
 
     name = request.form.get('name', '').strip()
@@ -7691,7 +7692,7 @@ def reaction_pack_add(pack_id):
         return jsonify({'error': 'Не авторизован'}), 401
     uid = session['user_id']
     user = User.query.get(uid)
-    if not user.is_premium:
+    if not user.is_premium and not user.is_admin and not user.admin_role:
         return jsonify({'error': 'premium_required'}), 403
     CustomReactionPack.query.get_or_404(pack_id)
     existing = UserCustomReactionPack.query.filter_by(user_id=uid, pack_id=pack_id).first()
