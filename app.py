@@ -2329,18 +2329,16 @@ def send_message():
         'avatar_color': sender.avatar_color,
         'avatar_letter': sender.get_avatar_letter()
     }
-    
-    # Отправляем сообщение через WebSocket
-    message_data = {
-        'id': message.id,
-        'sender_id': message.sender_id,
-        'receiver_id': message.receiver_id,
-        'content': message.content,
-        'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
-            'timestamp_iso': message.timestamp.isoformat() + 'Z',
-        'is_mine': False  # Для получателя
-    }
-    
+
+    # Данные reply_to для включения в сокет
+    reply_to_data = None
+    if message.reply_to_id and message.reply_to:
+        reply_to_data = {
+            'id': message.reply_to.id,
+            'content': message.reply_to.content if not message.reply_to.is_deleted else '[удалено]',
+            'sender_name': (message.reply_to.sender.display_name or message.reply_to.sender.username) if message.reply_to.sender else '?'
+        }
+
     try:
         # Отправляем отправителю
         socketio.emit('new_message', {
@@ -2349,7 +2347,8 @@ def send_message():
                 'sender_id': message.sender_id,
                 'content': message.content,
                 'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
-            'timestamp_iso': message.timestamp.isoformat() + 'Z',
+                'timestamp_iso': message.timestamp.isoformat() + 'Z',
+                'reply_to': reply_to_data,
                 'is_mine': True
             },
             'other_user_id': receiver_id,
@@ -2363,7 +2362,8 @@ def send_message():
                 'sender_id': message.sender_id,
                 'content': message.content,
                 'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
-            'timestamp_iso': message.timestamp.isoformat() + 'Z',
+                'timestamp_iso': message.timestamp.isoformat() + 'Z',
+                'reply_to': reply_to_data,
                 'is_mine': False
             },
             'other_user_id': session['user_id'],
