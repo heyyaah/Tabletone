@@ -1165,13 +1165,13 @@ async function openChat(userId, username) {
     document.getElementById('chat-active').style.display = 'flex';
     document.getElementById('chat-username').textContent = username;
 
-    // Сбрасываем кнопки звонка — скрываем до загрузки данных пользователя
+    // Показываем кнопки сразу — скроем если окажется бот
     const _callBtn = document.getElementById('call-btn');
     const _videoCallBtn = document.getElementById('video-call-btn');
     const _clearBtn = document.getElementById('clear-history-btn');
-    if (_callBtn) _callBtn.style.display = 'none';
-    if (_videoCallBtn) _videoCallBtn.style.display = 'none';
-    if (_clearBtn) _clearBtn.style.display = 'none';
+    if (_callBtn) _callBtn.style.display = 'flex';
+    if (_videoCallBtn) _videoCallBtn.style.display = 'flex';
+    if (_clearBtn) _clearBtn.style.display = 'flex';
     
     // На мобильных устройствах скрываем sidebar и показываем chat-area
     const sidebar = document.getElementById('sidebar');
