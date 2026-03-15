@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вступить в {{ group.name }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px 32px;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        }
+        .avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 700;
+            color: #fff;
+            overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .group-name {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 6px;
+        }
+        .group-type {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        .member-count {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 24px;
+        }
+        .description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .btn-join {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-join:hover { opacity: 0.9; }
+        .already-member {
+            font-size: 14px;
+            color: #667eea;
+            margin-top: 16px;
+        }
+        .already-member a { color: #667eea; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="avatar" style="background: {{ group.avatar_color or '#667eea' }}">
+            {% if group.avatar_url %}
+                <img src="{{ group.avatar_url }}" alt="">
+            {% else %}
+                {{ group.name[0].upper() }}
+            {% endif %}
+        </div>
+        <div class="group-name">{{ group.name }}</div>
+        <div class="group-type">{{ 'Канал' if group.is_channel else 'Группа' }}</div>
+        <div class="member-count">{{ member_count }} участник{{ 'ов' if member_count % 10 in [0,5,6,7,8,9] or member_count % 100 in range(11,20) else ('а' if member_count % 10 in [2,3,4] else '') }}</div>
+        {% if group.description %}
+        <div class="description">{{ group.description }}</div>
+        {% endif %}
+
+        {% if already_member %}
+            <a href="/?open_group={{ group.id }}" class="btn-join">Открыть</a>
+        {% else %}
+            <form method="POST">
+                <button type="submit" class="btn-join">Вступить</button>
+            </form>
+        {% endif %}
+
+        {% if already_member %}
+        <div class="already-member">Вы уже состоите в этой группе</div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -19,6 +19,7 @@
         {% endif %}
         
         <form method="POST" class="auth-form">
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
             <div class="form-group">
                 <label for="username">
                     <i class="fas fa-user"></i> Имя пользователя

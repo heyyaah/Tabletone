@@ -2042,11 +2042,15 @@ def login():
                 import threading
                 threading.Thread(target=_notify_admin_support, args=(user.id,), daemon=True).start()
 
+            next_url = request.args.get('next') or request.form.get('next')
+            if next_url and next_url.startswith('/'):
+                return redirect(next_url)
             return redirect(url_for('index'))
         
         return render_template('login.html', error='Неверное имя пользователя или пароль')
     
-    return render_template('login.html')
+    next_url = request.args.get('next', '')
+    return render_template('login.html', next_url=next_url)
 
 # Выход
 @app.route('/logout')
@@ -5003,19 +5007,22 @@ def group_invite_link(group_id):
     return jsonify({'success': True, 'invite_link': group.invite_link})
 
 # Вступить по инвайт-ссылке
-@app.route('/invite/<token>')
+@app.route('/invite/<token>', methods=['GET', 'POST'])
 def join_by_invite(token):
     if 'user_id' not in session:
-        return redirect(url_for('login'))
+        return redirect(url_for('login') + '?next=/invite/' + token)
     group = Group.query.filter_by(invite_link=token).first()
     if not group:
-        return redirect(url_for('index'))
+        return render_template('join.html', group=None, error='Ссылка недействительна'), 404
+    member_count = GroupMember.query.filter_by(group_id=group.id).count()
     existing = GroupMember.query.filter_by(group_id=group.id, user_id=session['user_id']).first()
-    if not existing:
-        member = GroupMember(group_id=group.id, user_id=session['user_id'], is_admin=False)
-        db.session.add(member)
-        db.session.commit()
-    return redirect(url_for('index'))
+    if request.method == 'POST':
+        if not existing:
+            member = GroupMember(group_id=group.id, user_id=session['user_id'], is_admin=False)
+            db.session.add(member)
+            db.session.commit()
+        return redirect(url_for('index') + '?open_group=' + str(group.id))
+    return render_template('join.html', group=group, member_count=member_count, already_member=bool(existing))
 
 # Включить/выключить уведомления группы
 @app.route('/groups/<int:group_id>/mute', methods=['POST'])

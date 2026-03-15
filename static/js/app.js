@@ -74,6 +74,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch(e) { console.error('open_chat_on_load error:', e); }
     }
+
+    // Открыть группу если передан ?open_group= в URL (например, после вступления по инвайту)
+    const _urlParams = new URLSearchParams(window.location.search);
+    const _openGroupId = _urlParams.get('open_group');
+    if (_openGroupId) {
+        // Убираем параметр из URL без перезагрузки
+        const _cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', _cleanUrl);
+        setTimeout(() => openGroup(parseInt(_openGroupId), ''), 900);
+    }
 });
 
 // Подключение к Socket.IO
