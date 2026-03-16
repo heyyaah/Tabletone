@@ -1678,6 +1678,8 @@ function showError(message, type = 'error') {
     }, 4000);
 }
 
+// Алиас для совместимости
+function showToast(message, type = 'info') { showError(message, type); }
 // Анимация для уведомлений
 const style = document.createElement('style');
 style.textContent = `
