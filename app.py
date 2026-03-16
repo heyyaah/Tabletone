@@ -440,6 +440,7 @@ class PasswordResetRequest(db.Model):
     request_type = db.Column(db.String(30), default='password')  # password, 2fa_lost
     status = db.Column(db.String(20), default='pending')  # pending, resolved, rejected
     admin_note = db.Column(db.String(500))
+    ip_address = db.Column(db.String(45))  # IPv4/IPv6
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     reviewed_at = db.Column(db.DateTime)
@@ -817,6 +818,7 @@ def _init_db():
             "ALTER TABLE story ADD COLUMN IF NOT EXISTS media_url VARCHAR(500)",
             "ALTER TABLE story ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0",
             "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
+            "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)",
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS spam_keywords TEXT DEFAULT \'[]\'',
@@ -862,6 +864,7 @@ def _init_db():
             "ALTER TABLE story ADD COLUMN media_url VARCHAR(500)",
             "ALTER TABLE story ADD COLUMN views_count INTEGER DEFAULT 0",
             "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
+            "ALTER TABLE password_reset_request ADD COLUMN ip_address VARCHAR(45)",
             "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
             "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
             "ALTER TABLE 'group' ADD COLUMN spam_keywords TEXT DEFAULT '[]'",
@@ -1412,7 +1415,36 @@ def account_recovery():
     request_type = data.get('type', 'password')  # password | 2fa_lost
     if not username or not reason:
         return jsonify({'error': 'Заполните все поля'}), 400
-    req = PasswordResetRequest(username=username, reason=reason, request_type=request_type)
+
+    # Проверяем что пользователь существует
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        # Не раскрываем факт отсутствия — возвращаем успех (anti-enumeration)
+        return jsonify({'success': True})
+
+    # Rate limit: не более 2 заявок с одного IP за 24 часа
+    ip = request.remote_addr
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+    recent_by_ip = PasswordResetRequest.query.filter(
+        PasswordResetRequest.created_at > cutoff,
+        PasswordResetRequest.ip_address == ip
+    ).count()
+    if recent_by_ip >= 2:
+        return jsonify({'error': 'Слишком много заявок. Попробуйте через 24 часа.'}), 429
+
+    # Проверяем нет ли уже pending-заявки от этого username
+    existing = PasswordResetRequest.query.filter_by(
+        username=username, status='pending'
+    ).first()
+    if existing:
+        return jsonify({'error': 'Заявка уже отправлена и ожидает рассмотрения.'}), 400
+
+    req = PasswordResetRequest(
+        username=username,
+        reason=reason,
+        request_type=request_type,
+        ip_address=ip
+    )
     db.session.add(req)
     db.session.commit()
     return jsonify({'success': True})
