@@ -5625,7 +5625,11 @@ def _send_fcm(user_id, title, body, notif_type='message'):
         import firebase_admin
         from firebase_admin import credentials, messaging
         if not firebase_admin._apps:
-            cred = credentials.Certificate(os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', 'firebase-service-account.json'))
+            import json as _json
+            sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
+            if not sa_json:
+                return
+            cred = credentials.Certificate(_json.loads(sa_json))
             firebase_admin.initialize_app(cred)
         tokens = [t.token for t in FCMToken.query.filter_by(user_id=user_id).all()]
         if not tokens:
