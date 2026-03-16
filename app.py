@@ -6341,15 +6341,17 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
         _bot_send_message(bot_user_id, sender_id, "🎨 Генерирую картинку, подожди...")
         def _gen_image():
             try:
-                import urllib.request
+                import urllib.request, urllib.error
                 import json as _json
                 import base64
                 import os as _os
+                import uuid
 
                 account_id = _os.environ.get('CF_ACCOUNT_ID', '')
                 api_token = _os.environ.get('CF_API_TOKEN', '')
                 if not account_id or not api_token:
-                    _bot_send_message(bot_user_id, sender_id, "⚠️ ИИ временно недоступен.")
+                    with app.app_context():
+                        _bot_send_message(bot_user_id, sender_id, "⚠️ ИИ временно недоступен (нет ключей CF).")
                     return
 
                 payload = _json.dumps({
@@ -6366,20 +6368,42 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                     },
                     method="POST"
                 )
-                with urllib.request.urlopen(req, timeout=60) as resp:
-                    img_bytes = resp.read()
+                try:
+                    with urllib.request.urlopen(req, timeout=90) as resp:
+                        content_type = resp.headers.get('Content-Type', '')
+                        img_bytes = resp.read()
+                except urllib.error.HTTPError as he:
+                    err_body = he.read().decode('utf-8', errors='replace')
+                    app.logger.error(f"Nexus CF HTTP {he.code}: {err_body[:300]}")
+                    with app.app_context():
+                        _bot_send_message(bot_user_id, sender_id, f"⚠️ Ошибка генерации (HTTP {he.code}): {err_body[:120]}")
+                    return
 
-                # Сохраняем картинку
-                import uuid
+                # CF иногда возвращает JSON с ошибкой вместо PNG
+                if img_bytes[:1] == b'{':
+                    try:
+                        err_json = _json.loads(img_bytes)
+                        app.logger.error(f"Nexus CF returned JSON error: {err_json}")
+                        err_msg = err_json.get('errors', [{}])[0].get('message', str(err_json))[:150]
+                        with app.app_context():
+                            _bot_send_message(bot_user_id, sender_id, f"⚠️ CF ошибка: {err_msg}")
+                        return
+                    except Exception:
+                        pass
+
+                # Сохраняем на диск (работает пока сервер не рестартовал)
                 fname = f"nexus_{uuid.uuid4().hex[:12]}.png"
-                save_path = _os.path.join('static', 'media', 'images', fname)
+                save_dir = _os.path.join('static', 'media', 'images')
+                _os.makedirs(save_dir, exist_ok=True)
+                save_path = _os.path.join(save_dir, fname)
                 with open(save_path, 'wb') as f:
                     f.write(img_bytes)
-
                 img_url = f"/static/media/images/{fname}"
 
+                # Также храним как data URL в media_url — не зависит от ФС
+                data_url = "data:image/png;base64," + base64.b64encode(img_bytes).decode()
+
                 with app.app_context():
-                    # Отправляем как сообщение с медиа
                     bot_user = User.query.get(bot_user_id)
                     receiver = User.query.get(sender_id)
                     if not bot_user or not receiver:
@@ -6388,14 +6412,15 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         sender_id=bot_user_id,
                         receiver_id=sender_id,
                         content=f'🎨 {image_prompt}',
-                        message_type='image'
+                        message_type='image',
+                        media_url=data_url  # fallback: data URL в media_url
                     )
                     db.session.add(msg)
                     db.session.commit()
 
                     media = MessageMedia(
                         message_id=msg.id,
-                        media_url=img_url,
+                        media_url=data_url,
                         media_type='image',
                         file_name=fname
                     )
@@ -6405,25 +6430,32 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                     msg_data = {
                         'id': msg.id,
                         'sender_id': bot_user_id,
-                        'receiver_id': sender_id,
                         'content': f'🎨 {image_prompt}',
                         'timestamp': msg.timestamp.strftime('%H:%M'),
                         'timestamp_iso': msg.timestamp.isoformat() + 'Z',
                         'is_mine': False,
                         'message_type': 'image',
-                        'media_files': [{'media_url': img_url, 'media_type': 'image', 'file_name': fname}],
-                        'bot_buttons': []
+                        'media_url': data_url,
+                        'media_files': [{'media_url': data_url, 'media_type': 'image', 'file_name': fname}],
+                        'duration': None, 'is_deleted': False, 'is_read': False,
+                        'reply_to': None, 'bot_buttons': [], 'sticker_pack_id': None, 'gift': None,
+                    }
+                    _nexus_sender_info = {
+                        'id': bot_user_id, 'username': 'nexus',
+                        'display_name': 'Nexus AI', 'avatar_color': '#7c3aed',
+                        'avatar_letter': 'N', 'avatar_url': None
                     }
                     socketio.emit('new_message', {
                         'message': msg_data,
                         'other_user_id': bot_user_id,
-                        'sender_info': {'id': bot_user_id, 'username': 'nexus', 'display_name': 'Nexus AI', 'avatar_color': '#667eea', 'avatar_letter': 'N', 'avatar_url': None}
+                        'sender_info': _nexus_sender_info,
                     }, room=f'user_{sender_id}', namespace='/')
 
             except Exception as e:
-                print(f"Nexus image gen error: {e}")
+                import traceback
+                app.logger.error(f"Nexus image gen error: {e}\n{traceback.format_exc()}")
                 with app.app_context():
-                    _bot_send_message(bot_user_id, sender_id, f"⚠️ Не удалось сгенерировать картинку: {str(e)[:80]}")
+                    _bot_send_message(bot_user_id, sender_id, f"⚠️ Не удалось сгенерировать картинку: {str(e)[:120]}")
 
         threading.Thread(target=_gen_image, daemon=True).start()
         return
