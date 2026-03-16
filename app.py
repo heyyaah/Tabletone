@@ -5920,8 +5920,19 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                 reply_text = result['choices'][0]['message']['content'].strip()
 
         except Exception as e:
-            print(f"Nexus AI error: {e}")
-            reply_text = "⚠️ Произошла ошибка при обращении к ИИ. Попробуй ещё раз."
+            import traceback
+            err_detail = traceback.format_exc()
+            print(f"Nexus AI error: {e}\n{err_detail}")
+            # Показываем понятное сообщение в зависимости от типа ошибки
+            err_str = str(e).lower()
+            if 'api_key' in err_str or '401' in err_str or 'unauthorized' in err_str:
+                reply_text = "⚠️ Ошибка авторизации API. Проверьте GROQ_API_KEY в настройках сервера."
+            elif 'timeout' in err_str or 'timed out' in err_str:
+                reply_text = "⏱ Запрос занял слишком много времени. Попробуй ещё раз."
+            elif 'rate' in err_str or '429' in err_str:
+                reply_text = "⏳ Слишком много запросов. Подожди немного и попробуй снова."
+            else:
+                reply_text = f"⚠️ Ошибка ИИ: {str(e)[:100]}"
 
         socketio.emit('user_stop_typing', {
             'chat_type': 'private'

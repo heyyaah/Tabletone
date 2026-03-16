@@ -3004,13 +3004,18 @@ body[data-theme="dark"] .profile-card {
         padding: 10px 12px;
         padding-bottom: max(10px, env(safe-area-inset-bottom));
         flex-shrink: 0;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
-    #message-form { gap: 6px; }
+    #message-form { gap: 6px; width: 100%; }
 
     #message-input {
         padding: 11px 14px;
         font-size: 16px !important;
+        min-width: 0;
+        width: 0;
     }
 
     .send-btn { width: 42px; height: 42px; font-size: 15px; flex-shrink: 0; }
