@@ -9189,19 +9189,7 @@ def slow_mode_check(group_id):
 # ЗАКРЕПЛЁННЫЕ СООБЩЕНИЯ В ГРУППАХ
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@app.route('/groups/<int:group_id>/invite_link', methods=['POST'])
-def generate_invite_link(group_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    group = Group.query.get_or_404(group_id)
-    uid = session['user_id']
-    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
-    if group.creator_id != uid and not (member and member.is_admin):
-        return jsonify({'error': 'Нет прав'}), 403
-    if not group.invite_link:
-        group.invite_link = secrets.token_urlsafe(12)
-        db.session.commit()
-    return jsonify({'link': f'/join/{group.invite_link}'})
+# generate_invite_link removed — handled by group_invite_link above
 
 
 # ══════════════════════════════════════════════════════════════════════════════
