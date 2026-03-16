@@ -6544,6 +6544,8 @@ def _send_2fa_code(user_id, code):
     )
     if bot_user:
         _bot_send_message(bot_user.id, user_id, text)
+    else:
+        print(f"[2FA] tabletonebot not found in DB — cannot send internal message to user {user_id}")
 
     # Отправка в Telegram если привязан
     if user and user.telegram_chat_id:
@@ -6551,6 +6553,8 @@ def _send_2fa_code(user_id, code):
             _send_telegram_2fa(user.telegram_chat_id, code)
         except Exception as e:
             print(f"Telegram 2FA error: {e}")
+    else:
+        print(f"[2FA] User {user_id} has no telegram_chat_id linked")
 
 
 def _send_email_2fa(to_email, code):
@@ -6767,7 +6771,9 @@ def login_2fa():
         else:
             return render_template('login_2fa.html', error='Неверный или просроченный код')
 
-    return render_template('login_2fa.html')
+    user = User.query.get(pending_id)
+    has_telegram = bool(user and user.telegram_chat_id)
+    return render_template('login_2fa.html', has_telegram=has_telegram)
 
 
 @app.route('/login/2fa/resend', methods=['POST'])
