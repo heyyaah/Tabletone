@@ -3996,31 +3996,35 @@ def remove_user(user_id):
     try:
         from sqlalchemy import text as _text
         with db.engine.connect() as _conn:
-            # Удаляем FK-зависимые записи
-            for tbl in ['last_read_message']:
-                try:
-                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE user_id = :uid OR chat_with_user_id = :uid"), {"uid": user_id})
-                except Exception: pass
-            try:
-                _conn.execute(_text("DELETE FROM last_read_message WHERE last_read_message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)"), {"uid": user_id})
-            except Exception: pass
-            for tbl in ['message_reaction', 'message_media']:
-                try:
-                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)"), {"uid": user_id})
-                except Exception: pass
-            try:
-                _conn.execute(_text("DELETE FROM message_reaction WHERE user_id = :uid"), {"uid": user_id})
-            except Exception: pass
-            try:
-                _conn.execute(_text("DELETE FROM message WHERE sender_id = :uid OR receiver_id = :uid"), {"uid": user_id})
-            except Exception: pass
-            for tbl in ['last_read_group_message', 'group_message_reaction', 'group_member', 'contact', 'user_session', 'support_ticket', 'user_sticker_pack']:
-                try:
-                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE user_id = :uid"), {"uid": user_id})
-                except Exception: pass
-            try:
-                _conn.execute(_text("DELETE FROM contact WHERE contact_id = :uid"), {"uid": user_id})
-            except Exception: pass
+            def _ex(sql, params=None):
+                try: _conn.execute(_text(sql), params or {})
+                except Exception as _e: print(f"remove_user sql skip: {_e}")
+
+            # 1. Удаляем группы пользователя (где он creator) со всеми зависимостями
+            owned_groups = [r[0] for r in _conn.execute(_text("SELECT id FROM "group" WHERE creator_id = :uid"), {"uid": user_id})]
+            for gid in owned_groups:
+                _ex("DELETE FROM slow_mode_tracker WHERE group_id = :gid", {"gid": gid})
+                _ex("DELETE FROM last_read_group_message WHERE group_id = :gid", {"gid": gid})
+                _ex("DELETE FROM group_message_reaction WHERE group_id = :gid", {"gid": gid})
+                _ex("DELETE FROM group_member WHERE group_id = :gid", {"gid": gid})
+                _ex("DELETE FROM group_message WHERE group_id = :gid", {"gid": gid})
+                _ex('DELETE FROM "group" WHERE id = :gid', {"gid": gid})
+
+            # 2. Личные сообщения
+            _ex("DELETE FROM last_read_message WHERE user_id = :uid OR chat_with_user_id = :uid", {"uid": user_id})
+            _ex("DELETE FROM last_read_message WHERE last_read_message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)", {"uid": user_id})
+            _ex("DELETE FROM message_reaction WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)", {"uid": user_id})
+            _ex("DELETE FROM message_reaction WHERE user_id = :uid", {"uid": user_id})
+            _ex("DELETE FROM message_media WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)", {"uid": user_id})
+            _ex("DELETE FROM message WHERE sender_id = :uid OR receiver_id = :uid", {"uid": user_id})
+
+            # 3. Прочие связанные данные
+            for tbl in ['last_read_group_message', 'group_message_reaction', 'group_member',
+                        'slow_mode_tracker', 'contact', 'user_session', 'support_ticket',
+                        'user_sticker_pack']:
+                _ex(f"DELETE FROM {tbl} WHERE user_id = :uid", {"uid": user_id})
+            _ex("DELETE FROM contact WHERE contact_id = :uid", {"uid": user_id})
+
             _conn.commit()
     except Exception as e:
         print(f"remove_user cleanup error: {e}")
