@@ -10,3 +10,4 @@ python-telegram-bot[all]
 aiohttp
 firebase-admin
 cryptography
+Pillow

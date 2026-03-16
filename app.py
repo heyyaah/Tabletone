@@ -6388,17 +6388,24 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                     except Exception:
                         pass
 
-                # Сохраняем на диск (работает пока сервер не рестартовал)
-                fname = f"nexus_{uuid.uuid4().hex[:12]}.png"
-                save_dir = _os.path.join('static', 'media', 'images')
-                _os.makedirs(save_dir, exist_ok=True)
-                save_path = _os.path.join(save_dir, fname)
-                with open(save_path, 'wb') as f:
-                    f.write(img_bytes)
-                img_url = f"/static/media/images/{fname}"
+                # Сжимаем до 512x512 JPEG (~50-100KB вместо 2MB)
+                try:
+                    from PIL import Image as _PILImage
+                    import io as _io
+                    pil_img = _PILImage.open(_io.BytesIO(img_bytes)).convert('RGB')
+                    pil_img.thumbnail((512, 512), _PILImage.LANCZOS)
+                    buf = _io.BytesIO()
+                    pil_img.save(buf, format='JPEG', quality=85)
+                    img_bytes = buf.getvalue()
+                    img_ext = 'jpg'
+                except Exception as pil_err:
+                    app.logger.warning(f"Nexus PIL compress failed: {pil_err}, using raw PNG")
+                    img_ext = 'png'
 
-                # Также храним как data URL в media_url — не зависит от ФС
-                data_url = "data:image/png;base64," + base64.b64encode(img_bytes).decode()
+                # data URL для хранения в БД (не зависит от ФС Render)
+                mime = 'image/jpeg' if img_ext == 'jpg' else 'image/png'
+                data_url = f"data:{mime};base64," + base64.b64encode(img_bytes).decode()
+                fname = f"nexus_{uuid.uuid4().hex[:12]}.{img_ext}"
 
                 with app.app_context():
                     bot_user = User.query.get(bot_user_id)
@@ -6410,21 +6417,20 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         receiver_id=sender_id,
                         content=f'🎨 {image_prompt}',
                         message_type='image',
-                        media_url=img_url  # путь к файлу на диске
+                        media_url=data_url
                     )
                     db.session.add(msg)
                     db.session.commit()
 
                     media = MessageMedia(
                         message_id=msg.id,
-                        media_url=img_url,
+                        media_url=data_url,
                         media_type='image',
                         file_name=fname
                     )
                     db.session.add(media)
                     db.session.commit()
 
-                    # В socket emit используем img_url — data_url слишком большой для WebSocket
                     msg_data = {
                         'id': msg.id,
                         'sender_id': bot_user_id,
@@ -6433,8 +6439,8 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         'timestamp_iso': msg.timestamp.isoformat() + 'Z',
                         'is_mine': False,
                         'message_type': 'image',
-                        'media_url': img_url,
-                        'media_files': [{'media_url': img_url, 'media_type': 'image', 'file_name': fname}],
+                        'media_url': data_url,
+                        'media_files': [{'media_url': data_url, 'media_type': 'image', 'file_name': fname}],
                         'duration': None, 'is_deleted': False, 'is_read': False,
                         'reply_to': None, 'bot_buttons': [], 'sticker_pack_id': None, 'gift': None,
                     }
