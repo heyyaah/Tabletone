@@ -259,10 +259,10 @@
             <div class="profile-section">
                 <h3><i class="fas fa-lock"></i> Скрытые чаты</h3>
                 <p style="color:#718096;font-size:13px;margin-bottom:12px;">Установите PIN для доступа к скрытым чатам</p>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <input type="password" id="hidden-pin-input" placeholder="4-6 цифр" maxlength="6" pattern="\d{4,6}"
-                           style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
-                    <button class="btn btn-primary" onclick="saveHiddenPin()" style="padding:10px 16px;font-size:13px;white-space:nowrap;">
+                           style="flex:1;min-width:120px;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+                    <button class="btn btn-primary" onclick="saveHiddenPin()" style="padding:10px 16px;font-size:13px;white-space:nowrap;flex-shrink:0;">
                         <i class="fas fa-save"></i> Установить PIN
                     </button>
                 </div>
