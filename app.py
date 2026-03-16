@@ -4127,6 +4127,14 @@ def admin_delete_group(group_id):
     if not group:
         return jsonify({'error': 'Не найдено'}), 404
     GroupMember.query.filter_by(group_id=group_id).delete()
+    # Удаляем last_read_group_message записи (FK на group_message)
+    try:
+        from sqlalchemy import text as _text
+        with db.engine.connect() as _conn:
+            _conn.execute(_text("DELETE FROM last_read_group_message WHERE group_id = :gid"), {"gid": group_id})
+            _conn.commit()
+    except Exception:
+        pass
     GroupMessage.query.filter_by(group_id=group_id).delete()
     db.session.delete(group)
     db.session.commit()
@@ -4936,6 +4944,14 @@ def delete_group(group_id):
     if group.creator_id != session['user_id']:
         return jsonify({'error': 'Только создатель может удалить группу'}), 403
     GroupMember.query.filter_by(group_id=group_id).delete()
+    # Удаляем last_read_group_message записи (FK на group_message)
+    try:
+        from sqlalchemy import text as _text
+        with db.engine.connect() as _conn:
+            _conn.execute(_text("DELETE FROM last_read_group_message WHERE group_id = :gid"), {"gid": group_id})
+            _conn.commit()
+    except Exception:
+        pass
     GroupMessage.query.filter_by(group_id=group_id).delete()
     db.session.delete(group)
     db.session.commit()

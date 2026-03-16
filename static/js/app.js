@@ -957,8 +957,22 @@ function setupChatItemListeners() {
         chatsList.removeEventListener('touchend', oldHandler);
     }
     
+    // Touch scroll detection — не открывать чат если был скролл
+    let _touchStartY = 0;
+    let _touchMoved = false;
+    chatsList.addEventListener('touchstart', function(e) {
+        _touchStartY = e.touches[0].clientY;
+        _touchMoved = false;
+    }, { passive: true });
+    chatsList.addEventListener('touchmove', function(e) {
+        if (Math.abs(e.touches[0].clientY - _touchStartY) > 8) _touchMoved = true;
+    }, { passive: true });
+
     // Создаем новый обработчик
     const clickHandler = function(e) {
+        // На тач-устройствах игнорируем если был скролл
+        if (e.type === 'touchend' && _touchMoved) return;
+
         // Находим ближайший chat-item
         const chatItem = e.target.closest('.chat-item');
         if (!chatItem) return;
