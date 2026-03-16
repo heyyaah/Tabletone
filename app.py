@@ -5617,7 +5617,10 @@ def _sql_exec(sql, params=None):
 
 
 def _send_fcm(user_id, title, body, notif_type='message'):
-    """Отправляет FCM push-уведомление пользователю на все его устройства."""
+    """Отправляет FCM push только если пользователь не онлайн (не в приложении)."""
+    # Не отправляем если пользователь сейчас в сети
+    if user_id in online_users:
+        return
     try:
         import firebase_admin
         from firebase_admin import credentials, messaging
