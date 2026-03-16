@@ -6012,7 +6012,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
 
 
 def _handle_nexus_bot(bot_user_id, sender_id, text):
-    """Обрабатывает сообщения для Nexus AI (DeepSeek)."""
+    """Обрабатывает сообщения для Nexus AI (Cloudflare Workers AI)."""
     import threading
 
     if text.strip().lower() == '/start':
@@ -6032,14 +6032,15 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
         'name': 'Nexus'
     }, room=f'user_{sender_id}', namespace='/')
 
-    def _ask_deepseek():
+    def _ask_cf():
         reply_text = "⚠️ Произошла ошибка. Попробуй ещё раз."
         try:
             import urllib.request
             import json as _json
 
-            api_key = os.environ.get('DEEPSEEK_API_KEY', '')
-            if not api_key:
+            account_id = os.environ.get('CF_ACCOUNT_ID', '')
+            api_token = os.environ.get('CF_API_TOKEN', '')
+            if not account_id or not api_token:
                 reply_text = "⚠️ ИИ временно недоступен. Обратитесь к администратору."
             else:
                 system_prompt = (
@@ -6064,36 +6065,32 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                 )
 
                 payload = _json.dumps({
-                    "model": "deepseek-chat",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": text}
                     ],
-                    "max_tokens": 1024,
-                    "temperature": 0.7
+                    "max_tokens": 1024
                 }).encode('utf-8')
 
                 req = urllib.request.Request(
-                    "https://api.deepseek.com/chat/completions",
+                    f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/meta/llama-3.1-8b-instruct",
                     data=payload,
                     headers={
                         "Content-Type": "application/json",
-                        "Authorization": f"Bearer {api_key}"
+                        "Authorization": f"Bearer {api_token}"
                     },
                     method="POST"
                 )
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     result = _json.loads(resp.read().decode('utf-8'))
-                reply_text = result['choices'][0]['message']['content'].strip()
+                reply_text = result['result']['response'].strip()
 
         except Exception as e:
             import traceback
             print(f"Nexus AI error: {e}\n{traceback.format_exc()}")
             err_str = str(e).lower()
             if '401' in err_str or 'unauthorized' in err_str:
-                reply_text = "⚠️ Ошибка авторизации API. Проверьте DEEPSEEK_API_KEY."
-            elif '402' in err_str or 'insufficient' in err_str or 'balance' in err_str:
-                reply_text = "⚠️ Недостаточно средств на счёте ИИ. Обратитесь к администратору."
+                reply_text = "⚠️ Ошибка авторизации. Проверьте CF_API_TOKEN."
             elif 'timeout' in err_str or 'timed out' in err_str:
                 reply_text = "⏱ Запрос занял слишком много времени. Попробуй ещё раз."
             elif '429' in err_str or 'rate' in err_str:
@@ -6108,7 +6105,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
         with app.app_context():
             _bot_send_message(bot_user_id, sender_id, reply_text)
 
-    threading.Thread(target=_ask_deepseek, daemon=True).start()
+    threading.Thread(target=_ask_cf, daemon=True).start()
 
 
 def _bot_auto_reply(bot, sender_id, text):
