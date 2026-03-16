@@ -208,7 +208,7 @@ class Message(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     message_type = db.Column(db.String(20), default='text')  # text, voice, video_note
-    media_url = db.Column(db.String(500))  # URL для медиа файлов
+    media_url = db.Column(db.Text)  # URL для медиа файлов (Text для data URLs)
     duration = db.Column(db.Integer)  # Длительность для голосовых и видео
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False)
@@ -236,16 +236,7 @@ class MessageMedia(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
     media_type = db.Column(db.String(20), nullable=False)  # image, file, video
-    media_url = db.Column(db.String(500), nullable=False)
-    file_name = db.Column(db.String(255))
-    file_size = db.Column(db.Integer)
-    order_index = db.Column(db.Integer, default=0)
-
-class GroupMessageMedia(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
-    media_type = db.Column(db.String(20), nullable=False)  # image, file, video
-    media_url = db.Column(db.String(500), nullable=False)
+    media_url = db.Column(db.Text, nullable=False)
     file_name = db.Column(db.String(255))
     file_size = db.Column(db.Integer)
     order_index = db.Column(db.Integer, default=0)
@@ -840,6 +831,8 @@ def _init_db():
                 'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS slow_mode_until TIMESTAMP',
                 'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_secret BOOLEAN DEFAULT FALSE',
                 'ALTER TABLE message ADD COLUMN IF NOT EXISTS secret_chat_id INTEGER',
+                'ALTER TABLE message ALTER COLUMN media_url TYPE TEXT',
+                'ALTER TABLE message_media ALTER COLUMN media_url TYPE TEXT',
             ]
         else:
             migrations = [
@@ -6414,20 +6407,22 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         receiver_id=sender_id,
                         content=f'🎨 {image_prompt}',
                         message_type='image',
-                        media_url=data_url  # fallback: data URL в media_url
+                        media_url=img_url  # путь к файлу на диске
                     )
                     db.session.add(msg)
                     db.session.commit()
 
                     media = MessageMedia(
                         message_id=msg.id,
-                        media_url=data_url,
+                        media_url=img_url,
                         media_type='image',
                         file_name=fname
                     )
                     db.session.add(media)
                     db.session.commit()
 
+                    # В socket emit используем data_url для мгновенного отображения
+                    # (файл на диске может не быть доступен сразу)
                     msg_data = {
                         'id': msg.id,
                         'sender_id': bot_user_id,
