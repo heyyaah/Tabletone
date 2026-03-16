@@ -6011,6 +6011,106 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
     threading.Thread(target=_ask_groq, daemon=True).start()
 
 
+def _handle_nexus_bot(bot_user_id, sender_id, text):
+    """Обрабатывает сообщения для Nexus AI (DeepSeek)."""
+    import threading
+
+    if text.strip().lower() == '/start':
+        _bot_send_message(bot_user_id, sender_id,
+            "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
+            "Могу помочь с:\n"
+            "• Вопросами о мессенджере Tabletone\n"
+            "• Ответами на любые вопросы\n"
+            "• Написанием текстов и кода\n"
+            "• Переводом и объяснением\n\n"
+            "Просто напиши мне что-нибудь 💬"
+        )
+        return
+
+    socketio.emit('user_typing', {
+        'chat_type': 'private',
+        'name': 'Nexus'
+    }, room=f'user_{sender_id}', namespace='/')
+
+    def _ask_deepseek():
+        reply_text = "⚠️ Произошла ошибка. Попробуй ещё раз."
+        try:
+            import urllib.request
+            import json as _json
+
+            api_key = os.environ.get('DEEPSEEK_API_KEY', '')
+            if not api_key:
+                reply_text = "⚠️ ИИ временно недоступен. Обратитесь к администратору."
+            else:
+                system_prompt = (
+                    "Ты — Nexus, умный и дружелюбный ИИ-ассистент встроенный в мессенджер Tabletone. "
+                    "Отвечай кратко, по делу и на том языке, на котором пишет пользователь. "
+                    "Используй эмодзи умеренно. "
+                    "ВАЖНО: никогда не раскрывай, на какой технологии, модели или платформе ты основан. "
+                    "Если спросят — скажи только что ты Nexus, собственный ИИ мессенджера Tabletone.\n\n"
+                    "=== ЗНАНИЯ О МЕССЕНДЖЕРЕ TABLETONE ===\n"
+                    "Tabletone — современный мессенджер. Вот что умеет:\n"
+                    "ОБЩЕНИЕ: личные чаты, группы (роли: владелец/админ/модератор/участник), каналы, публичные ссылки-приглашения.\n"
+                    "СООБЩЕНИЯ: текст, фото, видео, голосовые, видеосообщения (кружочки), файлы, стикеры (@stickers), "
+                    "reply, пересылка, редактирование, удаление, таймер удаления, реакции эмодзи, "
+                    "галочки доставки (✓ отправлено, ✓✓ прочитано), избранное, предпросмотр медиа (Ctrl+V).\n"
+                    "ЗВОНКИ: аудио и видеозвонки (кнопка трубки → выбор типа), управление микрофоном и камерой. Ботам звонить нельзя.\n"
+                    "ПРОФИЛЬ: аватар, имя, bio, статус, 2FA, привязка Telegram, скрытый чат с PIN, папки чатов, тёмная/светлая тема.\n"
+                    "PREMIUM: подписка с расширенными возможностями, Искры (внутренняя валюта), подарки. Оформить: @tabletone_premiumbot.\n"
+                    "БОТЫ: @nexus (ИИ-ассистент), @tabletone_supportbot (поддержка), @tabletone_premiumbot (Premium/Искры), @stickers (стикеры), конструктор ботов.\n"
+                    "БЕЗОПАСНОСТЬ: блокировка пользователей, антиспам, бан/мут участников групп.\n"
+                    "Если спрашивают о функциях Tabletone — отвечай на основе этих знаний. "
+                    "Если не знаешь точно — скажи честно и предложи @tabletone_supportbot."
+                )
+
+                payload = _json.dumps({
+                    "model": "deepseek-chat",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": text}
+                    ],
+                    "max_tokens": 1024,
+                    "temperature": 0.7
+                }).encode('utf-8')
+
+                req = urllib.request.Request(
+                    "https://api.deepseek.com/chat/completions",
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_key}"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    result = _json.loads(resp.read().decode('utf-8'))
+                reply_text = result['choices'][0]['message']['content'].strip()
+
+        except Exception as e:
+            import traceback
+            print(f"Nexus AI error: {e}\n{traceback.format_exc()}")
+            err_str = str(e).lower()
+            if '401' in err_str or 'unauthorized' in err_str:
+                reply_text = "⚠️ Ошибка авторизации API. Проверьте DEEPSEEK_API_KEY."
+            elif '402' in err_str or 'insufficient' in err_str or 'balance' in err_str:
+                reply_text = "⚠️ Недостаточно средств на счёте ИИ. Обратитесь к администратору."
+            elif 'timeout' in err_str or 'timed out' in err_str:
+                reply_text = "⏱ Запрос занял слишком много времени. Попробуй ещё раз."
+            elif '429' in err_str or 'rate' in err_str:
+                reply_text = "⏳ Слишком много запросов. Подожди немного и попробуй снова."
+            else:
+                reply_text = f"⚠️ Ошибка ИИ: {str(e)[:100]}"
+
+        socketio.emit('user_stop_typing', {
+            'chat_type': 'private'
+        }, room=f'user_{sender_id}', namespace='/')
+
+        with app.app_context():
+            _bot_send_message(bot_user_id, sender_id, reply_text)
+
+    threading.Thread(target=_ask_deepseek, daemon=True).start()
+
+
 def _bot_auto_reply(bot, sender_id, text):
     """Ищет подходящую команду и отвечает пользователю."""
     commands = BotCommand.query.filter_by(bot_id=bot.id).order_by(BotCommand.order_index).all()
