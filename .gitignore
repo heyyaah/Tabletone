@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+instance/
+.env
+tabletone-desktop/node_modules/
+tabletone-desktop/dist/
+tabletone-android/.gradle/
+tabletone-android/build/
+tabletone-android/app/build/
+tabletone-android/local.properties
