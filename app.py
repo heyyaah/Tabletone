@@ -227,6 +227,10 @@ class Message(db.Model):
 
     media_files = db.relationship('MessageMedia', backref='message', lazy=True, cascade='all, delete-orphan')
 
+    @property
+    def decrypted_content(self):
+        return decrypt_msg(self.content) if self.content else self.content
+
 # Модель для множественных медиа файлов в одном сообщении
 class MessageMedia(db.Model):
     id = db.Column(db.Integer, primary_key=True)
