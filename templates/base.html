@@ -37,6 +37,21 @@
     };
     // Если токен уже был передан до загрузки страницы
     if (window._fcmToken) window.onFcmToken(window._fcmToken);
+
+    // Десктопные уведомления через Electron (правый нижний угол)
+    window.showDesktopNotification = function(title, body) {
+        if (window.__tabletoneDesktop) {
+            // Electron-приложение
+            window.__tabletoneDesktop.notify(title, body);
+        } else if (Notification && Notification.permission === 'granted') {
+            // Браузер
+            new Notification(title, { body: body, icon: '/static/images/logo.png' });
+        } else if (Notification && Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => {
+                if (p === 'granted') new Notification(title, { body: body, icon: '/static/images/logo.png' });
+            });
+        }
+    };
     </script>
 </body>
 </html>

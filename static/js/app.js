@@ -1631,6 +1631,11 @@ function showMessageNotification({ name, text, avatarUrl, avatarColor, avatarLet
     // Не показываем если вкладка активна и чат открыт — уже видно
     // (вызывающий код сам решает показывать или нет)
 
+    // Десктопное уведомление через Electron (правый нижний угол)
+    if (window.__tabletoneDesktop) {
+        window.__tabletoneDesktop.notify(name, text);
+    }
+
     // Браузерное уведомление (если вкладка не активна)
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
         const n = new Notification(name, {
