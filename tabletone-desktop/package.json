@@ -2,6 +2,7 @@
   "name": "tabletone",
   "version": "1.0.0",
   "description": "Tabletone Messenger",
+  "author": "Tabletone",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,12 +13,15 @@
     "productName": "Tabletone",
     "win": {
       "target": "nsis",
-      "icon": "../static/images/logo.png"
+      "icon": "../static/images/logo.png",
+      "signingHashAlgorithms": null,
+      "sign": null
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": null
   },
   "devDependencies": {
     "electron": "^31.0.0",
