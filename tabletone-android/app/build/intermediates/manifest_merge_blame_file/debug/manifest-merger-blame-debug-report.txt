@@ -1,0 +1,280 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.tabletone.app"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:5:5-66
+11-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:6:5-78
+12-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.CAMERA" />
+13-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:7:5-64
+13-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:7:22-62
+14    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+14-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:8:5-70
+14-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:8:22-68
+15    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+15-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:9:5-79
+15-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:9:22-77
+16    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+16-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:10:5-76
+16-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:10:22-74
+17    <uses-permission android:name="android.permission.WAKE_LOCK" /> <!-- Required by older versions of Google Play services to create IID tokens -->
+17-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:24:5-68
+17-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:24:22-65
+18    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+18-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:26:5-82
+18-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:26:22-79
+19
+20    <permission
+20-->[androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+21        android:name="com.tabletone.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+21-->[androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+22        android:protectionLevel="signature" />
+22-->[androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+23
+24    <uses-permission android:name="com.tabletone.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+24-->[androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+24-->[androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+25
+26    <application
+26-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:12:5-41:19
+27        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+27-->[androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+28        android:debuggable="true"
+29        android:extractNativeLibs="false"
+30        android:hardwareAccelerated="true"
+30-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:17:9-43
+31        android:icon="@mipmap/ic_launcher"
+31-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:14:9-43
+32        android:label="@string/app_name"
+32-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:13:9-41
+33        android:networkSecurityConfig="@xml/network_security_config"
+33-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:19:9-69
+34        android:roundIcon="@mipmap/ic_launcher_round"
+34-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:15:9-54
+35        android:testOnly="true"
+36        android:theme="@style/AppTheme"
+36-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:16:9-40
+37        android:usesCleartextTraffic="false" >
+37-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:18:9-45
+38        <activity
+38-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:21:9-31:20
+39            android:name="com.tabletone.app.MainActivity"
+39-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:22:13-41
+40            android:configChanges="orientation|screenSize|keyboardHidden"
+40-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:24:13-74
+41            android:exported="true"
+41-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:23:13-36
+42            android:launchMode="singleTop"
+42-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:26:13-43
+43            android:screenOrientation="portrait" >
+43-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:25:13-49
+44            <intent-filter>
+44-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:27:13-30:29
+45                <action android:name="android.intent.action.MAIN" />
+45-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:28:17-68
+45-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:28:25-66
+46
+47                <category android:name="android.intent.category.LAUNCHER" />
+47-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:29:17-76
+47-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:29:27-74
+48            </intent-filter>
+49        </activity>
+50
+51        <service
+51-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:33:9-39:19
+52            android:name="com.tabletone.app.MyFirebaseMessagingService"
+52-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:34:13-55
+53            android:exported="false" >
+53-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:35:13-37
+54            <intent-filter>
+54-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:36:13-38:29
+55                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+55-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:37:17-77
+55-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:37:25-75
+56            </intent-filter>
+57        </service>
+58
+59        <receiver
+59-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:29:9-40:20
+60            android:name="com.google.firebase.iid.FirebaseInstanceIdReceiver"
+60-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:30:13-78
+61            android:exported="true"
+61-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:31:13-36
+62            android:permission="com.google.android.c2dm.permission.SEND" >
+62-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:32:13-73
+63            <intent-filter>
+63-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:33:13-35:29
+64                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+64-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:34:17-81
+64-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:34:25-78
+65            </intent-filter>
+66
+67            <meta-data
+67-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:37:13-39:40
+68                android:name="com.google.android.gms.cloudmessaging.FINISHED_AFTER_HANDLED"
+68-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:38:17-92
+69                android:value="true" />
+69-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:39:17-37
+70        </receiver>
+71        <!--
+72             FirebaseMessagingService performs security checks at runtime,
+73             but set to not exported to explicitly avoid allowing another app to call it.
+74        -->
+75        <service
+75-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:46:9-53:19
+76            android:name="com.google.firebase.messaging.FirebaseMessagingService"
+76-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:47:13-82
+77            android:directBootAware="true"
+77-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:48:13-43
+78            android:exported="false" >
+78-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:49:13-37
+79            <intent-filter android:priority="-500" >
+79-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:36:13-38:29
+80                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+80-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:37:17-77
+80-->C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:37:25-75
+81            </intent-filter>
+82        </service>
+83        <service
+83-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:54:9-63:19
+84            android:name="com.google.firebase.components.ComponentDiscoveryService"
+84-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:55:13-84
+85            android:directBootAware="true"
+85-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:32:13-43
+86            android:exported="false" >
+86-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:56:13-37
+87            <meta-data
+87-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:57:13-59:85
+88                android:name="com.google.firebase.components:com.google.firebase.messaging.FirebaseMessagingKtxRegistrar"
+88-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:58:17-122
+89                android:value="com.google.firebase.components.ComponentRegistrar" />
+89-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:59:17-82
+90            <meta-data
+90-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:60:13-62:85
+91                android:name="com.google.firebase.components:com.google.firebase.messaging.FirebaseMessagingRegistrar"
+91-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:61:17-119
+92                android:value="com.google.firebase.components.ComponentRegistrar" />
+92-->[com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:62:17-82
+93            <meta-data
+93-->[com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:27:13-29:85
+94                android:name="com.google.firebase.components:com.google.firebase.datatransport.TransportRegistrar"
+94-->[com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:28:17-115
+95                android:value="com.google.firebase.components.ComponentRegistrar" />
+95-->[com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:29:17-82
+96            <meta-data
+96-->[com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:15:13-17:85
+97                android:name="com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsKtxRegistrar"
+97-->[com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:16:17-130
+98                android:value="com.google.firebase.components.ComponentRegistrar" />
+98-->[com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:17:17-82
+99            <meta-data
+99-->[com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:18:13-20:85
+100                android:name="com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsRegistrar"
+100-->[com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:19:17-127
+101                android:value="com.google.firebase.components.ComponentRegistrar" />
+101-->[com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:20:17-82
+102            <meta-data
+102-->[com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:12:13-14:85
+103                android:name="com.google.firebase.components:com.google.firebase.ktx.FirebaseCommonLegacyRegistrar"
+103-->[com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:13:17-116
+104                android:value="com.google.firebase.components.ComponentRegistrar" />
+104-->[com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:14:17-82
+105            <meta-data
+105-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:35:13-37:85
+106                android:name="com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar"
+106-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:36:17-109
+107                android:value="com.google.firebase.components.ComponentRegistrar" />
+107-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:37:17-82
+108        </service>
+109        <service
+109-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:28:9-34:19
+110            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+110-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:29:13-103
+111            android:exported="false" >
+111-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:30:13-37
+112            <meta-data
+112-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:31:13-33:39
+113                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+113-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:32:17-94
+114                android:value="cct" />
+114-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:33:17-36
+115        </service>
+116        <service
+116-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:26:9-30:19
+117            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+117-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:27:13-117
+118            android:exported="false"
+118-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:28:13-37
+119            android:permission="android.permission.BIND_JOB_SERVICE" >
+119-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:29:13-69
+120        </service>
+121
+122        <receiver
+122-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:32:9-34:40
+123            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+123-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:33:13-132
+124            android:exported="false" />
+124-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:34:13-37
+125
+126        <provider
+126-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:23:9-28:39
+127            android:name="com.google.firebase.provider.FirebaseInitProvider"
+127-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:24:13-77
+128            android:authorities="com.tabletone.app.firebaseinitprovider"
+128-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:25:13-72
+129            android:directBootAware="true"
+129-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:26:13-43
+130            android:exported="false"
+130-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:27:13-37
+131            android:initOrder="100" />
+131-->[com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:28:13-36
+132
+133        <activity
+133-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:20:9-22:45
+134            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+134-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:20:19-85
+135            android:exported="false"
+135-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:22:19-43
+136            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+136-->[com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:21:19-78
+137
+138        <meta-data
+138-->[com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:21:9-23:69
+139            android:name="com.google.android.gms.version"
+139-->[com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:22:13-58
+140            android:value="@integer/google_play_services_version" />
+140-->[com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:23:13-66
+141
+142        <provider
+142-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+143            android:name="androidx.startup.InitializationProvider"
+143-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
+144            android:authorities="com.tabletone.app.androidx-startup"
+144-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
+145            android:exported="false" >
+145-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
+146            <meta-data
+146-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+147                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+147-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
+148                android:value="androidx.startup" />
+148-->[androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
+149            <meta-data
+149-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+150                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+150-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78
+151                android:value="androidx.startup" />
+151-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+152        </provider>
+153    </application>
+154
+155</manifest>

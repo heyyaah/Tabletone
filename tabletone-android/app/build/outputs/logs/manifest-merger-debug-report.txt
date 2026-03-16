@@ -1,0 +1,506 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:2:1-43:12
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:2:1-43:12
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:2:1-43:12
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:2:1-43:12
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\801769cb26af0544f103c011a09fa25a\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.appcompat:appcompat:1.6.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\53ab2b0464ace1dba06bbb40a4982f27\transformed\appcompat-1.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:17:1-66:12
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:15:1-33:12
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:15:1-37:12
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:15:1-41:12
+MERGED from [com.google.firebase:firebase-encoders-json:18.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\c3aa8ff1ceb18c48a9d6c27c8957d0e9\transformed\firebase-encoders-json-18.0.0\AndroidManifest.xml:15:1-23:12
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:2:1-24:12
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:2:1-18:12
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:15:1-41:12
+MERGED from [com.google.firebase:firebase-iid-interop:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d8eedf46962cce6f799a6398d7fc6c98\transformed\firebase-iid-interop-17.1.0\AndroidManifest.xml:2:1-10:12
+MERGED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:16:1-24:12
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:2:1-13:12
+MERGED from [com.google.android.gms:play-services-stats:17.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2511a5ee0f63b52f78ae4edef3da6650\transformed\play-services-stats-17.0.2\AndroidManifest.xml:2:1-9:12
+MERGED from [com.google.firebase:firebase-measurement-connector:19.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\815d77144ffcc6602a9d230135098c15\transformed\firebase-measurement-connector-19.0.0\AndroidManifest.xml:17:1-25:12
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\6d48fd73409f77c70f3f1372df1b6627\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\463648ce0efd1b7374ba00002c9f326a\transformed\loader-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\7e093f43bd966e3ecb5065d68caed621\transformed\lifecycle-viewmodel-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\dc52c0a6401835545daf4cbfbcc49e38\transformed\lifecycle-viewmodel-savedstate-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [com.google.firebase:firebase-installations-interop:17.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\0682aecbf8055b0f33753656c1e438c4\transformed\firebase-installations-interop-17.1.1\AndroidManifest.xml:15:1-19:12
+MERGED from [com.google.android.gms:play-services-tasks:18.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\67ba2fa68813e90932873b7f8f8f5606\transformed\play-services-tasks-18.0.2\AndroidManifest.xml:2:1-6:12
+MERGED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:16:1-26:12
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\674d076dc642d1fd4d350b74dd2c0418\transformed\fragment-1.3.6\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.activity:activity:1.6.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\8a2a7f86b9f53f881062038548288cf8\transformed\activity-1.6.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a80bb0f43cc60435bfe49c91b2422b6b\transformed\drawerlayout-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\70bebbf4eaa8665e06e773040e4f3028\transformed\emoji2-views-helper-1.2.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\1094163a52ddabb0fb4244c66dcd1895\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\499a0af20ecb11e9f86599ed5805bc84\transformed\vectordrawable-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.core:core-ktx:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\9ba144a1a6375eeb2bd9a7672e0d852b\transformed\core-ktx-1.9.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ea75de703a9985a4137226c627a8fdff\transformed\viewpager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d35f297c862f3e207a662a6c60af0305\transformed\customview-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:17:1-30:12
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\5896d519467af0571e9410f1b7a290f9\transformed\cursoradapter-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:17:1-37:12
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abb428fb4d9209fd993653606500d1e4\transformed\lifecycle-runtime-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.savedstate:savedstate:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\68ed915bd2db13e7044fd511f9dc4fde\transformed\savedstate-1.2.0\AndroidManifest.xml:17:1-24:12
+MERGED from [com.google.android.datatransport:transport-api:3.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a3e81b077b6e5657cb10413e360606a6\transformed\transport-api-3.1.0\AndroidManifest.xml:15:1-20:12
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:17:1-33:12
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\361ca1f368aceea5df4dc0d629a190de\transformed\tracing-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\246c657c6e398844b28906b354f21d69\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b8d8c8d537a960b7b345f4091c5498e4\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a27705813bcb4ac169778b93de0d43d8\transformed\lifecycle-livedata-core-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.arch.core:core-runtime:2.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\3bfd59ad927b1917db216276aa57ba02\transformed\core-runtime-2.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [com.google.firebase:firebase-components:17.1.5] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\c99758dd9071e2a5a2a0eb36c85b4164\transformed\firebase-components-17.1.5\AndroidManifest.xml:15:1-20:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\993e4ca6e5cd4d9a22a954c2472a5996\transformed\interpolator-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\0a062e7f613d5568292421ba11a2706c\transformed\documentfile-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\26a70a4fd32bb2e2c621973c5c0d3485\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.print:print:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e6b2a25da4f68f806f8c2c65df46e592\transformed\print-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\74f72cc59480d0b61434d59ab103dff8\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:17:1-22:12
+	package
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:3:5-32
+		INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+	android:versionCode
+		INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:5:5-66
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:25:5-67
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:25:5-67
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:8:5-67
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:8:5-67
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:8:5-67
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:8:5-67
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:5:22-64
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:6:5-78
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:22:5-79
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:22:5-79
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:22:5-79
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:22:5-79
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:7:5-79
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:7:5-79
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:7:5-79
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:7:5-79
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:6:22-76
+uses-permission#android.permission.CAMERA
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:7:5-64
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:7:22-62
+uses-permission#android.permission.RECORD_AUDIO
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:8:5-70
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:8:22-68
+uses-permission#android.permission.MODIFY_AUDIO_SETTINGS
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:9:5-79
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:9:22-77
+uses-permission#android.permission.POST_NOTIFICATIONS
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:10:5-76
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:23:5-77
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:23:5-77
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:10:22-74
+application
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:12:5-41:19
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:12:5-41:19
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:28:5-64:19
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:28:5-64:19
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:23:5-31:19
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:23:5-31:19
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:27:5-35:19
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:27:5-35:19
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:25:5-39:19
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:25:5-39:19
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:11:5-22:19
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:11:5-22:19
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:8:5-16:19
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:8:5-16:19
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:22:5-39:19
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:22:5-39:19
+MERGED from [com.google.firebase:firebase-iid-interop:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d8eedf46962cce6f799a6398d7fc6c98\transformed\firebase-iid-interop-17.1.0\AndroidManifest.xml:7:5-8:19
+MERGED from [com.google.firebase:firebase-iid-interop:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d8eedf46962cce6f799a6398d7fc6c98\transformed\firebase-iid-interop-17.1.0\AndroidManifest.xml:7:5-8:19
+MERGED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:19:5-23:19
+MERGED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:19:5-23:19
+MERGED from [com.google.android.gms:play-services-stats:17.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2511a5ee0f63b52f78ae4edef3da6650\transformed\play-services-stats-17.0.2\AndroidManifest.xml:7:5-20
+MERGED from [com.google.android.gms:play-services-stats:17.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2511a5ee0f63b52f78ae4edef3da6650\transformed\play-services-stats-17.0.2\AndroidManifest.xml:7:5-20
+MERGED from [com.google.firebase:firebase-measurement-connector:19.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\815d77144ffcc6602a9d230135098c15\transformed\firebase-measurement-connector-19.0.0\AndroidManifest.xml:22:5-23:19
+MERGED from [com.google.firebase:firebase-measurement-connector:19.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\815d77144ffcc6602a9d230135098c15\transformed\firebase-measurement-connector-19.0.0\AndroidManifest.xml:22:5-23:19
+MERGED from [com.google.android.gms:play-services-tasks:18.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\67ba2fa68813e90932873b7f8f8f5606\transformed\play-services-tasks-18.0.2\AndroidManifest.xml:5:5-20
+MERGED from [com.google.android.gms:play-services-tasks:18.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\67ba2fa68813e90932873b7f8f8f5606\transformed\play-services-tasks-18.0.2\AndroidManifest.xml:5:5-20
+MERGED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:20:5-24:19
+MERGED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:20:5-24:19
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:28:5-89
+MERGED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:28:5-89
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:25:5-35:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:25:5-35:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\246c657c6e398844b28906b354f21d69\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\246c657c6e398844b28906b354f21d69\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+	android:extractNativeLibs
+		INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+	android:label
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:13:9-41
+	android:hardwareAccelerated
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:17:9-43
+	android:roundIcon
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:15:9-54
+	android:icon
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:14:9-43
+	android:theme
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:16:9-40
+	android:networkSecurityConfig
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:19:9-69
+	android:usesCleartextTraffic
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:18:9-45
+activity#com.tabletone.app.MainActivity
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:21:9-31:20
+	android:screenOrientation
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:25:13-49
+	android:launchMode
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:26:13-43
+	android:exported
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:23:13-36
+	android:configChanges
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:24:13-74
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:22:13-41
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:27:13-30:29
+action#android.intent.action.MAIN
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:28:17-68
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:28:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:29:17-76
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:29:27-74
+service#com.tabletone.app.MyFirebaseMessagingService
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:33:9-39:19
+	android:exported
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:35:13-37
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:34:13-55
+intent-filter#action:name:com.google.firebase.MESSAGING_EVENT
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:36:13-38:29
+action#com.google.firebase.MESSAGING_EVENT
+ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:37:17-77
+	android:name
+		ADDED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml:37:25-75
+uses-sdk
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\801769cb26af0544f103c011a09fa25a\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\801769cb26af0544f103c011a09fa25a\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.6.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\53ab2b0464ace1dba06bbb40a4982f27\transformed\appcompat-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.6.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\53ab2b0464ace1dba06bbb40a4982f27\transformed\appcompat-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.firebase:firebase-encoders-json:18.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\c3aa8ff1ceb18c48a9d6c27c8957d0e9\transformed\firebase-encoders-json-18.0.0\AndroidManifest.xml:19:5-21:41
+MERGED from [com.google.firebase:firebase-encoders-json:18.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\c3aa8ff1ceb18c48a9d6c27c8957d0e9\transformed\firebase-encoders-json-18.0.0\AndroidManifest.xml:19:5-21:41
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:19:5-44
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:19:5-44
+MERGED from [com.google.firebase:firebase-iid-interop:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d8eedf46962cce6f799a6398d7fc6c98\transformed\firebase-iid-interop-17.1.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-iid-interop:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d8eedf46962cce6f799a6398d7fc6c98\transformed\firebase-iid-interop-17.1.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-stats:17.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2511a5ee0f63b52f78ae4edef3da6650\transformed\play-services-stats-17.0.2\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-stats:17.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2511a5ee0f63b52f78ae4edef3da6650\transformed\play-services-stats-17.0.2\AndroidManifest.xml:5:5-44
+MERGED from [com.google.firebase:firebase-measurement-connector:19.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\815d77144ffcc6602a9d230135098c15\transformed\firebase-measurement-connector-19.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.firebase:firebase-measurement-connector:19.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\815d77144ffcc6602a9d230135098c15\transformed\firebase-measurement-connector-19.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\6d48fd73409f77c70f3f1372df1b6627\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.legacy:legacy-support-core-utils:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\6d48fd73409f77c70f3f1372df1b6627\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\463648ce0efd1b7374ba00002c9f326a\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\463648ce0efd1b7374ba00002c9f326a\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\7e093f43bd966e3ecb5065d68caed621\transformed\lifecycle-viewmodel-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\7e093f43bd966e3ecb5065d68caed621\transformed\lifecycle-viewmodel-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\dc52c0a6401835545daf4cbfbcc49e38\transformed\lifecycle-viewmodel-savedstate-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\dc52c0a6401835545daf4cbfbcc49e38\transformed\lifecycle-viewmodel-savedstate-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [com.google.firebase:firebase-installations-interop:17.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\0682aecbf8055b0f33753656c1e438c4\transformed\firebase-installations-interop-17.1.1\AndroidManifest.xml:17:5-44
+MERGED from [com.google.firebase:firebase-installations-interop:17.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\0682aecbf8055b0f33753656c1e438c4\transformed\firebase-installations-interop-17.1.1\AndroidManifest.xml:17:5-44
+MERGED from [com.google.android.gms:play-services-tasks:18.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\67ba2fa68813e90932873b7f8f8f5606\transformed\play-services-tasks-18.0.2\AndroidManifest.xml:4:5-43
+MERGED from [com.google.android.gms:play-services-tasks:18.0.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\67ba2fa68813e90932873b7f8f8f5606\transformed\play-services-tasks-18.0.2\AndroidManifest.xml:4:5-43
+MERGED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:18:5-43
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\674d076dc642d1fd4d350b74dd2c0418\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\674d076dc642d1fd4d350b74dd2c0418\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.activity:activity:1.6.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\8a2a7f86b9f53f881062038548288cf8\transformed\activity-1.6.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.6.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\8a2a7f86b9f53f881062038548288cf8\transformed\activity-1.6.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a80bb0f43cc60435bfe49c91b2422b6b\transformed\drawerlayout-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a80bb0f43cc60435bfe49c91b2422b6b\transformed\drawerlayout-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\70bebbf4eaa8665e06e773040e4f3028\transformed\emoji2-views-helper-1.2.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\70bebbf4eaa8665e06e773040e4f3028\transformed\emoji2-views-helper-1.2.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\1094163a52ddabb0fb4244c66dcd1895\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\1094163a52ddabb0fb4244c66dcd1895\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\499a0af20ecb11e9f86599ed5805bc84\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\499a0af20ecb11e9f86599ed5805bc84\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.core:core-ktx:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\9ba144a1a6375eeb2bd9a7672e0d852b\transformed\core-ktx-1.9.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-ktx:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\9ba144a1a6375eeb2bd9a7672e0d852b\transformed\core-ktx-1.9.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ea75de703a9985a4137226c627a8fdff\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ea75de703a9985a4137226c627a8fdff\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d35f297c862f3e207a662a6c60af0305\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d35f297c862f3e207a662a6c60af0305\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\5896d519467af0571e9410f1b7a290f9\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\5896d519467af0571e9410f1b7a290f9\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abb428fb4d9209fd993653606500d1e4\transformed\lifecycle-runtime-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abb428fb4d9209fd993653606500d1e4\transformed\lifecycle-runtime-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\68ed915bd2db13e7044fd511f9dc4fde\transformed\savedstate-1.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\68ed915bd2db13e7044fd511f9dc4fde\transformed\savedstate-1.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [com.google.android.datatransport:transport-api:3.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a3e81b077b6e5657cb10413e360606a6\transformed\transport-api-3.1.0\AndroidManifest.xml:18:5-44
+MERGED from [com.google.android.datatransport:transport-api:3.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a3e81b077b6e5657cb10413e360606a6\transformed\transport-api-3.1.0\AndroidManifest.xml:18:5-44
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\361ca1f368aceea5df4dc0d629a190de\transformed\tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\361ca1f368aceea5df4dc0d629a190de\transformed\tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\246c657c6e398844b28906b354f21d69\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\246c657c6e398844b28906b354f21d69\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b8d8c8d537a960b7b345f4091c5498e4\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b8d8c8d537a960b7b345f4091c5498e4\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a27705813bcb4ac169778b93de0d43d8\transformed\lifecycle-livedata-core-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\a27705813bcb4ac169778b93de0d43d8\transformed\lifecycle-livedata-core-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\3bfd59ad927b1917db216276aa57ba02\transformed\core-runtime-2.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\3bfd59ad927b1917db216276aa57ba02\transformed\core-runtime-2.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [com.google.firebase:firebase-components:17.1.5] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\c99758dd9071e2a5a2a0eb36c85b4164\transformed\firebase-components-17.1.5\AndroidManifest.xml:18:5-44
+MERGED from [com.google.firebase:firebase-components:17.1.5] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\c99758dd9071e2a5a2a0eb36c85b4164\transformed\firebase-components-17.1.5\AndroidManifest.xml:18:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\993e4ca6e5cd4d9a22a954c2472a5996\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\993e4ca6e5cd4d9a22a954c2472a5996\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\0a062e7f613d5568292421ba11a2706c\transformed\documentfile-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\0a062e7f613d5568292421ba11a2706c\transformed\documentfile-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\26a70a4fd32bb2e2c621973c5c0d3485\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\26a70a4fd32bb2e2c621973c5c0d3485\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.print:print:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e6b2a25da4f68f806f8c2c65df46e592\transformed\print-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.print:print:1.0.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e6b2a25da4f68f806f8c2c65df46e592\transformed\print-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\74f72cc59480d0b61434d59ab103dff8\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\74f72cc59480d0b61434d59ab103dff8\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+	android:targetSdkVersion
+		INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\antur\Downloads\питон\питон\tabletone-android\app\src\main\AndroidManifest.xml
+uses-permission#android.permission.WAKE_LOCK
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:24:5-68
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:9:5-68
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:9:5-68
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:24:22-65
+uses-permission#com.google.android.c2dm.permission.RECEIVE
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:26:5-82
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:11:5-82
+MERGED from [com.google.android.gms:play-services-cloud-messaging:17.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\ba989baf1688ab79efc2abb87816b6e3\transformed\play-services-cloud-messaging-17.1.0\AndroidManifest.xml:11:5-82
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:26:22-79
+receiver#com.google.firebase.iid.FirebaseInstanceIdReceiver
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:29:9-40:20
+	android:exported
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:31:13-36
+	android:permission
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:32:13-73
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:30:13-78
+intent-filter#action:name:com.google.android.c2dm.intent.RECEIVE
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:33:13-35:29
+action#com.google.android.c2dm.intent.RECEIVE
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:34:17-81
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:34:25-78
+meta-data#com.google.android.gms.cloudmessaging.FINISHED_AFTER_HANDLED
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:37:13-39:40
+	android:value
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:39:17-37
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:38:17-92
+service#com.google.firebase.messaging.FirebaseMessagingService
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:46:9-53:19
+	android:exported
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:49:13-37
+	android:directBootAware
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:48:13-43
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:47:13-82
+service#com.google.firebase.components.ComponentDiscoveryService
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:54:9-63:19
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:24:9-30:19
+MERGED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:24:9-30:19
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:12:9-21:19
+MERGED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:12:9-21:19
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:9:9-15:19
+MERGED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:9:9-15:19
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:30:9-38:19
+MERGED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:30:9-38:19
+	android:exported
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:56:13-37
+	tools:targetApi
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:34:13-32
+	android:directBootAware
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:32:13-43
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:55:13-84
+meta-data#com.google.firebase.components:com.google.firebase.messaging.FirebaseMessagingKtxRegistrar
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:57:13-59:85
+	android:value
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:59:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:58:17-122
+meta-data#com.google.firebase.components:com.google.firebase.messaging.FirebaseMessagingRegistrar
+ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:60:13-62:85
+	android:value
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:62:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-messaging:23.4.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\b25795563ba3005840930efa4bfd2eca\transformed\firebase-messaging-23.4.0\AndroidManifest.xml:61:17-119
+meta-data#com.google.firebase.components:com.google.firebase.datatransport.TransportRegistrar
+ADDED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:27:13-29:85
+	android:value
+		ADDED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:29:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-datatransport:18.1.7] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\2bfff08a44cab762323e118e50eea60a\transformed\firebase-datatransport-18.1.7\AndroidManifest.xml:28:17-115
+service#com.google.android.datatransport.runtime.backends.TransportBackendDiscovery
+ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:28:9-34:19
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:36:9-38:40
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:36:9-38:40
+	android:exported
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:30:13-37
+	android:name
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:29:13-103
+meta-data#backend:com.google.android.datatransport.cct.CctBackendFactory
+ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:31:13-33:39
+	android:value
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:33:17-36
+	android:name
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\065e6c19dbbb3760cc09eec28e2af7f2\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:32:17-94
+service#com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService
+ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:26:9-30:19
+	android:exported
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:28:13-37
+	android:permission
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:29:13-69
+	android:name
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:27:13-117
+receiver#com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver
+ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:32:9-34:40
+	android:exported
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:34:13-37
+	android:name
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\acd108300b305b19c778a56f6f988255\transformed\transport-runtime-3.1.8\AndroidManifest.xml:33:13-132
+meta-data#com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsKtxRegistrar
+ADDED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:15:13-17:85
+	android:value
+		ADDED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:17:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:16:17-130
+meta-data#com.google.firebase.components:com.google.firebase.installations.FirebaseInstallationsRegistrar
+ADDED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:18:13-20:85
+	android:value
+		ADDED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:20:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-installations:17.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\4abbae3ada3d3423e7311b3a13b7473a\transformed\firebase-installations-17.2.0\AndroidManifest.xml:19:17-127
+meta-data#com.google.firebase.components:com.google.firebase.ktx.FirebaseCommonLegacyRegistrar
+ADDED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:12:13-14:85
+	android:value
+		ADDED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:14:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-common-ktx:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\323e29ad1720f6fcf8740b3aa961d682\transformed\firebase-common-ktx-20.4.2\AndroidManifest.xml:13:17-116
+provider#com.google.firebase.provider.FirebaseInitProvider
+ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:23:9-28:39
+	android:authorities
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:25:13-72
+	android:exported
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:27:13-37
+	android:directBootAware
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:26:13-43
+	android:initOrder
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:28:13-36
+	android:name
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:24:13-77
+meta-data#com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar
+ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:35:13-37:85
+	android:value
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:37:17-82
+	android:name
+		ADDED from [com.google.firebase:firebase-common:20.4.2] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\d1a5474bbe587fb87c4efbdc3de1e5fe\transformed\firebase-common-20.4.2\AndroidManifest.xml:36:17-109
+activity#com.google.android.gms.common.api.GoogleApiActivity
+ADDED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:20:9-22:45
+	android:exported
+		ADDED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:22:19-43
+	android:theme
+		ADDED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:21:19-78
+	android:name
+		ADDED from [com.google.android.gms:play-services-base:18.0.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\e06f39a6267a95d165d95129ab7265b8\transformed\play-services-base-18.0.1\AndroidManifest.xml:20:19-85
+meta-data#com.google.android.gms.version
+ADDED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:21:9-23:69
+	android:value
+		ADDED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:23:13-66
+	android:name
+		ADDED from [com.google.android.gms:play-services-basement:18.1.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\abee2bf84809271f12abd0b63647a1fb\transformed\play-services-basement-18.1.0\AndroidManifest.xml:22:13-58
+provider#androidx.startup.InitializationProvider
+ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:26:9-34:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:26:9-34:20
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:26:9-30:34
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\195266ad6fb6f2b6abcf8bf72303d140\transformed\startup-runtime-1.1.1\AndroidManifest.xml:26:9-30:34
+	tools:node
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:28:13-31
+	android:authorities
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
+	android:exported
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
+meta-data#androidx.emoji2.text.EmojiCompatInitializer
+ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\487d0d4747d262d18e1ba45c21418fb6\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
+permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+permission#com.tabletone.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+uses-permission#com.tabletone.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\240345045502180940374c6d6922df92\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+meta-data#androidx.lifecycle.ProcessLifecycleInitializer
+ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+	android:value
+		ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+	android:name
+		ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\antur\.gradle\caches\9.0-milestone-1\transforms\55187be0eb4f0375bceeb79affc5d64f\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78

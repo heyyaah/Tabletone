@@ -1,6 +1,5 @@
 package com.tabletone.app;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.net.ConnectivityManager;
@@ -17,9 +16,11 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.firebase.messaging.FirebaseMessaging;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private static final String APP_URL = "https://hi-j5rs.onrender.com";
     private WebView webView;

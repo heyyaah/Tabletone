@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#667EEA</color>
+    <string name="app_name">Tabletone</string>
+    <string name="gcm_defaultSenderId" translatable="false">128131317061</string>
+    <string name="google_api_key" translatable="false">AIzaSyDe5u02QI-zqgW3KhqJ7SdhEGGVaby-CsM</string>
+    <string name="google_app_id" translatable="false">1:128131317061:android:7a53207f34d6e976e3522c</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyDe5u02QI-zqgW3KhqJ7SdhEGGVaby-CsM</string>
+    <string name="google_storage_bucket" translatable="false">tabletone-app.firebasestorage.app</string>
+    <string name="project_id" translatable="false">tabletone-app</string>
+    <style name="AppTheme" parent="android:Theme.Material.NoTitleBar.Fullscreen">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">#0D1117</item>
+        <item name="android:navigationBarColor">#0D1117</item>
+    </style>
+    <style name="OfflineDialogTheme" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.7</item>
+    </style>
+</resources>
