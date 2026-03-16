@@ -3286,3 +3286,33 @@ body:not(.messenger-page) .container {
     font-size: 12px;
     color: var(--text-secondary, #888);
 }
+
+/* ── @Упоминания ─────────────────────────────────────────────────────────── */
+.mention-highlight {
+    color: #667eea;
+    font-weight: 600;
+    background: rgba(102, 126, 234, 0.12);
+    border-radius: 4px;
+    padding: 0 2px;
+}
+
+/* ── Репутация ───────────────────────────────────────────────────────────── */
+.reputation-bar-wrap {
+    margin-top: 6px;
+}
+.reputation-bar-bg {
+    height: 6px;
+    background: var(--border-color, #e2e8f0);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.reputation-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+.reputation-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+}

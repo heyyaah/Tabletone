@@ -421,6 +421,25 @@
             <div class="profile-info">
                 <p><i class="fas fa-calendar"></i> Зарегистрирован: {{ user.created_at.strftime('%d.%m.%Y') }}</p>
                 <p><i class="fas fa-clock"></i> Последний визит: {{ user.last_seen.strftime('%d.%m.%Y %H:%M') if user.last_seen else 'Никогда' }}</p>
+                {% if not user.is_bot %}
+                <div class="reputation-bar-wrap" style="margin-top:10px;">
+                    {% set rep = user.reputation if user.reputation is not none else 100 %}
+                    {% if rep >= 80 %}{% set rep_color = '#38a169' %}{% set rep_level = 'Отличная' %}
+                    {% elif rep >= 60 %}{% set rep_color = '#667eea' %}{% set rep_level = 'Хорошая' %}
+                    {% elif rep >= 40 %}{% set rep_color = '#d69e2e' %}{% set rep_level = 'Средняя' %}
+                    {% elif rep >= 20 %}{% set rep_color = '#e53e3e' %}{% set rep_level = 'Плохая' %}
+                    {% else %}{% set rep_color = '#742a2a' %}{% set rep_level = 'Критическая' %}
+                    {% endif %}
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                        <span style="font-size:13px;font-weight:600;"><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Репутация</span>
+                        <span style="font-size:13px;font-weight:700;color:{{ rep_color }};">{{ rep }}%</span>
+                    </div>
+                    <div class="reputation-bar-bg">
+                        <div class="reputation-bar-fill" style="width:{{ rep }}%;background:{{ rep_color }};"></div>
+                    </div>
+                    <div class="reputation-label" style="color:{{ rep_color }};">{{ rep_level }}</div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

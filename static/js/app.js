@@ -704,8 +704,9 @@ function scrollToMsg(msgId) {
 
 // Рендер контента сообщения бота с кнопками
 function renderBotContent(text) {
-    // Просто экранируем текст — кнопки теперь в msg.bot_buttons
-    return escapeHtml(text || '').replace(/\n/g, '<br>');
+    // Экранируем текст и подсвечиваем @упоминания
+    const escaped = escapeHtml(text || '').replace(/\n/g, '<br>');
+    return escaped.replace(/@(\w+)/g, '<span class="mention-highlight">@$1</span>');
 }
 
 function renderBotButtons(buttons) {
@@ -3073,6 +3074,8 @@ async function openGroup(groupId, groupName) {
     _isSending = false;
     _favoritesOpen = false;
     currentGroupId = groupId;
+    // Загружаем участников для @упоминаний
+    if (window._loadMentionMembers) window._loadMentionMembers(groupId);
 
     // Скрываем кнопки личного чата
     const _chatArea = document.getElementById('chat-area');
@@ -3558,6 +3561,16 @@ async function showUserInfo(userId) {
                     <div style="display: flex; gap: 10px; color: #a0aec0; font-size: 14px; justify-content: center;">
                         <span><i class="fas fa-calendar"></i> На сайте с ${data.created_at}</span>
                     </div>
+                    <div class="reputation-bar-wrap" style="margin-top:14px;" id="rep-wrap-${data.id}">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                            <span style="font-size:13px;font-weight:600;"><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Репутация</span>
+                            <span id="rep-val-${data.id}" style="font-size:13px;font-weight:700;">...</span>
+                        </div>
+                        <div class="reputation-bar-bg">
+                            <div class="reputation-bar-fill" id="rep-bar-${data.id}" style="width:0%;background:#667eea;"></div>
+                        </div>
+                        <div class="reputation-label" id="rep-level-${data.id}"></div>
+                    </div>
                     ` : ''}
                 </div>
             </div>
@@ -3570,6 +3583,20 @@ async function showUserInfo(userId) {
                 modal.remove();
             }
         });
+
+        // Загружаем репутацию
+        if (!data.is_bot) {
+            fetch(`/api/user/${userId}/reputation`)
+                .then(r => r.json())
+                .then(rep => {
+                    const valEl = document.getElementById(`rep-val-${userId}`);
+                    const barEl = document.getElementById(`rep-bar-${userId}`);
+                    const lvlEl = document.getElementById(`rep-level-${userId}`);
+                    if (valEl) valEl.textContent = rep.reputation + '%';
+                    if (barEl) { barEl.style.width = rep.reputation + '%'; barEl.style.background = rep.color; }
+                    if (lvlEl) { lvlEl.textContent = rep.level; lvlEl.style.color = rep.color; }
+                }).catch(() => {});
+        }
     } catch (error) {
         console.error('Ошибка загрузки информации о пользователе:', error);
         showError('Не удалось загрузить информацию');
@@ -6310,3 +6337,104 @@ async function attachLinkPreviews(msgEl, text) {
     msgEl.appendChild(previewEl.firstChild);
 }
 window.attachLinkPreviews = attachLinkPreviews;
+
+// ── @Упоминания в группах ────────────────────────────────────────────────────
+
+(function() {
+    const input = document.getElementById('message-input');
+    const dropdown = document.getElementById('mention-dropdown');
+    if (!input || !dropdown) return;
+
+    let _mentionMembers = []; // участники текущей группы
+
+    // Загружаем участников при открытии группы
+    window._loadMentionMembers = function(groupId) {
+        if (!groupId) { _mentionMembers = []; return; }
+        fetch(`/groups/${groupId}/members`)
+            .then(r => r.json())
+            .then(data => { _mentionMembers = data.members || []; })
+            .catch(() => {});
+    };
+
+    input.addEventListener('input', function() {
+        const val = this.value;
+        const cursor = this.selectionStart;
+        // Ищем @ перед курсором
+        const before = val.slice(0, cursor);
+        const match = before.match(/@(\w*)$/);
+        if (!match || !window.currentGroupId) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        const query = match[1].toLowerCase();
+        const filtered = _mentionMembers.filter(m =>
+            m.username.toLowerCase().startsWith(query) ||
+            (m.display_name || '').toLowerCase().startsWith(query)
+        ).slice(0, 6);
+
+        if (!filtered.length) { dropdown.style.display = 'none'; return; }
+
+        dropdown.innerHTML = filtered.map(m => `
+            <div class="mention-item" data-username="${m.username}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background 0.15s;">
+                <div style="width:32px;height:32px;border-radius:50%;background:${m.avatar_color};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;flex-shrink:0;">
+                    ${m.avatar_letter || m.username[0].toUpperCase()}
+                </div>
+                <div>
+                    <div style="font-weight:600;font-size:13px;">${escapeHtml(m.display_name || m.username)}</div>
+                    <div style="font-size:11px;color:var(--text-secondary);">@${escapeHtml(m.username)}</div>
+                </div>
+            </div>
+        `).join('');
+        dropdown.style.display = 'block';
+
+        dropdown.querySelectorAll('.mention-item').forEach(item => {
+            item.addEventListener('mouseenter', () => item.style.background = 'var(--hover-bg)');
+            item.addEventListener('mouseleave', () => item.style.background = '');
+            item.addEventListener('mousedown', e => {
+                e.preventDefault();
+                const uname = item.dataset.username;
+                // Заменяем @query на @username
+                const newVal = val.slice(0, cursor).replace(/@(\w*)$/, '@' + uname + ' ') + val.slice(cursor);
+                input.value = newVal;
+                input.focus();
+                dropdown.style.display = 'none';
+            });
+        });
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') dropdown.style.display = 'none';
+    });
+
+    document.addEventListener('click', e => {
+        if (!dropdown.contains(e.target) && e.target !== input) {
+            dropdown.style.display = 'none';
+        }
+    });
+})();
+
+// Уведомление об упоминании
+if (typeof socket !== 'undefined' && socket) {
+    socket.on('mention_notification', function(data) {
+        showMessageNotification({
+            name: `${data.sender_name} упомянул вас в «${data.group_name}»`,
+            text: data.content,
+            avatarLetter: data.sender_name ? data.sender_name[0] : '?',
+            avatarColor: '#667eea',
+            onClick: () => { if (data.group_id) openGroup(data.group_id, data.group_name); }
+        });
+    });
+} else {
+    // Подключаем после инициализации сокета
+    document.addEventListener('socketReady', function() {
+        socket.on('mention_notification', function(data) {
+            showMessageNotification({
+                name: `${data.sender_name} упомянул вас в «${data.group_name}»`,
+                text: data.content,
+                avatarLetter: data.sender_name ? data.sender_name[0] : '?',
+                avatarColor: '#667eea',
+                onClick: () => { if (data.group_id) openGroup(data.group_id, data.group_name); }
+            });
+        });
+    });
+}

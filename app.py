@@ -138,6 +138,7 @@ class User(db.Model):
     hidden_chat_pin = db.Column(db.String(6))        # PIN для скрытого чата
     chat_folders = db.Column(db.Text, default='[]')  # JSON папки чатов
     admin_apply_blocked_until = db.Column(db.DateTime, nullable=True)  # Блок подачи заявки в адм.
+    reputation = db.Column(db.Integer, default=100)  # Репутация 0-100
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -691,6 +692,7 @@ with app.app_context():
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS paid_price INTEGER DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'text'",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_apply_blocked_until TIMESTAMP",
+            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS reputation INTEGER DEFAULT 100",
             "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
@@ -726,6 +728,7 @@ with app.app_context():
             "ALTER TABLE group_message ADD COLUMN paid_price INTEGER DEFAULT 0",
             "ALTER TABLE group_message ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'",
             f"ALTER TABLE {user_table} ADD COLUMN admin_apply_blocked_until DATETIME",
+            f"ALTER TABLE {user_table} ADD COLUMN reputation INTEGER DEFAULT 100",
             "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
             "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
             "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
@@ -1191,22 +1194,71 @@ def create_report():
 
 @app.route('/admin/report/<int:report_id>/resolve', methods=['POST'])
 def resolve_report(report_id):
-    """Помечает жалобу как решенную"""
+    """Помечает жалобу как решенную — снимает 10% репутации у нарушителя"""
     for report in reports:
         if report["id"] == report_id:
             report["status"] = "resolved"
             report["resolved_at"] = datetime.now().isoformat()
+            # Снимаем 10% репутации у нарушителя
+            target_id = report.get("target_id")
+            if target_id:
+                try:
+                    target_user = User.query.get(int(target_id))
+                    if target_user and not target_user.is_admin:
+                        target_user.reputation = max(0, (target_user.reputation or 100) - 10)
+                        # Авто-бан при репутации <= 0
+                        if target_user.reputation <= 0 and not target_user.is_banned:
+                            target_user.is_banned = True
+                        db.session.commit()
+                except Exception:
+                    pass
             return jsonify({"success": True})
     return jsonify({"success": False, "error": "Report not found"})
 
 @app.route('/admin/report/<int:report_id>/reject', methods=['POST'])
 def reject_report(report_id):
-    """Отклоняет жалобу"""
+    """Отклоняет жалобу — снимает 10% репутации у жалобщика (ложная жалоба)"""
     for report in reports:
         if report["id"] == report_id:
             report["status"] = "rejected"
+            # Снимаем 10% репутации у жалобщика
+            reporter_username = report.get("reporter")
+            if reporter_username:
+                try:
+                    reporter_user = User.query.filter_by(username=reporter_username).first()
+                    if reporter_user and not reporter_user.is_admin:
+                        reporter_user.reputation = max(0, (reporter_user.reputation or 100) - 10)
+                        db.session.commit()
+                except Exception:
+                    pass
             return jsonify({"success": True})
     return jsonify({"success": False, "error": "Report not found"})    
+
+
+@app.route('/api/user/<int:user_id>/reputation', methods=['GET'])
+def get_user_reputation(user_id):
+    """Возвращает репутацию пользователя"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Не найден'}), 404
+    rep = user.reputation if user.reputation is not None else 100
+    if rep >= 80:
+        level = 'Отличная'
+        color = '#38a169'
+    elif rep >= 60:
+        level = 'Хорошая'
+        color = '#667eea'
+    elif rep >= 40:
+        level = 'Средняя'
+        color = '#d69e2e'
+    elif rep >= 20:
+        level = 'Плохая'
+        color = '#e53e3e'
+    else:
+        level = 'Критическая'
+        color = '#742a2a'
+    return jsonify({'reputation': rep, 'level': level, 'color': color})
+
 
 # ── Восстановление аккаунта ──────────────────────────────────────────────────
 
@@ -2152,7 +2204,8 @@ def search():
             'avatar_url': user.avatar_url,
             'avatar_letter': user.get_avatar_letter(),
             'bio': user.bio,
-            'is_bot': user.is_bot
+            'is_bot': user.is_bot,
+            'reputation': user.reputation if user.reputation is not None else 100
         } for user in users],
         'groups': [{
             'id': group.id,
@@ -3204,6 +3257,7 @@ def get_user_info(user_id):
         'is_verified': user.is_verified,
         'is_premium': user.is_premium,
         'is_bot': user.is_bot,
+        'reputation': user.reputation if user.reputation is not None else 100,
         'premium_emoji': user.premium_emoji,
         'created_at': user.created_at.strftime('%d.%m.%Y')
     })
@@ -4794,6 +4848,15 @@ def send_group_message(group_id):
         except Exception:
             pass
 
+    # Парсим @упоминания и уведомляем
+    import re as _re
+    mentioned_usernames = _re.findall(r'@(\w+)', content)
+    mentioned_user_ids = []
+    for uname in set(mentioned_usernames):
+        mu = User.query.filter_by(username=uname).first()
+        if mu and mu.id != session['user_id']:
+            mentioned_user_ids.append(mu.id)
+
     # Создаем сообщение
     message = GroupMessage(
         group_id=group_id,
@@ -4836,6 +4899,19 @@ def send_group_message(group_id):
         'message': message_data
     }, room=f'group_{group_id}', include_self=True)
     
+    # Уведомляем упомянутых пользователей
+    if mentioned_user_ids:
+        group = Group.query.get(group_id)
+        group_name = group.name if group else 'группе'
+        for mid in mentioned_user_ids:
+            socketio.emit('mention_notification', {
+                'group_id': group_id,
+                'group_name': group_name,
+                'sender_name': sender.display_name or sender.username,
+                'message_id': message.id,
+                'content': content[:100]
+            }, room=f'user_{mid}')
+
     return jsonify({
         'success': True,
         'message': message_data
