@@ -2384,11 +2384,11 @@ def get_chat(user_id):
             'is_read': msg.is_read,
             'reply_to': {
                 'id': msg.reply_to.id,
-                'content': msg.reply_to.content if not msg.reply_to.is_deleted else '[удалено]',
+                'content': msg.reply_to.decrypted_content if not msg.reply_to.is_deleted else '[удалено]',
                 'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
             } if msg.reply_to_id and msg.reply_to else None,
             'bot_buttons': _get_bot_buttons_for_msg(msg),
-            'sticker_pack_id': _get_sticker_pack_id(msg.content) if msg.message_type == 'sticker' or (msg.content and msg.content.startswith('[sticker]')) else None,
+            'sticker_pack_id': _get_sticker_pack_id(msg.decrypted_content) if msg.message_type == 'sticker' or (msg.decrypted_content and msg.decrypted_content.startswith('[sticker]')) else None,
         } for msg in messages]
     })
 

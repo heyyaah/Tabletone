@@ -101,6 +101,7 @@ function connectSocketIO() {
             console.log('Socket.IO connected');
             setupGroupSocketHandlers();
             initCallSocketHandlers(socket);
+            setupSecretChatSocketHandlers();
             // Typing handlers
             socket.on('user_typing', function(data) {
                 if (data.chat_type === 'private' && currentChatUserId) {
@@ -7116,20 +7117,22 @@ function closeSecretChat() {
 }
 
 // Socket: входящий секретный чат
-socket.on('secret_chat_invite', data => {
-    showToast(`🔒 ${data.from_user.username} приглашает в секретный чат`, 'info');
-});
-socket.on('secret_message', data => {
-    if (_secretChatId === data.chat_id) loadSecretMessages();
-    else showToast(`🔒 Новое секретное сообщение от ${data.sender_name}`, 'info');
-});
-socket.on('secret_chat_closed', data => {
-    if (_secretChatId === data.chat_id) {
-        document.getElementById('secret-chat-modal').classList.remove('active');
-        showToast('Секретный чат был закрыт', 'info');
-        _secretChatId = null;
-    }
-});
+function setupSecretChatSocketHandlers() {
+    socket.on('secret_chat_invite', data => {
+        showToast(`🔒 ${data.from_user.username} приглашает в секретный чат`, 'info');
+    });
+    socket.on('secret_message', data => {
+        if (_secretChatId === data.chat_id) loadSecretMessages();
+        else showToast(`🔒 Новое секретное сообщение от ${data.sender_name}`, 'info');
+    });
+    socket.on('secret_chat_closed', data => {
+        if (_secretChatId === data.chat_id) {
+            document.getElementById('secret-chat-modal').classList.remove('active');
+            showToast('Секретный чат был закрыт', 'info');
+            _secretChatId = null;
+        }
+    });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // МАГАЗИН СТИКЕРОВ

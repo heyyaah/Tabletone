@@ -483,6 +483,8 @@
     </div>
 </div>
 
+{% endblock %}
+
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/app.js') }}?v={{ range(10000,99999)|random }}"></script>
 <script src="{{ url_for('static', filename='js/multiple-files.js') }}?v=3"></script>
@@ -541,5 +543,4 @@
     } catch(e) {}
 })();
 </script>
-{% endblock %}
 {% endblock %}
