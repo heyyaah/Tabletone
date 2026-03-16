@@ -787,469 +787,469 @@ def _init_db():
     with app.app_context():
         from sqlalchemy import text
 
-    # Создаём таблицы без новых колонок — временно отключаем email в метаданных
-    # через прямой SQL чтобы избежать конфликта
-    db.create_all()
+        # Создаём таблицы без новых колонок — временно отключаем email в метаданных
+        # через прямой SQL чтобы избежать конфликта
+        db.create_all()
 
-    # Миграции с IF NOT EXISTS (PostgreSQL 9.6+)
-    is_postgres = db.engine.dialect.name == 'postgresql'
-    user_table = '"user"' if is_postgres else 'user'
-    ts_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
+        # Миграции с IF NOT EXISTS (PostgreSQL 9.6+)
+        is_postgres = db.engine.dialect.name == 'postgresql'
+        user_table = '"user"' if is_postgres else 'user'
+        ts_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
 
-    if is_postgres:
-        migrations = [
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS email VARCHAR(200)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT FALSE",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_code VARCHAR(8)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_code_expires TIMESTAMP",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_role VARCHAR(20)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(20)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS status_text VARCHAR(100)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS theme_schedule TEXT",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS hidden_chat_pin VARCHAR(6)",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS chat_folders TEXT DEFAULT '[]'",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP",            "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
-            "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
-            "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
-            "ALTER TABLE message ADD COLUMN IF NOT EXISTS is_hidden_chat BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES group_message(id)",
-            "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS paid_price INTEGER DEFAULT 0",
-            "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'text'",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_apply_blocked_until TIMESTAMP",
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS reputation INTEGER DEFAULT 100",
-            "ALTER TABLE story ADD COLUMN IF NOT EXISTS media_url VARCHAR(500)",
-            "ALTER TABLE story ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0",
-            "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
-            "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)",
-            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
-            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
-            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS spam_keywords TEXT DEFAULT \'[]\'',
-            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE',
-            'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS admin_permissions TEXT DEFAULT \'{}\'',
-            'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS member_restrictions TEXT DEFAULT \'{}\'',
-            'ALTER TABLE message_reaction ALTER COLUMN emoji TYPE VARCHAR(500)',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN DEFAULT FALSE',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_receiver BOOLEAN DEFAULT FALSE',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE',
-            'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS pinned_message_id INTEGER',
-            f'ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS last_seen_visible BOOLEAN DEFAULT TRUE',
-            f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS blocked_users_list TEXT DEFAULT '[]'",
-            'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS role_title VARCHAR(50)',
-            'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS slow_mode_until TIMESTAMP',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_secret BOOLEAN DEFAULT FALSE',
-            'ALTER TABLE message ADD COLUMN IF NOT EXISTS secret_chat_id INTEGER',
-        ]
-    else:
-        migrations = [
-            f"ALTER TABLE {user_table} ADD COLUMN two_fa_enabled BOOLEAN DEFAULT 0",
-            f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
-            f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
-            f"ALTER TABLE {user_table} ADD COLUMN admin_role VARCHAR(20)",
-            f"ALTER TABLE {user_table} ADD COLUMN email VARCHAR(200)",
-            f"ALTER TABLE {user_table} ADD COLUMN telegram_chat_id VARCHAR(50)",
-            f"ALTER TABLE {user_table} ADD COLUMN telegram_link_code VARCHAR(20)",
-            f"ALTER TABLE {user_table} ADD COLUMN status_text VARCHAR(100)",
-            f"ALTER TABLE {user_table} ADD COLUMN theme_schedule TEXT",
-            f"ALTER TABLE {user_table} ADD COLUMN hidden_chat_pin VARCHAR(6)",
-            f"ALTER TABLE {user_table} ADD COLUMN chat_folders TEXT DEFAULT '[]'",
-            f"ALTER TABLE {user_table} ADD COLUMN premium_until DATETIME",
-            "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
-            "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
-            "ALTER TABLE message ADD COLUMN expires_at DATETIME",
-            "ALTER TABLE message ADD COLUMN is_hidden_chat BOOLEAN DEFAULT 0",
-            "ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
-            "ALTER TABLE group_message ADD COLUMN is_paid BOOLEAN DEFAULT 0",
-            "ALTER TABLE group_message ADD COLUMN paid_price INTEGER DEFAULT 0",
-            "ALTER TABLE group_message ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'",
-            f"ALTER TABLE {user_table} ADD COLUMN admin_apply_blocked_until DATETIME",
-            f"ALTER TABLE {user_table} ADD COLUMN reputation INTEGER DEFAULT 100",
-            "ALTER TABLE story ADD COLUMN media_url VARCHAR(500)",
-            "ALTER TABLE story ADD COLUMN views_count INTEGER DEFAULT 0",
-            "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
-            "ALTER TABLE password_reset_request ADD COLUMN ip_address VARCHAR(45)",
-            "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
-            "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
-            "ALTER TABLE 'group' ADD COLUMN spam_keywords TEXT DEFAULT '[]'",
-            "ALTER TABLE 'group' ADD COLUMN is_verified BOOLEAN DEFAULT 0",
-            "ALTER TABLE group_member ADD COLUMN admin_permissions TEXT DEFAULT '{}'",
-            "ALTER TABLE group_member ADD COLUMN member_restrictions TEXT DEFAULT '{}'",
-            "ALTER TABLE message ADD COLUMN hidden_for_sender BOOLEAN DEFAULT 0",
-            "ALTER TABLE message ADD COLUMN hidden_for_receiver BOOLEAN DEFAULT 0",
-            "ALTER TABLE message ADD COLUMN is_read BOOLEAN DEFAULT 0",
-            "ALTER TABLE 'group' ADD COLUMN pinned_message_id INTEGER",
-            f"ALTER TABLE {user_table} ADD COLUMN last_seen_visible BOOLEAN DEFAULT 1",
-            f"ALTER TABLE {user_table} ADD COLUMN blocked_users_list TEXT DEFAULT '[]'",
-            "ALTER TABLE group_member ADD COLUMN role_title VARCHAR(50)",
-            "ALTER TABLE group_member ADD COLUMN slow_mode_until DATETIME",
-            "ALTER TABLE message ADD COLUMN is_secret BOOLEAN DEFAULT 0",
-            "ALTER TABLE message ADD COLUMN secret_chat_id INTEGER",
-        ]
+        if is_postgres:
+            migrations = [
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS email VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT FALSE",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_code VARCHAR(8)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_code_expires TIMESTAMP",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_role VARCHAR(20)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS telegram_link_code VARCHAR(20)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS status_text VARCHAR(100)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS theme_schedule TEXT",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS hidden_chat_pin VARCHAR(6)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS chat_folders TEXT DEFAULT '[]'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP",            "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
+                "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
+                "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
+                "ALTER TABLE message ADD COLUMN IF NOT EXISTS is_hidden_chat BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES group_message(id)",
+                "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS paid_price INTEGER DEFAULT 0",
+                "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'text'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_apply_blocked_until TIMESTAMP",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS reputation INTEGER DEFAULT 100",
+                "ALTER TABLE story ADD COLUMN IF NOT EXISTS media_url VARCHAR(500)",
+                "ALTER TABLE story ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0",
+                "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
+                "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)",
+                'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
+                'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
+                'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS spam_keywords TEXT DEFAULT \'[]\'',
+                'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE',
+                'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS admin_permissions TEXT DEFAULT \'{}\'',
+                'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS member_restrictions TEXT DEFAULT \'{}\'',
+                'ALTER TABLE message_reaction ALTER COLUMN emoji TYPE VARCHAR(500)',
+                'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_sender BOOLEAN DEFAULT FALSE',
+                'ALTER TABLE message ADD COLUMN IF NOT EXISTS hidden_for_receiver BOOLEAN DEFAULT FALSE',
+                'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE',
+                'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS pinned_message_id INTEGER',
+                f'ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS last_seen_visible BOOLEAN DEFAULT TRUE',
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS blocked_users_list TEXT DEFAULT '[]'",
+                'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS role_title VARCHAR(50)',
+                'ALTER TABLE group_member ADD COLUMN IF NOT EXISTS slow_mode_until TIMESTAMP',
+                'ALTER TABLE message ADD COLUMN IF NOT EXISTS is_secret BOOLEAN DEFAULT FALSE',
+                'ALTER TABLE message ADD COLUMN IF NOT EXISTS secret_chat_id INTEGER',
+            ]
+        else:
+            migrations = [
+                f"ALTER TABLE {user_table} ADD COLUMN two_fa_enabled BOOLEAN DEFAULT 0",
+                f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
+                f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
+                f"ALTER TABLE {user_table} ADD COLUMN admin_role VARCHAR(20)",
+                f"ALTER TABLE {user_table} ADD COLUMN email VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN telegram_chat_id VARCHAR(50)",
+                f"ALTER TABLE {user_table} ADD COLUMN telegram_link_code VARCHAR(20)",
+                f"ALTER TABLE {user_table} ADD COLUMN status_text VARCHAR(100)",
+                f"ALTER TABLE {user_table} ADD COLUMN theme_schedule TEXT",
+                f"ALTER TABLE {user_table} ADD COLUMN hidden_chat_pin VARCHAR(6)",
+                f"ALTER TABLE {user_table} ADD COLUMN chat_folders TEXT DEFAULT '[]'",
+                f"ALTER TABLE {user_table} ADD COLUMN premium_until DATETIME",
+                "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
+                "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
+                "ALTER TABLE message ADD COLUMN expires_at DATETIME",
+                "ALTER TABLE message ADD COLUMN is_hidden_chat BOOLEAN DEFAULT 0",
+                "ALTER TABLE group_message ADD COLUMN reply_to_id INTEGER REFERENCES group_message(id)",
+                "ALTER TABLE group_message ADD COLUMN is_paid BOOLEAN DEFAULT 0",
+                "ALTER TABLE group_message ADD COLUMN paid_price INTEGER DEFAULT 0",
+                "ALTER TABLE group_message ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'",
+                f"ALTER TABLE {user_table} ADD COLUMN admin_apply_blocked_until DATETIME",
+                f"ALTER TABLE {user_table} ADD COLUMN reputation INTEGER DEFAULT 100",
+                "ALTER TABLE story ADD COLUMN media_url VARCHAR(500)",
+                "ALTER TABLE story ADD COLUMN views_count INTEGER DEFAULT 0",
+                "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
+                "ALTER TABLE password_reset_request ADD COLUMN ip_address VARCHAR(45)",
+                "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
+                "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
+                "ALTER TABLE 'group' ADD COLUMN spam_keywords TEXT DEFAULT '[]'",
+                "ALTER TABLE 'group' ADD COLUMN is_verified BOOLEAN DEFAULT 0",
+                "ALTER TABLE group_member ADD COLUMN admin_permissions TEXT DEFAULT '{}'",
+                "ALTER TABLE group_member ADD COLUMN member_restrictions TEXT DEFAULT '{}'",
+                "ALTER TABLE message ADD COLUMN hidden_for_sender BOOLEAN DEFAULT 0",
+                "ALTER TABLE message ADD COLUMN hidden_for_receiver BOOLEAN DEFAULT 0",
+                "ALTER TABLE message ADD COLUMN is_read BOOLEAN DEFAULT 0",
+                "ALTER TABLE 'group' ADD COLUMN pinned_message_id INTEGER",
+                f"ALTER TABLE {user_table} ADD COLUMN last_seen_visible BOOLEAN DEFAULT 1",
+                f"ALTER TABLE {user_table} ADD COLUMN blocked_users_list TEXT DEFAULT '[]'",
+                "ALTER TABLE group_member ADD COLUMN role_title VARCHAR(50)",
+                "ALTER TABLE group_member ADD COLUMN slow_mode_until DATETIME",
+                "ALTER TABLE message ADD COLUMN is_secret BOOLEAN DEFAULT 0",
+                "ALTER TABLE message ADD COLUMN secret_chat_id INTEGER",
+            ]
 
-    with db.engine.connect() as conn:
-        for sql in migrations:
-            try:
-                conn.execute(text(sql))
-                conn.commit()
-            except Exception:
-                pass
+        with db.engine.connect() as conn:
+            for sql in migrations:
+                try:
+                    conn.execute(text(sql))
+                    conn.commit()
+                except Exception:
+                    pass
 
-    # ── Сид: бот Tabletone Premium ──────────────────────────────────────────
-    _PREMIUM_BOT_USERNAME = 'tabletone_premiumbot'
-    _PREMIUM_BOT_NAME = 'Tabletone Premium'
-    _PREMIUM_OWNER_ID = 1  # romancev228
+        # ── Сид: бот Tabletone Premium ──────────────────────────────────────────
+        _PREMIUM_BOT_USERNAME = 'tabletone_premiumbot'
+        _PREMIUM_BOT_NAME = 'Tabletone Premium'
+        _PREMIUM_OWNER_ID = 1  # romancev228
 
-    # Назначаем romancev228 роль owner (ищем по username, не по id)
-    _owner = User.query.filter_by(username='romancev228').first()
-    if _owner:
-        if _owner.admin_role != 'owner':
-            _owner.is_admin = True
-            _owner.admin_role = 'owner'
-            db.session.commit()
-            print("✓ romancev228 назначен owner")
-        # Обновляем _PREMIUM_OWNER_ID на реальный id
-        _PREMIUM_OWNER_ID = _owner.id
+        # Назначаем romancev228 роль owner (ищем по username, не по id)
+        _owner = User.query.filter_by(username='romancev228').first()
+        if _owner:
+            if _owner.admin_role != 'owner':
+                _owner.is_admin = True
+                _owner.admin_role = 'owner'
+                db.session.commit()
+                print("✓ romancev228 назначен owner")
+            # Обновляем _PREMIUM_OWNER_ID на реальный id
+            _PREMIUM_OWNER_ID = _owner.id
 
-    _pbot_user = User.query.filter_by(username=_PREMIUM_BOT_USERNAME).first()
-    if not _pbot_user:
-        _pbot_user = User(
-            username=_PREMIUM_BOT_USERNAME,
-            display_name=_PREMIUM_BOT_NAME,
-            bio='Официальный бот для покупки Premium подписки',
-            avatar_color='#667eea',
-            is_bot=True,
-            is_verified=True,
-            password_hash=generate_password_hash(secrets.token_hex(32))
-        )
-        db.session.add(_pbot_user)
-        db.session.flush()
+        _pbot_user = User.query.filter_by(username=_PREMIUM_BOT_USERNAME).first()
+        if not _pbot_user:
+            _pbot_user = User(
+                username=_PREMIUM_BOT_USERNAME,
+                display_name=_PREMIUM_BOT_NAME,
+                bio='Официальный бот для покупки Premium подписки',
+                avatar_color='#667eea',
+                is_bot=True,
+                is_verified=True,
+                password_hash=generate_password_hash(secrets.token_hex(32))
+            )
+            db.session.add(_pbot_user)
+            db.session.flush()
 
-        _pbot = Bot(
-            user_id=_pbot_user.id,
-            owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_pbot_user.id}:{secrets.token_urlsafe(32)}",
-            description='Покупка Premium подписки',
-            is_active=True,
-            review_status='approved'
-        )
-        db.session.add(_pbot)
-        db.session.flush()
+            _pbot = Bot(
+                user_id=_pbot_user.id,
+                owner_id=_PREMIUM_OWNER_ID,
+                token=f"{_pbot_user.id}:{secrets.token_urlsafe(32)}",
+                description='Покупка Premium подписки',
+                is_active=True,
+                review_status='approved'
+            )
+            db.session.add(_pbot)
+            db.session.flush()
 
-        _start_text = (
-            "👑 Привет! Я помогу оформить Premium подписку или купить Искры.\n\n"
-            "Что вас интересует?\n\n"
-            "Выберите вариант ниже 👇"
-        )
-        _buttons = json.dumps([
-            {"label": "👑 Premium подписка", "reply": "/premium"},
-            {"label": "✨ Купить Искры", "reply": "/sparks"},
-        ])
-        _premium_buttons = json.dumps([
-            {"label": "7 дней — 59 ₽", "reply": "/buy_7"},
-            {"label": "14 дней — 99 ₽ (выгоднее!)", "reply": "/buy_14"},
-            {"label": "30 дней — 149 ₽ (скидка 10%!)", "reply": "/buy_30"},
-            {"label": "6 месяцев — 499 ₽ (скидка 30,7%!)", "reply": "/buy_180"},
-            {"label": "Год — 799 ₽ (скидка 20%)", "reply": "/buy_365"},
-        ])
-        _sparks_buttons = json.dumps([
-            {"label": "✨ 100 искр — 29 ₽", "reply": "/buy_sparks_100"},
-            {"label": "✨ 300 искр — 79 ₽ (выгоднее!)", "reply": "/buy_sparks_300"},
-            {"label": "✨ 700 искр — 149 ₽ (скидка 15%!)", "reply": "/buy_sparks_700"},
-            {"label": "✨ 1500 искр — 299 ₽ (скидка 20%!)", "reply": "/buy_sparks_1500"},
-            {"label": "✨ 5000 искр — 799 ₽ (скидка 36%!)", "reply": "/buy_sparks_5000"},
-        ])
-        _buy_url = "https://t.me/kotakbaslife"
-        _buy_text = (
-            "💳 Для завершения покупки нажмите кнопку *Оплатить* ниже.\n"
-            "Вы попадёте в Telegram-бот, который покажет реквизиты и примет скриншот оплаты."
-        )
-        _pay_buttons_7   = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_7"},   {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_14  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_14"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_30  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_30"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_180 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_180"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_365 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_365"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_s100  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_100"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_s300  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_300"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_s700  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_700"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_s1500 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_1500"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-        _pay_buttons_s5000 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_5000"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
-
-        _cmds = [
-            BotCommand(bot_id=_pbot.id, trigger='/start', response_text=_start_text, buttons=_buttons, order_index=1),
-            BotCommand(bot_id=_pbot.id, trigger='/premium', response_text="👑 Выберите срок Premium подписки:", buttons=_premium_buttons, order_index=2),
-            BotCommand(bot_id=_pbot.id, trigger='/sparks', response_text="✨ Выберите количество Искр:", buttons=_sparks_buttons, order_index=3),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_7',   response_text=f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text}",   buttons=_pay_buttons_7,   order_index=4),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_14',  response_text=f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text}",  buttons=_pay_buttons_14,  order_index=5),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_30',  response_text=f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text}", buttons=_pay_buttons_30,  order_index=6),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_180', response_text=f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text}", buttons=_pay_buttons_180, order_index=7),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_365', response_text=f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text}", buttons=_pay_buttons_365, order_index=8),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_100',  response_text=f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text}",  buttons=_pay_buttons_s100,  order_index=9),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_300',  response_text=f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text}",  buttons=_pay_buttons_s300,  order_index=10),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_700',  response_text=f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text}", buttons=_pay_buttons_s700,  order_index=11),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_1500', response_text=f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text}", buttons=_pay_buttons_s1500, order_index=12),
-            BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_5000', response_text=f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text}", buttons=_pay_buttons_s5000, order_index=13),
-            BotCommand(bot_id=_pbot.id, trigger='/pay_cancel', response_text="❌ Оплата отменена. Возвращайтесь когда будете готовы!", buttons='[]', order_index=14),
-            BotCommand(bot_id=_pbot.id, trigger='*', response_text="Напишите /start чтобы увидеть меню 👑", buttons='[]', order_index=99),
-        ]
-        for _c in _cmds:
-            db.session.add(_c)
-        db.session.commit()
-        print("✓ Бот Tabletone Premium создан")
-    else:
-        # Обновляем кнопки существующих команд /buy_* и добавляем /pay_cancel если нет
-        _pbot_obj = Bot.query.filter_by(user_id=_pbot_user.id).first()
-        if _pbot_obj:
-            _buy_text_upd = (
+            _start_text = (
+                "👑 Привет! Я помогу оформить Premium подписку или купить Искры.\n\n"
+                "Что вас интересует?\n\n"
+                "Выберите вариант ниже 👇"
+            )
+            _buttons = json.dumps([
+                {"label": "👑 Premium подписка", "reply": "/premium"},
+                {"label": "✨ Купить Искры", "reply": "/sparks"},
+            ])
+            _premium_buttons = json.dumps([
+                {"label": "7 дней — 59 ₽", "reply": "/buy_7"},
+                {"label": "14 дней — 99 ₽ (выгоднее!)", "reply": "/buy_14"},
+                {"label": "30 дней — 149 ₽ (скидка 10%!)", "reply": "/buy_30"},
+                {"label": "6 месяцев — 499 ₽ (скидка 30,7%!)", "reply": "/buy_180"},
+                {"label": "Год — 799 ₽ (скидка 20%)", "reply": "/buy_365"},
+            ])
+            _sparks_buttons = json.dumps([
+                {"label": "✨ 100 искр — 29 ₽", "reply": "/buy_sparks_100"},
+                {"label": "✨ 300 искр — 79 ₽ (выгоднее!)", "reply": "/buy_sparks_300"},
+                {"label": "✨ 700 искр — 149 ₽ (скидка 15%!)", "reply": "/buy_sparks_700"},
+                {"label": "✨ 1500 искр — 299 ₽ (скидка 20%!)", "reply": "/buy_sparks_1500"},
+                {"label": "✨ 5000 искр — 799 ₽ (скидка 36%!)", "reply": "/buy_sparks_5000"},
+            ])
+            _buy_url = "https://t.me/kotakbaslife"
+            _buy_text = (
                 "💳 Для завершения покупки нажмите кнопку *Оплатить* ниже.\n"
                 "Вы попадёте в Telegram-бот, который покажет реквизиты и примет скриншот оплаты."
             )
-            _upd_map = {
-                '/buy_7':   (f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text_upd}",   [{"label": "✅ Оплатить", "reply": "/pay_confirm_7"},   {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_14':  (f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_14"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_30':  (f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text_upd}", [{"label": "✅ Оплатить", "reply": "/pay_confirm_30"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_180': (f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_180"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_365': (f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text_upd}",      [{"label": "✅ Оплатить", "reply": "/pay_confirm_365"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_sparks_100':  (f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_100"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_sparks_300':  (f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_300"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_sparks_700':  (f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text_upd}", [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_700"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_sparks_1500': (f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_1500"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-                '/buy_sparks_5000': (f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_5000"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
-            }
-            for trigger, (resp, btns) in _upd_map.items():
-                cmd = BotCommand.query.filter_by(bot_id=_pbot_obj.id, trigger=trigger).first()
-                if cmd:
-                    cmd.response_text = resp
-                    cmd.buttons = json.dumps(btns)
-            # Добавить /pay_cancel если нет
-            if not BotCommand.query.filter_by(bot_id=_pbot_obj.id, trigger='/pay_cancel').first():
-                db.session.add(BotCommand(bot_id=_pbot_obj.id, trigger='/pay_cancel',
-                    response_text="❌ Оплата отменена. Возвращайтесь когда будете готовы!", buttons='[]', order_index=14))
+            _pay_buttons_7   = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_7"},   {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_14  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_14"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_30  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_30"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_180 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_180"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_365 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_365"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_s100  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_100"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_s300  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_300"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_s700  = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_700"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_s1500 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_1500"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+            _pay_buttons_s5000 = json.dumps([{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_5000"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}])
+
+            _cmds = [
+                BotCommand(bot_id=_pbot.id, trigger='/start', response_text=_start_text, buttons=_buttons, order_index=1),
+                BotCommand(bot_id=_pbot.id, trigger='/premium', response_text="👑 Выберите срок Premium подписки:", buttons=_premium_buttons, order_index=2),
+                BotCommand(bot_id=_pbot.id, trigger='/sparks', response_text="✨ Выберите количество Искр:", buttons=_sparks_buttons, order_index=3),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_7',   response_text=f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text}",   buttons=_pay_buttons_7,   order_index=4),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_14',  response_text=f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text}",  buttons=_pay_buttons_14,  order_index=5),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_30',  response_text=f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text}", buttons=_pay_buttons_30,  order_index=6),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_180', response_text=f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text}", buttons=_pay_buttons_180, order_index=7),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_365', response_text=f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text}", buttons=_pay_buttons_365, order_index=8),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_100',  response_text=f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text}",  buttons=_pay_buttons_s100,  order_index=9),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_300',  response_text=f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text}",  buttons=_pay_buttons_s300,  order_index=10),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_700',  response_text=f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text}", buttons=_pay_buttons_s700,  order_index=11),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_1500', response_text=f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text}", buttons=_pay_buttons_s1500, order_index=12),
+                BotCommand(bot_id=_pbot.id, trigger='/buy_sparks_5000', response_text=f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text}", buttons=_pay_buttons_s5000, order_index=13),
+                BotCommand(bot_id=_pbot.id, trigger='/pay_cancel', response_text="❌ Оплата отменена. Возвращайтесь когда будете готовы!", buttons='[]', order_index=14),
+                BotCommand(bot_id=_pbot.id, trigger='*', response_text="Напишите /start чтобы увидеть меню 👑", buttons='[]', order_index=99),
+            ]
+            for _c in _cmds:
+                db.session.add(_c)
             db.session.commit()
-            print("✓ Команды бота Tabletone Premium обновлены")
+            print("✓ Бот Tabletone Premium создан")
+        else:
+            # Обновляем кнопки существующих команд /buy_* и добавляем /pay_cancel если нет
+            _pbot_obj = Bot.query.filter_by(user_id=_pbot_user.id).first()
+            if _pbot_obj:
+                _buy_text_upd = (
+                    "💳 Для завершения покупки нажмите кнопку *Оплатить* ниже.\n"
+                    "Вы попадёте в Telegram-бот, который покажет реквизиты и примет скриншот оплаты."
+                )
+                _upd_map = {
+                    '/buy_7':   (f"✅ Вы выбрали: 7 дней — 59 ₽\n\n{_buy_text_upd}",   [{"label": "✅ Оплатить", "reply": "/pay_confirm_7"},   {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_14':  (f"✅ Вы выбрали: 14 дней — 99 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_14"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_30':  (f"✅ Вы выбрали: 30 дней — 149 ₽\n\n{_buy_text_upd}", [{"label": "✅ Оплатить", "reply": "/pay_confirm_30"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_180': (f"✅ Вы выбрали: 6 месяцев — 499 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_180"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_365': (f"✅ Вы выбрали: Год — 799 ₽\n\n{_buy_text_upd}",      [{"label": "✅ Оплатить", "reply": "/pay_confirm_365"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_sparks_100':  (f"✅ Вы выбрали: 100 искр — 29 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_100"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_sparks_300':  (f"✅ Вы выбрали: 300 искр — 79 ₽\n\n{_buy_text_upd}",  [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_300"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_sparks_700':  (f"✅ Вы выбрали: 700 искр — 149 ₽\n\n{_buy_text_upd}", [{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_700"},  {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_sparks_1500': (f"✅ Вы выбрали: 1500 искр — 299 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_1500"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                    '/buy_sparks_5000': (f"✅ Вы выбрали: 5000 искр — 799 ₽\n\n{_buy_text_upd}",[{"label": "✅ Оплатить", "reply": "/pay_confirm_sparks_5000"}, {"label": "❌ Отклонить", "reply": "/pay_cancel"}]),
+                }
+                for trigger, (resp, btns) in _upd_map.items():
+                    cmd = BotCommand.query.filter_by(bot_id=_pbot_obj.id, trigger=trigger).first()
+                    if cmd:
+                        cmd.response_text = resp
+                        cmd.buttons = json.dumps(btns)
+                # Добавить /pay_cancel если нет
+                if not BotCommand.query.filter_by(bot_id=_pbot_obj.id, trigger='/pay_cancel').first():
+                    db.session.add(BotCommand(bot_id=_pbot_obj.id, trigger='/pay_cancel',
+                        response_text="❌ Оплата отменена. Возвращайтесь когда будете готовы!", buttons='[]', order_index=14))
+                db.session.commit()
+                print("✓ Команды бота Tabletone Premium обновлены")
 
-    # ── Сид: бот Tabletone (официальный, приветствие + 2FA) ─────────────────
-    _TBL_USERNAME = 'tabletonebot'
-    if not User.query.filter_by(username=_TBL_USERNAME).first():
-        _tbl_user = User(
-            username=_TBL_USERNAME,
-            display_name='Tabletone',
-            bio='Официальный бот мессенджера Tabletone',
-            avatar_color='#667eea',
-            is_bot=True, is_verified=True,
-            password_hash=generate_password_hash(secrets.token_hex(32))
-        )
-        db.session.add(_tbl_user)
-        db.session.flush()
-        _tbl_bot = Bot(
-            user_id=_tbl_user.id, owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_tbl_user.id}:{secrets.token_urlsafe(32)}",
-            description='Официальный бот Tabletone', is_active=True, review_status='approved'
-        )
-        db.session.add(_tbl_bot)
-        db.session.commit()
-        print("✓ Бот Tabletone создан")
+        # ── Сид: бот Tabletone (официальный, приветствие + 2FA) ─────────────────
+        _TBL_USERNAME = 'tabletonebot'
+        if not User.query.filter_by(username=_TBL_USERNAME).first():
+            _tbl_user = User(
+                username=_TBL_USERNAME,
+                display_name='Tabletone',
+                bio='Официальный бот мессенджера Tabletone',
+                avatar_color='#667eea',
+                is_bot=True, is_verified=True,
+                password_hash=generate_password_hash(secrets.token_hex(32))
+            )
+            db.session.add(_tbl_user)
+            db.session.flush()
+            _tbl_bot = Bot(
+                user_id=_tbl_user.id, owner_id=_PREMIUM_OWNER_ID,
+                token=f"{_tbl_user.id}:{secrets.token_urlsafe(32)}",
+                description='Официальный бот Tabletone', is_active=True, review_status='approved'
+            )
+            db.session.add(_tbl_bot)
+            db.session.commit()
+            print("✓ Бот Tabletone создан")
 
-    # ── Сид: бот Tabletone Support ──────────────────────────────────────────
-    _SUP_USERNAME = 'tabletone_supportbot'
-    if not User.query.filter_by(username=_SUP_USERNAME).first():
-        _sup_user = User(
-            username=_SUP_USERNAME,
-            display_name='Tabletone Support',
-            bio='Поддержка мессенджера Tabletone',
-            avatar_color='#38a169',
-            is_bot=True, is_verified=True,
-            password_hash=generate_password_hash(secrets.token_hex(32))
-        )
-        db.session.add(_sup_user)
-        db.session.flush()
-        _sup_bot = Bot(
-            user_id=_sup_user.id, owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_sup_user.id}:{secrets.token_urlsafe(32)}",
-            description='Поддержка Tabletone', is_active=True, review_status='approved'
-        )
-        db.session.add(_sup_bot)
-        db.session.flush()
-        _sup_buttons = json.dumps([
-            {"label": "❓ FAQ", "reply": "/faq"},
-            {"label": "💬 Написать в поддержку", "reply": "/support"},
-            {"label": "📢 Официальный канал", "reply": "/channel"},
-        ])
-        _sup_cmds = [
-            BotCommand(bot_id=_sup_bot.id, trigger='/start', order_index=1,
-                response_text="👋 Привет! Я бот поддержки Tabletone.\n\nЧем могу помочь?",
-                buttons=_sup_buttons),
-            BotCommand(bot_id=_sup_bot.id, trigger='/faq', order_index=2,
-                response_text=(
-                    "❓ *Часто задаваемые вопросы*\n\n"
-                    "📌 Что такое Tabletone?\n"
-                    "Tabletone — современный мессенджер с поддержкой групп, каналов, ботов и медиафайлов.\n\n"
-                    "📌 Как создать группу или канал?\n"
-                    "Нажмите кнопку ✏️ в боковой панели → выберите «Создать группу» или «Создать канал».\n\n"
-                    "📌 Что даёт Premium?\n"
-                    "Premium открывает: загрузку аватара, смену обоев, неограниченное количество ботов, истории и кастомный эмодзи.\n\n"
-                    "📌 Как купить Premium?\n"
-                    "Напишите боту @tabletone_premiumbot или нажмите /start там.\n\n"
-                    "📌 Как включить двухэтапную аутентификацию?\n"
-                    "Зайдите в Профиль → раздел «Безопасность» → включите 2FA.\n\n"
-                    "📌 Как создать бота?\n"
-                    "Перейдите в раздел «Боты» через кнопку 🤖 в боковой панели."
-                ), buttons='[]'),
-            BotCommand(bot_id=_sup_bot.id, trigger='/support', order_index=3,
-                response_text=(
-                    "💬 Напишите ваш вопрос следующим сообщением — администрация получит его и ответит вам.\n\n"
-                    "⏱ Время ответа: обычно до 24 часов."
-                ), buttons='[]'),
-            BotCommand(bot_id=_sup_bot.id, trigger='/channel', order_index=4,
-                response_text=(
-                    "📢 Официальный канал Tabletone:\n\nhttps://t.me/kotakbaslife\n\nПодписывайтесь, чтобы быть в курсе новостей!"
-                ), buttons='[]'),
-            BotCommand(bot_id=_sup_bot.id, trigger='*', order_index=99,
-                response_text="Напишите /start чтобы увидеть меню поддержки 👋",
-                buttons='[]'),
-        ]
-        for _c in _sup_cmds:
-            db.session.add(_c)
-        db.session.commit()
-        print("✓ Бот Tabletone Support создан")
+        # ── Сид: бот Tabletone Support ──────────────────────────────────────────
+        _SUP_USERNAME = 'tabletone_supportbot'
+        if not User.query.filter_by(username=_SUP_USERNAME).first():
+            _sup_user = User(
+                username=_SUP_USERNAME,
+                display_name='Tabletone Support',
+                bio='Поддержка мессенджера Tabletone',
+                avatar_color='#38a169',
+                is_bot=True, is_verified=True,
+                password_hash=generate_password_hash(secrets.token_hex(32))
+            )
+            db.session.add(_sup_user)
+            db.session.flush()
+            _sup_bot = Bot(
+                user_id=_sup_user.id, owner_id=_PREMIUM_OWNER_ID,
+                token=f"{_sup_user.id}:{secrets.token_urlsafe(32)}",
+                description='Поддержка Tabletone', is_active=True, review_status='approved'
+            )
+            db.session.add(_sup_bot)
+            db.session.flush()
+            _sup_buttons = json.dumps([
+                {"label": "❓ FAQ", "reply": "/faq"},
+                {"label": "💬 Написать в поддержку", "reply": "/support"},
+                {"label": "📢 Официальный канал", "reply": "/channel"},
+            ])
+            _sup_cmds = [
+                BotCommand(bot_id=_sup_bot.id, trigger='/start', order_index=1,
+                    response_text="👋 Привет! Я бот поддержки Tabletone.\n\nЧем могу помочь?",
+                    buttons=_sup_buttons),
+                BotCommand(bot_id=_sup_bot.id, trigger='/faq', order_index=2,
+                    response_text=(
+                        "❓ *Часто задаваемые вопросы*\n\n"
+                        "📌 Что такое Tabletone?\n"
+                        "Tabletone — современный мессенджер с поддержкой групп, каналов, ботов и медиафайлов.\n\n"
+                        "📌 Как создать группу или канал?\n"
+                        "Нажмите кнопку ✏️ в боковой панели → выберите «Создать группу» или «Создать канал».\n\n"
+                        "📌 Что даёт Premium?\n"
+                        "Premium открывает: загрузку аватара, смену обоев, неограниченное количество ботов, истории и кастомный эмодзи.\n\n"
+                        "📌 Как купить Premium?\n"
+                        "Напишите боту @tabletone_premiumbot или нажмите /start там.\n\n"
+                        "📌 Как включить двухэтапную аутентификацию?\n"
+                        "Зайдите в Профиль → раздел «Безопасность» → включите 2FA.\n\n"
+                        "📌 Как создать бота?\n"
+                        "Перейдите в раздел «Боты» через кнопку 🤖 в боковой панели."
+                    ), buttons='[]'),
+                BotCommand(bot_id=_sup_bot.id, trigger='/support', order_index=3,
+                    response_text=(
+                        "💬 Напишите ваш вопрос следующим сообщением — администрация получит его и ответит вам.\n\n"
+                        "⏱ Время ответа: обычно до 24 часов."
+                    ), buttons='[]'),
+                BotCommand(bot_id=_sup_bot.id, trigger='/channel', order_index=4,
+                    response_text=(
+                        "📢 Официальный канал Tabletone:\n\nhttps://t.me/kotakbaslife\n\nПодписывайтесь, чтобы быть в курсе новостей!"
+                    ), buttons='[]'),
+                BotCommand(bot_id=_sup_bot.id, trigger='*', order_index=99,
+                    response_text="Напишите /start чтобы увидеть меню поддержки 👋",
+                    buttons='[]'),
+            ]
+            for _c in _sup_cmds:
+                db.session.add(_c)
+            db.session.commit()
+            print("✓ Бот Tabletone Support создан")
 
-    # ── Сид: бот Stickers ───────────────────────────────────────────────────
-    _STK_USERNAME = 'stickers'
-    if not User.query.filter_by(username=_STK_USERNAME).first():
-        _stk_user = User(
-            username=_STK_USERNAME,
-            display_name='Stickers',
-            bio='Создавай и управляй паками стикеров',
-            avatar_color='#f6ad55',
-            is_bot=True, is_verified=True,
-            password_hash=generate_password_hash(secrets.token_hex(32))
-        )
-        db.session.add(_stk_user)
-        db.session.flush()
-        _stk_bot = Bot(
-            user_id=_stk_user.id, owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_stk_user.id}:{secrets.token_urlsafe(32)}",
-            description='Создание паков стикеров', is_active=True, review_status='approved'
-        )
-        db.session.add(_stk_bot)
-        db.session.commit()
-        print("✓ Бот Stickers создан")
+        # ── Сид: бот Stickers ───────────────────────────────────────────────────
+        _STK_USERNAME = 'stickers'
+        if not User.query.filter_by(username=_STK_USERNAME).first():
+            _stk_user = User(
+                username=_STK_USERNAME,
+                display_name='Stickers',
+                bio='Создавай и управляй паками стикеров',
+                avatar_color='#f6ad55',
+                is_bot=True, is_verified=True,
+                password_hash=generate_password_hash(secrets.token_hex(32))
+            )
+            db.session.add(_stk_user)
+            db.session.flush()
+            _stk_bot = Bot(
+                user_id=_stk_user.id, owner_id=_PREMIUM_OWNER_ID,
+                token=f"{_stk_user.id}:{secrets.token_urlsafe(32)}",
+                description='Создание паков стикеров', is_active=True, review_status='approved'
+            )
+            db.session.add(_stk_bot)
+            db.session.commit()
+            print("✓ Бот Stickers создан")
 
-    # ── Сид: бот Premium Support ─────────────────────────────────────────────
-    _PRM_USERNAME = 'premium_support'
-    if not User.query.filter_by(username=_PRM_USERNAME).first():
-        _prm_user = User(
-            username=_PRM_USERNAME,
-            display_name='⭐ Premium Support',
-            bio='Премиальная поддержка от разработчика — только для Premium пользователей',
-            avatar_color='#f6ad55',
-            is_bot=True, is_verified=True, is_premium=True,
-            password_hash=generate_password_hash(secrets.token_hex(32))
-        )
-        db.session.add(_prm_user)
-        db.session.flush()
-        _prm_bot = Bot(
-            user_id=_prm_user.id, owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_prm_user.id}:{secrets.token_urlsafe(32)}",
-            description='Премиальная поддержка от разработчика', is_active=True, review_status='approved'
-        )
-        db.session.add(_prm_bot)
-        db.session.flush()
-        _prm_buttons = json.dumps([
-            {"label": "🐛 Сообщить об ошибке", "reply": "/bug"},
-            {"label": "💡 Предложить идею", "reply": "/idea"},
-            {"label": "❓ Вопрос разработчику", "reply": "/ask"},
-        ])
-        _prm_cmds = [
-            BotCommand(bot_id=_prm_bot.id, trigger='/start', order_index=1,
-                response_text=(
-                    "⭐ *Добро пожаловать в Premium Support!*\n\n"
-                    "Вы получаете приоритетную поддержку от разработчика Tabletone.\n\n"
-                    "Ваши обращения рассматриваются в первую очередь.\n\n"
-                    "Выберите тему обращения:"
-                ), buttons=_prm_buttons),
-            BotCommand(bot_id=_prm_bot.id, trigger='/bug', order_index=2,
-                response_text=(
-                    "🐛 *Сообщение об ошибке*\n\n"
-                    "Опишите проблему следующим сообщением:\n"
-                    "— Что происходит?\n"
-                    "— Как воспроизвести?\n"
-                    "— На каком устройстве/браузере?\n\n"
-                    "Разработчик получит ваш отчёт и ответит в ближайшее время."
-                ), buttons='[]'),
-            BotCommand(bot_id=_prm_bot.id, trigger='/idea', order_index=3,
-                response_text=(
-                    "💡 *Предложение по улучшению*\n\n"
-                    "Опишите вашу идею следующим сообщением.\n"
-                    "Лучшие идеи от Premium пользователей реализуются в первую очередь! 🚀"
-                ), buttons='[]'),
-            BotCommand(bot_id=_prm_bot.id, trigger='/ask', order_index=4,
-                response_text=(
-                    "❓ *Вопрос разработчику*\n\n"
-                    "Напишите ваш вопрос следующим сообщением.\n"
-                    "Отвечаем в течение нескольких часов."
-                ), buttons='[]'),
-            BotCommand(bot_id=_prm_bot.id, trigger='*', order_index=99,
-                response_text="⭐ Ваше обращение принято! Разработчик ответит вам в ближайшее время.\n\nНапишите /start чтобы увидеть меню.",
-                buttons='[]'),
-        ]
-        for _c in _prm_cmds:
-            db.session.add(_c)
-        db.session.commit()
-        print("✓ Бот Premium Support создан")
+        # ── Сид: бот Premium Support ─────────────────────────────────────────────
+        _PRM_USERNAME = 'premium_support'
+        if not User.query.filter_by(username=_PRM_USERNAME).first():
+            _prm_user = User(
+                username=_PRM_USERNAME,
+                display_name='⭐ Premium Support',
+                bio='Премиальная поддержка от разработчика — только для Premium пользователей',
+                avatar_color='#f6ad55',
+                is_bot=True, is_verified=True, is_premium=True,
+                password_hash=generate_password_hash(secrets.token_hex(32))
+            )
+            db.session.add(_prm_user)
+            db.session.flush()
+            _prm_bot = Bot(
+                user_id=_prm_user.id, owner_id=_PREMIUM_OWNER_ID,
+                token=f"{_prm_user.id}:{secrets.token_urlsafe(32)}",
+                description='Премиальная поддержка от разработчика', is_active=True, review_status='approved'
+            )
+            db.session.add(_prm_bot)
+            db.session.flush()
+            _prm_buttons = json.dumps([
+                {"label": "🐛 Сообщить об ошибке", "reply": "/bug"},
+                {"label": "💡 Предложить идею", "reply": "/idea"},
+                {"label": "❓ Вопрос разработчику", "reply": "/ask"},
+            ])
+            _prm_cmds = [
+                BotCommand(bot_id=_prm_bot.id, trigger='/start', order_index=1,
+                    response_text=(
+                        "⭐ *Добро пожаловать в Premium Support!*\n\n"
+                        "Вы получаете приоритетную поддержку от разработчика Tabletone.\n\n"
+                        "Ваши обращения рассматриваются в первую очередь.\n\n"
+                        "Выберите тему обращения:"
+                    ), buttons=_prm_buttons),
+                BotCommand(bot_id=_prm_bot.id, trigger='/bug', order_index=2,
+                    response_text=(
+                        "🐛 *Сообщение об ошибке*\n\n"
+                        "Опишите проблему следующим сообщением:\n"
+                        "— Что происходит?\n"
+                        "— Как воспроизвести?\n"
+                        "— На каком устройстве/браузере?\n\n"
+                        "Разработчик получит ваш отчёт и ответит в ближайшее время."
+                    ), buttons='[]'),
+                BotCommand(bot_id=_prm_bot.id, trigger='/idea', order_index=3,
+                    response_text=(
+                        "💡 *Предложение по улучшению*\n\n"
+                        "Опишите вашу идею следующим сообщением.\n"
+                        "Лучшие идеи от Premium пользователей реализуются в первую очередь! 🚀"
+                    ), buttons='[]'),
+                BotCommand(bot_id=_prm_bot.id, trigger='/ask', order_index=4,
+                    response_text=(
+                        "❓ *Вопрос разработчику*\n\n"
+                        "Напишите ваш вопрос следующим сообщением.\n"
+                        "Отвечаем в течение нескольких часов."
+                    ), buttons='[]'),
+                BotCommand(bot_id=_prm_bot.id, trigger='*', order_index=99,
+                    response_text="⭐ Ваше обращение принято! Разработчик ответит вам в ближайшее время.\n\nНапишите /start чтобы увидеть меню.",
+                    buttons='[]'),
+            ]
+            for _c in _prm_cmds:
+                db.session.add(_c)
+            db.session.commit()
+            print("✓ Бот Premium Support создан")
 
-    # ── Сид: бот Nexus AI ─────────────────────────────────────────────────────
-    _NEXUS_USERNAME = 'nexus'
-    if not User.query.filter_by(username=_NEXUS_USERNAME).first():
-        _nexus_user = User(
-            username=_NEXUS_USERNAME,
-            display_name='⚡ Nexus',
-            bio='Умный ИИ-ассистент. Задай любой вопрос — отвечу мгновенно.',
-            avatar_color='#7c3aed',
-            is_bot=True, is_verified=True,
-            password_hash=generate_password_hash(secrets.token_hex(32))
-        )
-        db.session.add(_nexus_user)
-        db.session.flush()
-        _nexus_bot = Bot(
-            user_id=_nexus_user.id, owner_id=_PREMIUM_OWNER_ID,
-            token=f"{_nexus_user.id}:{secrets.token_urlsafe(32)}",
-            description='Умный ИИ-ассистент', is_active=True, review_status='approved'
-        )
-        db.session.add(_nexus_bot)
-        db.session.flush()
-        _nexus_cmds = [
-            BotCommand(bot_id=_nexus_bot.id, trigger='/start', order_index=1,
-                response_text=(
-                    "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
-                    "Я работаю на базе Google Gemini и могу помочь с:\n"
-                    "• Ответами на любые вопросы\n"
-                    "• Написанием текстов и кода\n"
-                    "• Переводом и объяснением\n"
-                    "• Идеями и советами\n\n"
-                    "Просто напиши мне что-нибудь 💬"
-                ), buttons='[]'),
-        ]
-        for _c in _nexus_cmds:
-            db.session.add(_c)
-        db.session.commit()
-        print("✓ Бот Nexus AI создан")
+        # ── Сид: бот Nexus AI ─────────────────────────────────────────────────────
+        _NEXUS_USERNAME = 'nexus'
+        if not User.query.filter_by(username=_NEXUS_USERNAME).first():
+            _nexus_user = User(
+                username=_NEXUS_USERNAME,
+                display_name='⚡ Nexus',
+                bio='Умный ИИ-ассистент. Задай любой вопрос — отвечу мгновенно.',
+                avatar_color='#7c3aed',
+                is_bot=True, is_verified=True,
+                password_hash=generate_password_hash(secrets.token_hex(32))
+            )
+            db.session.add(_nexus_user)
+            db.session.flush()
+            _nexus_bot = Bot(
+                user_id=_nexus_user.id, owner_id=_PREMIUM_OWNER_ID,
+                token=f"{_nexus_user.id}:{secrets.token_urlsafe(32)}",
+                description='Умный ИИ-ассистент', is_active=True, review_status='approved'
+            )
+            db.session.add(_nexus_bot)
+            db.session.flush()
+            _nexus_cmds = [
+                BotCommand(bot_id=_nexus_bot.id, trigger='/start', order_index=1,
+                    response_text=(
+                        "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
+                        "Я работаю на базе Google Gemini и могу помочь с:\n"
+                        "• Ответами на любые вопросы\n"
+                        "• Написанием текстов и кода\n"
+                        "• Переводом и объяснением\n"
+                        "• Идеями и советами\n\n"
+                        "Просто напиши мне что-нибудь 💬"
+                    ), buttons='[]'),
+            ]
+            for _c in _nexus_cmds:
+                db.session.add(_c)
+            db.session.commit()
+            print("✓ Бот Nexus AI создан")
 
-    # ── Сид: каталог подарков ────────────────────────────────────────────────
-    if GiftType.query.count() == 0:
-        _default_gifts = [
-            GiftType(name='Сердечко', emoji='❤️', description='Маленький знак внимания', price_sparks=5, rarity='common'),
-            GiftType(name='Звезда', emoji='⭐', description='Ты звезда!', price_sparks=10, rarity='common'),
-            GiftType(name='Огонь', emoji='🔥', description='Горячий подарок', price_sparks=20, rarity='common'),
-            GiftType(name='Алмаз', emoji='💎', description='Редкий и ценный', price_sparks=50, rarity='rare'),
-            GiftType(name='Корона', emoji='👑', description='Для настоящих королей', price_sparks=100, rarity='epic'),
-            GiftType(name='Ракета', emoji='🚀', description='До луны и обратно', price_sparks=200, rarity='epic'),
-            GiftType(name='Единорог', emoji='🦄', description='Легендарный подарок', price_sparks=500, rarity='legendary'),
-        ]
-        for _g in _default_gifts:
-            db.session.add(_g)
-        db.session.commit()
-        print("✓ Каталог подарков создан")
+        # ── Сид: каталог подарков ────────────────────────────────────────────────
+        if GiftType.query.count() == 0:
+            _default_gifts = [
+                GiftType(name='Сердечко', emoji='❤️', description='Маленький знак внимания', price_sparks=5, rarity='common'),
+                GiftType(name='Звезда', emoji='⭐', description='Ты звезда!', price_sparks=10, rarity='common'),
+                GiftType(name='Огонь', emoji='🔥', description='Горячий подарок', price_sparks=20, rarity='common'),
+                GiftType(name='Алмаз', emoji='💎', description='Редкий и ценный', price_sparks=50, rarity='rare'),
+                GiftType(name='Корона', emoji='👑', description='Для настоящих королей', price_sparks=100, rarity='epic'),
+                GiftType(name='Ракета', emoji='🚀', description='До луны и обратно', price_sparks=200, rarity='epic'),
+                GiftType(name='Единорог', emoji='🦄', description='Легендарный подарок', price_sparks=500, rarity='legendary'),
+            ]
+            for _g in _default_gifts:
+                db.session.add(_g)
+            db.session.commit()
+            print("✓ Каталог подарков создан")
 
 # ── Система ролей ────────────────────────────────────────────────────────────
 ROLE_LEVELS = {'moderator': 1, 'admin': 2, 'senior_admin': 3, 'owner': 4}
@@ -2751,6 +2751,7 @@ def send_voice_message():
     # Сохраняем файл
     filename = secure_filename(f"voice_{session['user_id']}_{int(time.time())}.webm")
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'voice', filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     audio_file.save(filepath)
     
     # Создаем сообщение
