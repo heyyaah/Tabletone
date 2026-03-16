@@ -27,7 +27,8 @@ function showCallModal(name, avatarLetter, avatarColor, incoming, isVideo) {
     videoArea.style.display = isVideo ? 'flex' : 'none';
     av.style.display = isVideo ? 'none' : 'flex';
     document.getElementById('call-accept-btn').style.display = incoming ? 'flex' : 'none';
-    document.getElementById('call-toggle-video-btn').style.display = isVideo ? 'flex' : 'none';
+    const videoBtnWrap = document.getElementById('call-video-btn-wrap');
+    if (videoBtnWrap) videoBtnWrap.style.display = isVideo ? 'flex' : 'none';
     const muteBtn = document.getElementById('call-mute-btn');
     if (muteBtn) { muteBtn.querySelector('i').className = 'fas fa-microphone'; muteBtn.style.background = '#4a5568'; }
     const videoBtn = document.getElementById('call-toggle-video-btn');
