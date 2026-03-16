@@ -3684,7 +3684,7 @@ async function showUserInfo(userId) {
                         style="padding:8px 16px;border-radius:10px;border:1px solid ${bs.i_blocked ? '#38a169' : '#e53e3e'};background:transparent;color:${bs.i_blocked ? '#38a169' : '#e53e3e'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
                         <i class="fas fa-${bs.i_blocked ? 'unlock' : 'ban'}"></i> ${bs.i_blocked ? 'Разблокировать' : 'Заблокировать'}
                     </button>
-                    <a href="/u/${escapeHtml(data.username)}" target="_blank"
+                    <a href="/u/${escapeHtml(data.username)}" target="_self"
                         style="padding:8px 16px;border-radius:10px;border:1px solid var(--border-color);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;">
                         <i class="fas fa-external-link-alt"></i> Профиль
                     </a>
