@@ -3993,9 +3993,21 @@ def remove_user(user_id):
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    _delete_user_cascade(user_id)
-    db.session.delete(user)
-    db.session.commit()
+    try:
+        _delete_user_cascade(user_id)
+        db.session.delete(user)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"DELETE USER {user_id} ERROR: {e}\n{traceback.format_exc()}")
+        # Попробуем удалить напрямую через SQL
+        try:
+            _sql_exec('DELETE FROM "user" WHERE id = :uid', {"uid": user_id})
+            return jsonify({'success': True})
+        except Exception as e2:
+            print(f"DELETE USER {user_id} SQL ERROR: {e2}")
+            return jsonify({'error': f'Ошибка удаления: {str(e)}'}), 500
     return jsonify({'success': True})
 
 # Бан пользователя
