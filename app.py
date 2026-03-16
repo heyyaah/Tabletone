@@ -50,6 +50,59 @@ limiter = Limiter(
     storage_uri="memory://"
 )
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AES-256-GCM MESSAGE ENCRYPTION
+# ══════════════════════════════════════════════════════════════════════════════
+import base64 as _b64
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM
+import os as _os
+
+def _get_msg_key():
+    """Return 32-byte AES key from env or generate a stable fallback."""
+    raw = _os.environ.get('MESSAGE_ENCRYPTION_KEY', '')
+    if raw:
+        # Accept hex (64 chars) or base64 (44 chars)
+        try:
+            key = bytes.fromhex(raw)
+            if len(key) == 32:
+                return key
+        except ValueError:
+            pass
+        try:
+            key = _b64.b64decode(raw)
+            if len(key) == 32:
+                return key
+        except Exception:
+            pass
+    # Fallback: derive from SECRET_KEY (not ideal but keeps app running)
+    import hashlib
+    return hashlib.sha256(app.config['SECRET_KEY'].encode()).digest()
+
+def encrypt_msg(plaintext: str) -> str:
+    """Encrypt message content. Returns base64-encoded nonce+ciphertext."""
+    if not plaintext:
+        return plaintext
+    key = _get_msg_key()
+    aesgcm = _AESGCM(key)
+    nonce = _os.urandom(12)
+    ct = aesgcm.encrypt(nonce, plaintext.encode('utf-8'), None)
+    return _b64.b64encode(nonce + ct).decode('ascii')
+
+def decrypt_msg(token: str) -> str:
+    """Decrypt message content. Returns original plaintext."""
+    if not token:
+        return token
+    try:
+        key = _get_msg_key()
+        raw = _b64.b64decode(token)
+        nonce, ct = raw[:12], raw[12:]
+        aesgcm = _AESGCM(key)
+        return aesgcm.decrypt(nonce, ct, None).decode('utf-8')
+    except Exception:
+        # If decryption fails, return as-is (unencrypted legacy message)
+        return token
+
 # Словарь для отслеживания онлайн пользователей
 online_users = {}
 
@@ -244,6 +297,10 @@ class GroupMessage(db.Model):
     group = db.relationship('Group', foreign_keys=[group_id])
     sender = db.relationship('User', foreign_keys=[sender_id])
     reply_to = db.relationship('GroupMessage', foreign_keys=[reply_to_id], remote_side='GroupMessage.id')
+
+    @property
+    def decrypted_content(self):
+        return decrypt_msg(self.content) if self.content else self.content
 
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -2025,70 +2082,6 @@ def payment_webhook():
     return jsonify({'ok': True})
 
 
-@app.route('/admin/dialogs', methods=['GET'])
-def admin_get_dialogs():
-    """Список всех личных диалогов — только owner."""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    admin = User.query.get(session['user_id'])
-    if not _has_role(admin, 'owner'):
-        return jsonify({'error': 'Нет доступа'}), 403
-    # Получаем уникальные пары пользователей
-    from sqlalchemy import func, or_, and_, case
-    pairs = db.session.query(
-        case((Message.sender_id < Message.receiver_id, Message.sender_id), else_=Message.receiver_id).label('u1'),
-        case((Message.sender_id < Message.receiver_id, Message.receiver_id), else_=Message.sender_id).label('u2'),
-        func.max(Message.id).label('last_msg_id'),
-        func.count(Message.id).label('msg_count')
-    ).filter(Message.is_deleted == False).group_by(
-        case((Message.sender_id < Message.receiver_id, Message.sender_id), else_=Message.receiver_id),
-        case((Message.sender_id < Message.receiver_id, Message.receiver_id), else_=Message.sender_id)
-    ).order_by(func.max(Message.id).desc()).limit(200).all()
-
-    result = []
-    for p in pairs:
-        u1 = User.query.get(p.u1)
-        u2 = User.query.get(p.u2)
-        last_msg = Message.query.get(p.last_msg_id)
-        if not u1 or not u2:
-            continue
-        result.append({
-            'user1': {'id': u1.id, 'username': u1.username, 'display_name': u1.display_name or u1.username},
-            'user2': {'id': u2.id, 'username': u2.username, 'display_name': u2.display_name or u2.username},
-            'msg_count': p.msg_count,
-            'last_message': last_msg.content[:80] if last_msg and not last_msg.is_deleted else '[удалено]',
-            'last_time': last_msg.timestamp.strftime('%d.%m.%Y %H:%M') if last_msg else '',
-        })
-    return jsonify({'dialogs': result})
-
-@app.route('/admin/dialogs/<int:u1>/<int:u2>', methods=['GET'])
-def admin_get_dialog_messages(u1, u2):
-    """Сообщения конкретного диалога — только owner."""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    admin = User.query.get(session['user_id'])
-    if not _has_role(admin, 'owner'):
-        return jsonify({'error': 'Нет доступа'}), 403
-    msgs = Message.query.filter(
-        ((Message.sender_id == u1) & (Message.receiver_id == u2)) |
-        ((Message.sender_id == u2) & (Message.receiver_id == u1))
-    ).order_by(Message.timestamp.asc()).limit(500).all()
-    user1 = User.query.get(u1)
-    user2 = User.query.get(u2)
-    return jsonify({
-        'user1': {'id': u1, 'username': user1.username if user1 else '?', 'display_name': (user1.display_name or user1.username) if user1 else '?'},
-        'user2': {'id': u2, 'username': user2.username if user2 else '?', 'display_name': (user2.display_name or user2.username) if user2 else '?'},
-        'messages': [{
-            'id': m.id,
-            'sender_id': m.sender_id,
-            'content': m.content if not m.is_deleted else '[удалено]',
-            'message_type': m.message_type or 'text',
-            'media_url': m.media_url,
-            'timestamp': m.timestamp.strftime('%d.%m.%Y %H:%M'),
-            'is_deleted': m.is_deleted,
-            'edited_at': m.edited_at.strftime('%H:%M') if m.edited_at else None,
-        } for m in msgs]
-    })
 @app.route('/')
 def index():
     if 'user_id' not in session:
@@ -2367,7 +2360,7 @@ def get_chat(user_id):
         'messages': [{
             'id': msg.id,
             'sender_id': msg.sender_id,
-            'content': msg.content,
+            'content': msg.decrypted_content,
             'message_type': msg.message_type or 'text',
             'media_url': msg.media_url,
             'media_files': [{
@@ -2598,7 +2591,7 @@ def send_message():
             'message': {
                 'id': message.id,
                 'sender_id': message.sender_id,
-                'content': message.content,
+                'content': message.decrypted_content,
                 'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
                 'timestamp_iso': message.timestamp.isoformat() + 'Z',
                 'reply_to': reply_to_data,
@@ -2614,7 +2607,7 @@ def send_message():
             'message': {
                 'id': message.id,
                 'sender_id': message.sender_id,
-                'content': message.content,
+                'content': message.decrypted_content,
                 'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
                 'timestamp_iso': message.timestamp.isoformat() + 'Z',
                 'reply_to': reply_to_data,
@@ -2703,7 +2696,7 @@ def send_voice_message():
     message_data = {
         'id': message.id,
         'sender_id': message.sender_id,
-        'content': message.content,
+        'content': message.decrypted_content,
         'message_type': 'voice',
         'media_url': message.media_url,
         'duration': message.duration,
@@ -2793,7 +2786,7 @@ def send_video_circle():
         message_data = {
             'id': message.id,
             'sender_id': message.sender_id,
-            'content': message.content,
+            'content': message.decrypted_content,
             'message_type': 'video_note',
             'media_url': message.media_url,
             'duration': message.duration,
@@ -2890,7 +2883,7 @@ def send_image():
         message_data = {
             'id': message.id,
             'sender_id': message.sender_id,
-            'content': message.content,
+            'content': message.decrypted_content,
             'message_type': 'image',
             'media_url': message.media_url,
             'timestamp': message.timestamp.strftime('%H:%M %d.%m')
@@ -3033,7 +3026,7 @@ def send_multiple_files():
             message_data = {
                 'id': message.id,
                 'sender_id': message.sender_id,
-                'content': message.content,
+                'content': message.decrypted_content,
                 'message_type': 'album',
                 'media_files': media_files,
                 'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
@@ -3682,7 +3675,7 @@ def edit_message(message_id):
     # Отправляем событие через Socket.IO обоим пользователям
     edit_data = {
         'message_id': message.id,
-        'content': message.content,
+        'content': message.decrypted_content,
         'edited_at': message.edited_at.strftime('%H:%M %d.%m')
     }
     
@@ -3698,7 +3691,7 @@ def edit_message(message_id):
         'success': True,
         'message': {
             'id': message.id,
-            'content': message.content,
+            'content': message.decrypted_content,
             'edited_at': message.edited_at.strftime('%H:%M %d.%m'),
             'timestamp': message.timestamp.strftime('%H:%M %d.%m')
         }
@@ -4412,7 +4405,7 @@ def create_story():
             return jsonify({'error': 'Обычные пользователи могут публиковать только 1 историю в день. Оформите Premium для безлимитных историй!'}), 429
 
     data = request.get_json()
-    content = data.get('content', '').strip()
+    content = encrypt_msg(data.get('content', '').strip())
     media_url = data.get('media_url', '').strip()
     media_type = data.get('media_type', 'text')
 
@@ -4865,7 +4858,7 @@ def get_group(group_id):
             'sender_avatar_color': sender.avatar_color,
             'sender_avatar_url': sender.avatar_url,
             'sender_avatar_letter': sender.get_avatar_letter(),
-            'content': msg.content if (not getattr(msg, 'is_paid', False) or is_purchased) else '🔒 Платный контент',
+            'content': msg.decrypted_content if (not getattr(msg, 'is_paid', False) or is_purchased) else '🔒 Платный контент',
             'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
             'timestamp_iso': msg.timestamp.isoformat() + 'Z',
             'edited_at': msg.edited_at.strftime('%H:%M %d.%m') if msg.edited_at else None,
@@ -4940,7 +4933,7 @@ def send_group_message(group_id):
         return jsonify({'error': 'Только админы могут писать в канале'}), 403
     
     data = request.get_json()
-    content = data.get('content', '').strip()
+    content = encrypt_msg(data.get('content', '').strip())
     
     if not content or len(content) > 4096:
         return jsonify({'error': 'Некорректное сообщение'}), 400
@@ -5625,7 +5618,7 @@ def _bot_send_message(bot_user_id, receiver_id, content, buttons=None):
     msg_data = {
         'id': message.id,
         'sender_id': message.sender_id,
-        'content': message.content,
+        'content': message.decrypted_content,
         'message_type': 'text',
         'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
         'timestamp_iso': message.timestamp.isoformat() + 'Z',
@@ -6989,7 +6982,7 @@ def admin_bot_messages(bot_id):
             'direction': direction,
             'other_username': other.username if other else '?',
             'other_display_name': (other.display_name or other.username) if other else '?',
-            'content': m.content or f'[{m.message_type}]',
+            'content': m.decrypted_content or f'[{m.message_type}]',
             'message_type': m.message_type,
             'timestamp': m.timestamp.strftime('%d.%m.%Y %H:%M')
         }
@@ -7302,7 +7295,7 @@ def create_poll():
         db.session.commit()
         sender = User.query.get(uid)
         msg_data = {
-            'id': msg.id, 'sender_id': uid, 'content': msg.content,
+            'id': msg.id, 'sender_id': uid, 'content': msg.decrypted_content,
             'message_type': 'poll', 'poll_id': poll.id,
             'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
             'timestamp_iso': msg.timestamp.isoformat() + 'Z'
@@ -7326,7 +7319,7 @@ def create_poll():
             'id': msg.id, 'sender_id': uid,
             'sender_name': sender.display_name or sender.username,
             'sender_avatar_color': sender.avatar_color, 'sender_avatar_letter': sender.get_avatar_letter(),
-            'content': msg.content, 'message_type': 'poll', 'poll_id': poll.id,
+            'content': msg.decrypted_content, 'message_type': 'poll', 'poll_id': poll.id,
             'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
             'timestamp_iso': msg.timestamp.isoformat() + 'Z', 'media_files': []
         }
@@ -7699,7 +7692,7 @@ def create_paid_post(group_id):
 
     data = request.form
     price = int(data.get('price_sparks', 10))
-    content = data.get('content', '').strip()
+    content = encrypt_msg(data.get('content', '').strip())
     if not content:
         return jsonify({'error': 'Пустой пост'}), 400
 
@@ -7788,7 +7781,7 @@ def buy_paid_post(post_id):
     media_files = GroupMessageMedia.query.filter_by(message_id=msg.id).order_by(GroupMessageMedia.order_index).all()
     return jsonify({
         'success': True,
-        'content': msg.content,
+        'content': msg.decrypted_content,
         'media_files': [{'media_type': m.media_type, 'media_url': m.media_url, 'file_name': m.file_name} for m in media_files]
     })
 
@@ -8054,7 +8047,7 @@ def search_messages():
             GroupMessage.is_deleted == False
         ).order_by(GroupMessage.timestamp.desc()).limit(30).all()
         for m in msgs:
-            results.append({'id': m.id, 'content': m.content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'group'})
+            results.append({'id': m.id, 'content': m.decrypted_content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'group'})
     elif chat_id:
         msgs = Message.query.filter(
             ((Message.sender_id == uid) & (Message.receiver_id == chat_id)) |
@@ -8063,7 +8056,7 @@ def search_messages():
             Message.is_deleted == False
         ).order_by(Message.timestamp.desc()).limit(30).all()
         for m in msgs:
-            results.append({'id': m.id, 'content': m.content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'private'})
+            results.append({'id': m.id, 'content': m.decrypted_content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'private'})
     return jsonify({'results': results})
 
 ALLOWED_STICKER_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -8891,7 +8884,7 @@ def send_secret_message(chat_id):
     if uid not in (chat.user1_id, chat.user2_id):
         return jsonify({'error': 'Нет доступа'}), 403
     data = request.get_json()
-    content = data.get('content', '').strip()
+    content = encrypt_msg(data.get('content', '').strip())
     if not content:
         return jsonify({'error': 'Пустое сообщение'}), 400
     self_destruct = int(data.get('self_destruct', 0))
@@ -9212,12 +9205,12 @@ def pin_group_message(group_id):
     # Удаляем старое закреплённое
     PinnedMessage.query.filter_by(group_id=group_id).delete()
     pin = PinnedMessage(group_id=group_id, group_message_id=msg_id,
-                        pinned_by=uid, content_preview=msg.content[:100])
+                        pinned_by=uid, content_preview=msg.decrypted_content[:100])
     db.session.add(pin)
     db.session.commit()
     socketio.emit('message_pinned', {
         'group_id': group_id, 'message_id': msg_id,
-        'preview': msg.content[:100]
+        'preview': msg.decrypted_content[:100]
     }, room=f'group_{group_id}')
     return jsonify({'success': True})
 

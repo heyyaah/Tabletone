@@ -40,9 +40,6 @@
         <button class="tab-btn" onclick="switchTab('applications')">
             <i class="fas fa-user-tie"></i> Заявки в адм.
         </button>
-        <button class="tab-btn" onclick="switchTab('dialogs')">
-            <i class="fas fa-comments"></i> Все диалоги
-        </button>
         <button class="tab-btn" onclick="switchTab('ipbans')">
             <i class="fas fa-ban"></i> IP-баны
         </button>
@@ -123,14 +120,6 @@
             <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
     </div>
-
-    <div id="dialogs-tab" class="admin-tab">
-        <h2>Все диалоги мессенджера</h2>
-        <div class="users-list" id="dialogs-list">
-            <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
-        </div>
-    </div>
-
     <div id="ipbans-tab" class="admin-tab">
         <h2>Заблокированные IP-адреса</h2>
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
@@ -581,10 +570,7 @@ function switchTab(tabName) {
     } else if (tabName === 'recovery') {
         loadRecoveryRequests();
     } else if (tabName === 'applications') {
-        loadApplications();
-    } else if (tabName === 'dialogs') {
-        loadAllDialogs();
-    } else if (tabName === 'ipbans') {
+        loadApplications(); else if (tabName === 'ipbans') {
         loadIpBans();
     } else if (tabName === 'channels') {
         loadChannels();
@@ -1326,138 +1312,6 @@ function rejectApplication(appId) {
         if (d.success) loadApplications();
         else alert(d.error || 'Ошибка');
     });
-}
-
-// ── Все диалоги (только owner) ───────────────────────────────────────────────
-
-function loadAllDialogs() {
-    fetch('/admin/dialogs')
-        .then(r => r.json())
-        .then(data => {
-            const list = document.getElementById('dialogs-list');
-            if (!data.dialogs || data.dialogs.length === 0) {
-                list.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>Нет диалогов</p></div>';
-                return;
-            }
-            list.innerHTML = data.dialogs.map(d => `
-                <div class="user-item" style="cursor:pointer;" onclick="openDialogViewer(${d.user1.id}, ${d.user2.id}, '${escapeHtml(d.user1.display_name)}', '${escapeHtml(d.user2.display_name)}')">
-                    <div class="user-info">
-                        <h3>
-                            <i class="fas fa-user" style="color:#667eea;font-size:12px;margin-right:4px;"></i>${d.user1.display_name} <span style="color:#718096;font-weight:400;">@${d.user1.username}</span>
-                            <span style="color:#a0aec0;margin:0 8px;">↔</span>
-                            <i class="fas fa-user" style="color:#667eea;font-size:12px;margin-right:4px;"></i>${d.user2.display_name} <span style="color:#718096;font-weight:400;">@${d.user2.username}</span>
-                        </h3>
-                        <p style="color:#718096;font-size:13px;">${escapeHtml(d.last_message)}</p>
-                        <p><small>${d.msg_count} сообщ. • ${d.last_time}</small></p>
-                    </div>
-                    <div style="color:#667eea;font-size:13px;white-space:nowrap;">
-                        <i class="fas fa-eye"></i> Просмотр
-                    </div>
-                </div>
-            `).join('');
-        })
-        .catch(() => {
-            document.getElementById('dialogs-list').innerHTML = '<div class="empty-state"><i class="fas fa-lock"></i><p>Нет доступа</p></div>';
-        });
-}
-
-function openDialogViewer(u1, u2, name1, name2) {
-    let modal = document.getElementById('dialog-viewer-modal');
-    if (modal) modal.remove();
-    modal = document.createElement('div');
-    modal.id = 'dialog-viewer-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    modal.innerHTML = `
-        <div style="background:#ffffff;border-radius:12px;width:92%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e2e8f0;">
-                <h3 style="margin:0;font-size:15px;color:#2d3748;"><i class="fas fa-comments" style="color:#667eea;margin-right:8px;"></i>${name1} ↔ ${name2}</h3>
-                <button onclick="this.closest('#dialog-viewer-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">&times;</button>
-            </div>
-            <div id="dialog-messages-body" style="overflow-y:auto;flex:1;padding:12px 16px;background:#f8fafc;">
-                <div style="text-align:center;padding:30px;color:#718096;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-
-    fetch(`/admin/dialogs/${u1}/${u2}`)
-        .then(r => r.json())
-        .then(data => {
-            const body = document.getElementById('dialog-messages-body');
-            if (!data.messages || data.messages.length === 0) {
-                body.innerHTML = '<div style="text-align:center;padding:30px;color:#718096;">Нет сообщений</div>';
-                return;
-            }
-            body.innerHTML = data.messages.map(m => {
-                const isU1 = m.sender_id === u1;
-                const senderName = isU1 ? data.user1.display_name : data.user2.display_name;
-                const align = isU1 ? 'flex-start' : 'flex-end';
-                const bg = isU1 ? '#dbeafe' : '#dcfce7';
-                const typeIcon = m.message_type !== 'text' ? `<span style="font-size:11px;color:#4a5568;margin-left:4px;">[${m.message_type}]</span>` : '';
-                return `
-                <div style="display:flex;justify-content:${align};margin-bottom:8px;">
-                    <div style="max-width:70%;background:${bg};border-radius:10px;padding:8px 12px;">
-                        <div style="font-size:11px;color:#4a5568;margin-bottom:3px;font-weight:600;">${senderName}${typeIcon}</div>
-                        <div style="font-size:14px;word-break:break-word;color:#1a202c;">${m.is_deleted ? '<em style="color:#718096;">[удалено]</em>' : escapeHtml(m.content)}</div>
-                        <div style="font-size:10px;color:#718096;margin-top:3px;text-align:right;">${m.timestamp}${m.edited_at ? ' (ред.)' : ''}</div>
-                    </div>
-                </div>`;
-            }).join('');
-            body.scrollTop = body.scrollHeight;
-        });
-}
-
-function loadIpBans() {
-    fetch('/admin/ip-bans')
-        .then(r => r.json())
-        .then(data => {
-            const list = document.getElementById('ipbans-list');
-            if (!data.bans || data.bans.length === 0) {
-                list.innerHTML = '<div class="empty-state"><i class="fas fa-ban"></i><p>Нет заблокированных IP</p></div>';
-                return;
-            }
-            list.innerHTML = data.bans.map(b => `
-                <div class="user-item">
-                    <div class="user-info">
-                        <h3 style="font-family:monospace;font-size:16px;">${b.ip_address}</h3>
-                        ${b.reason ? `<p><strong>Причина:</strong> ${b.reason}</p>` : ''}
-                        <p><small>Заблокирован: ${b.created_at} • Кем: @${b.banned_by}</small></p>
-                    </div>
-                    <div class="user-actions">
-                        <button class="action-btn unban" onclick="removeIpBan(${b.id})">
-                            <i class="fas fa-unlock"></i> Разблокировать
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        });
-}
-
-function addIpBan() {
-    const ip = document.getElementById('ip-input').value.trim();
-    const reason = document.getElementById('ip-reason-input').value.trim();
-    if (!ip) { alert('Введите IP-адрес'); return; }
-    fetch('/admin/ip-bans/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip, reason })
-    }).then(r => r.json()).then(d => {
-        if (d.success) {
-            document.getElementById('ip-input').value = '';
-            document.getElementById('ip-reason-input').value = '';
-            loadIpBans();
-        } else {
-            alert(d.error || 'Ошибка');
-        }
-    });
-}
-
-function removeIpBan(banId) {
-    if (!confirm('Разблокировать этот IP?')) return;
-    fetch(`/admin/ip-bans/${banId}/remove`, { method: 'POST' })
-        .then(r => r.json())
-        .then(d => { if (d.success) loadIpBans(); });
 }
 
 // ── Каналы / верификация групп ────────────────────────────────────────────

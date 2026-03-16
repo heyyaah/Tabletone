@@ -9,3 +9,4 @@ pg8000
 python-telegram-bot[all]
 aiohttp
 firebase-admin
+cryptography
