@@ -2425,6 +2425,7 @@ def get_chat(user_id):
                     'reply_to': reply,
                     'bot_buttons': _get_bot_buttons_for_msg(msg),
                     'sticker_pack_id': _get_sticker_pack_id(decrypted) if msg.message_type == 'sticker' or (decrypted and decrypted.startswith('[sticker]')) else None,
+                    'gift': _get_gift_data_for_msg(msg) if msg.message_type == 'gift' else None,
                 }
             except Exception as e:
                 app.logger.error(f'Error serializing message {msg.id}: {e}')
@@ -5668,6 +5669,25 @@ def _get_sticker_pack_id(content):
     except Exception:
         return None
 
+
+def _get_gift_data_for_msg(msg):
+    """Возвращает данные подарка для gift-сообщения."""
+    try:
+        content = msg.content or ''
+        # Формат: __GIFT__{gift_type_id}
+        if '__GIFT__' in content:
+            gift_type_id = int(content.replace('__GIFT__', ''))
+            gt = GiftType.query.get(gift_type_id)
+            if gt:
+                return {
+                    'id': gt.id, 'name': gt.name, 'emoji': gt.emoji,
+                    'price': gt.price_sparks, 'rarity': gt.rarity,
+                    'description': gt.description,
+                }
+    except Exception:
+        pass
+    return None
+
 def _bot_send_message(bot_user_id, receiver_id, content, buttons=None):
     """Внутренняя функция отправки сообщения от бота"""
     message = Message(
@@ -8827,27 +8847,6 @@ def delete_group_role(group_id, role_id):
     db.session.commit()
     return jsonify({'success': True})
 
-@app.route('/groups/<int:group_id>/members/<int:user_id>/role', methods=['POST'])
-def assign_group_role(group_id, user_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    group = Group.query.get_or_404(group_id)
-    if group.creator_id != session['user_id']:
-        return jsonify({'error': 'Нет прав'}), 403
-    data = request.get_json()
-    role_id = data.get('role_id')
-    existing = GroupMemberRole.query.filter_by(group_id=group_id, user_id=user_id).first()
-    if role_id:
-        if existing:
-            existing.role_id = role_id
-        else:
-            db.session.add(GroupMemberRole(group_id=group_id, user_id=user_id, role_id=role_id))
-    else:
-        if existing:
-            db.session.delete(existing)
-    db.session.commit()
-    return jsonify({'success': True})
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # СЕКРЕТНЫЕ ЧАТЫ
@@ -8965,45 +8964,6 @@ def sticker_shop():
         })
     return jsonify({'packs': result})
 
-@app.route('/stickers/pack/<int:pack_id>/add', methods=['POST'])
-def add_sticker_pack(pack_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    if not StickerPack.query.get(pack_id):
-        return jsonify({'error': 'Пак не найден'}), 404
-    existing = UserStickerPack.query.filter_by(user_id=uid, pack_id=pack_id).first()
-    if not existing:
-        db.session.add(UserStickerPack(user_id=uid, pack_id=pack_id))
-        db.session.commit()
-    return jsonify({'success': True})
-
-@app.route('/stickers/pack/<int:pack_id>/remove', methods=['POST'])
-def remove_sticker_pack(pack_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    UserStickerPack.query.filter_by(user_id=session['user_id'], pack_id=pack_id).delete()
-    db.session.commit()
-    return jsonify({'success': True})
-
-@app.route('/stickers/my')
-def my_stickers():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    user_packs = UserStickerPack.query.filter_by(user_id=uid).all()
-    result = []
-    for usp in user_packs:
-        p = StickerPack.query.get(usp.pack_id)
-        if not p:
-            continue
-        stickers = Sticker.query.filter_by(pack_id=p.id).order_by(Sticker.order_index).all()
-        result.append({
-            'id': p.id, 'name': p.name,
-            'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji': s.emoji_hint} for s in stickers]
-        })
-    return jsonify({'packs': result})
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # МАГАЗИН ПОДАРКОВ
@@ -9061,25 +9021,40 @@ def send_gift():
                   content=gift_msg_content, message_type='gift')
     db.session.add(msg)
     db.session.commit()
-    # Socket уведомление
-    socketio.emit('new_message', {
-        'id': msg.id, 'sender_id': uid, 'receiver_id': recipient_id,
+    # Socket уведомление — формат совместимый с handleNewMessage
+    sender_info = {
+        'id': sender.id, 'username': sender.username,
+        'display_name': sender.display_name or sender.username,
+        'avatar_color': sender.avatar_color,
+        'avatar_letter': sender.get_avatar_letter(),
+        'avatar_url': sender.avatar_url,
+    }
+    gift_data = {
+        'id': gift_type.id, 'name': gift_type.name,
+        'emoji': gift_type.emoji, 'price': gift_type.price_sparks,
+        'rarity': gift_type.rarity, 'description': gift_type.description,
+        'user_gift_id': user_gift.id
+    }
+    msg_payload = {
+        'id': msg.id, 'sender_id': uid,
         'content': gift_msg_content, 'message_type': 'gift',
-        'timestamp': msg.timestamp.strftime('%H:%M'),
-        'gift': {'id': gift_type.id, 'name': gift_type.name,
-                 'emoji': gift_type.emoji, 'price': gift_type.price_sparks,
-                 'rarity': gift_type.rarity, 'description': gift_type.description,
-                 'user_gift_id': user_gift.id}
-    }, room=f'user_{recipient_id}')
+        'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
+        'timestamp_iso': msg.timestamp.isoformat() + 'Z',
+        'media_url': None, 'media_files': [], 'duration': None,
+        'is_deleted': False, 'is_read': False, 'reply_to': None,
+        'bot_buttons': [], 'sticker_pack_id': None,
+        'gift': gift_data,
+    }
     socketio.emit('new_message', {
-        'id': msg.id, 'sender_id': uid, 'receiver_id': recipient_id,
-        'content': gift_msg_content, 'message_type': 'gift',
-        'timestamp': msg.timestamp.strftime('%H:%M'),
-        'gift': {'id': gift_type.id, 'name': gift_type.name,
-                 'emoji': gift_type.emoji, 'price': gift_type.price_sparks,
-                 'rarity': gift_type.rarity, 'description': gift_type.description,
-                 'user_gift_id': user_gift.id}
-    }, room=f'user_{uid}')
+        'message': {**msg_payload, 'is_mine': False},
+        'other_user_id': uid,
+        'sender_info': sender_info,
+    }, room=f'user_{recipient_id}', namespace='/')
+    socketio.emit('new_message', {
+        'message': {**msg_payload, 'is_mine': True},
+        'other_user_id': recipient_id,
+        'sender_info': sender_info,
+    }, room=f'user_{uid}', namespace='/')
     return jsonify({'success': True, 'new_balance': balance_obj.balance})
 
 @app.route('/gifts/my')
