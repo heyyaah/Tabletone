@@ -1193,6 +1193,7 @@ function displaySearchResults(data) {
 // Открытие чата с пользователем
 async function openChat(userId, username) {
     console.log('[openChat] called, userId=', userId, 'username=', username);
+    _cancelReply();
     currentChatUserId = userId;
     _favoritesOpen = false;
     openedChats.add(userId);
@@ -1829,6 +1830,7 @@ function showChatList() {
 
 // Обновленная функция открытия чата для мобильных
 window.openChat = async function(userId, displayName, avatarColor, avatarLetter) {
+    _cancelReply();
     currentChatUserId = userId;
     currentGroupId = null; // Сбрасываем текущую группу
     openedChats.add(userId); // Помечаем чат как открытый — бейдж не показываем
@@ -3039,6 +3041,7 @@ function setupGroupItemListeners() {
 // Открытие группы
 async function openGroup(groupId, groupName) {
     console.log('openGroup called:', groupId, groupName);
+    _cancelReply();
     currentChatUserId = null;
     _isSending = false;
     _favoritesOpen = false;
@@ -4486,6 +4489,7 @@ window.toggleChannelMute = toggleChannelMute;
 let _favoritesOpen = false;
 
 async function openFavorites() {
+    _cancelReply();
     currentChatUserId = null;
     currentGroupId = null;
     _currentGroupData = null;
