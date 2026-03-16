@@ -6069,7 +6069,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": text}
                     ],
-                    "max_tokens": 1024
+                    "max_tokens": 512
                 }).encode('utf-8')
 
                 req = urllib.request.Request(
