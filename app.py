@@ -9112,7 +9112,7 @@ def gift_info(gift_type_id):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/api/link_preview')
-def link_preview():
+def api_link_preview():
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401
     url = request.args.get('url', '').strip()
