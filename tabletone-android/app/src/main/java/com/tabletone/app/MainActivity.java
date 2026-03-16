@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setSupportZoom(false);
+        settings.setTextZoom(100);
 
         // Убираем стандартный WebView User-Agent, ставим как нативное приложение
         settings.setUserAgentString(
@@ -140,7 +141,12 @@ public class MainActivity extends AppCompatActivity {
             retryBtn.setOnClickListener(v -> {
                 if (isOnline()) {
                     dialog.dismiss();
-                    webView.reload();
+                    String currentUrl = webView.getUrl();
+                    if (currentUrl == null || currentUrl.isEmpty() || currentUrl.equals("about:blank")) {
+                        webView.loadUrl(APP_URL);
+                    } else {
+                        webView.reload();
+                    }
                 } else {
                     dialog.dismiss();
                     showOfflineDialog();
