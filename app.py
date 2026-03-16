@@ -721,8 +721,9 @@ class SecretMessage(db.Model):
 # ── Закреплённые сообщения в группах (расширение) ────────────────────────────
 # (уже есть PinnedMessage)
 
-with app.app_context():
-    from sqlalchemy import text
+def _init_db():
+    with app.app_context():
+        from sqlalchemy import text
 
     # Создаём таблицы без новых колонок — временно отключаем email в метаданных
     # через прямой SQL чтобы избежать конфликта
@@ -1221,6 +1222,9 @@ def check_ip_ban():
     ip = request.remote_addr
     if ip and BannedIP.query.filter_by(ip_address=ip).first():
         return jsonify({'error': 'Ваш IP заблокирован.'}), 403
+
+
+eventlet.spawn(_init_db)
 
 @app.route('/admin/reports', methods=['GET'])
 def get_reports():
