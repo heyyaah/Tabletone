@@ -3355,6 +3355,9 @@ def get_user_info(user_id):
         'is_bot': user.is_bot,
         'reputation': user.reputation if user.reputation is not None else 100,
         'premium_emoji': user.premium_emoji,
+        'status_text': user.status_text,
+        'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+        'is_online': user.id in online_users,
         'created_at': user.created_at.strftime('%d.%m.%Y')
     })
 
@@ -9245,6 +9248,89 @@ def generate_invite_link(group_id):
         group.invite_link = secrets.token_urlsafe(12)
         db.session.commit()
     return jsonify({'link': f'/join/{group.invite_link}'})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# РОЛИ В ГРУППАХ
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/groups/<int:group_id>/roles', methods=['GET'])
+def get_group_roles(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    roles = GroupRole.query.filter_by(group_id=group_id).all()
+    return jsonify({'roles': [{'id': r.id, 'name': r.name, 'color': r.color, 'permissions': r.permissions} for r in roles]})
+
+@app.route('/groups/<int:group_id>/roles', methods=['POST'])
+def create_group_role(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    group = Group.query.get_or_404(group_id)
+    if group.creator_id != uid:
+        return jsonify({'error': 'Нет прав'}), 403
+    data = request.get_json()
+    role = GroupRole(group_id=group_id, name=data.get('name','Роль'), color=data.get('color','#667eea'), permissions=data.get('permissions','{}'))
+    db.session.add(role)
+    db.session.commit()
+    return jsonify({'success': True, 'id': role.id, 'name': role.name, 'color': role.color})
+
+@app.route('/groups/<int:group_id>/roles/<int:role_id>', methods=['DELETE'])
+def delete_group_role(group_id, role_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    group = Group.query.get_or_404(group_id)
+    if group.creator_id != uid:
+        return jsonify({'error': 'Нет прав'}), 403
+    role = GroupRole.query.get_or_404(role_id)
+    GroupMemberRole.query.filter_by(role_id=role_id).delete()
+    db.session.delete(role)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/groups/<int:group_id>/members/<int:member_id>/role', methods=['POST'])
+def assign_member_role(group_id, member_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    uid = session['user_id']
+    group = Group.query.get_or_404(group_id)
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
+    is_admin = group.creator_id == uid or (member and member.is_admin)
+    if not is_admin:
+        return jsonify({'error': 'Нет прав'}), 403
+    data = request.get_json()
+    role_id = data.get('role_id')
+    # Remove existing role
+    GroupMemberRole.query.filter_by(group_id=group_id, user_id=member_id).delete()
+    if role_id:
+        mr = GroupMemberRole(group_id=group_id, user_id=member_id, role_id=role_id)
+        db.session.add(mr)
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/groups/<int:group_id>/members_with_roles', methods=['GET'])
+def get_members_with_roles(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    members = GroupMember.query.filter_by(group_id=group_id).all()
+    result = []
+    for m in members:
+        user = User.query.get(m.user_id)
+        if not user:
+            continue
+        mr = GroupMemberRole.query.filter_by(group_id=group_id, user_id=m.user_id).first()
+        role = GroupRole.query.get(mr.role_id) if mr else None
+        result.append({
+            'user_id': user.id,
+            'username': user.username,
+            'display_name': user.display_name or user.username,
+            'avatar_color': user.avatar_color,
+            'avatar_url': user.avatar_url,
+            'is_admin': m.is_admin,
+            'role': {'id': role.id, 'name': role.name, 'color': role.color} if role else None
+        })
+    return jsonify({'members': result})
 
 @app.route('/privacy')
 def privacy():

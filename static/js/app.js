@@ -3624,6 +3624,13 @@ async function showUserInfo(userId) {
                     ` : ''}
                     
                     ${!data.is_bot ? `
+                    ${data.status_text ? `<div style="text-align:center;margin-bottom:10px;font-size:14px;color:var(--text-secondary);font-style:italic;">"${escapeHtml(data.status_text)}"</div>` : ''}
+                    <div style="display:flex;gap:6px;color:#a0aec0;font-size:13px;justify-content:center;margin-bottom:8px;">
+                        <span style="display:flex;align-items:center;gap:5px;">
+                            <span style="width:8px;height:8px;border-radius:50%;background:${data.is_online ? '#48bb78' : '#a0aec0'};display:inline-block;flex-shrink:0;"></span>
+                            ${data.is_online ? 'В сети' : (data.last_seen ? 'был(а) ' + formatLastSeen(data.last_seen) : 'Не в сети')}
+                        </span>
+                    </div>
                     <div style="display: flex; gap: 10px; color: #a0aec0; font-size: 14px; justify-content: center;">
                         <span><i class="fas fa-calendar"></i> На сайте с ${data.created_at}</span>
                     </div>
@@ -3990,7 +3997,23 @@ function _renderGroupInfoModal(data, groupId) {
                     <button onclick="saveSpamKeywords(${groupId})" style="margin-top:6px;padding:6px 14px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Сохранить</button>
                 </div>` : ''}
 
-                <button onclick="saveGroupSettings(${groupId})" style="width:100%;padding:10px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;margin-bottom:8px;">
+                
+                <!-- Роли участников -->
+                ${!g.is_channel ? `<div style="margin-bottom:14px;">
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:6px;"><i class="fas fa-shield-alt"></i> Роли участников</label>
+                    <div id="gs-roles-list" style="margin-bottom:8px;"></div>
+                    <button onclick="loadGroupRolesUI(${groupId})" style="padding:6px 14px;border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:6px;">
+                        <i class="fas fa-sync-alt"></i> Загрузить роли и участников
+                    </button>
+                    <div style="display:flex;gap:6px;margin-top:6px;">
+                        <input id="gs-new-role-name" type="text" placeholder="Название роли" style="flex:1;padding:7px 10px;border:1px solid var(--border-color);border-radius:8px;font-size:13px;">
+                        <input id="gs-new-role-color" type="color" value="#667eea" style="width:36px;height:34px;border:1px solid var(--border-color);border-radius:8px;cursor:pointer;padding:2px;">
+                        <button onclick="createGroupRoleUI(${groupId})" style="padding:6px 12px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>` : ''}
+<button onclick="saveGroupSettings(${groupId})" style="width:100%;padding:10px;background:var(--primary-color);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;margin-bottom:8px;">
                     <i class="fas fa-save"></i> Сохранить изменения
                 </button>
                 ${isCreator ? `
@@ -6342,6 +6365,92 @@ async function getVapidKey() {
 }
 
 // Запускаем после загрузки
+
+// ══════════════════════════════════════════════════════════════════════════════
+// РОЛИ В ГРУППАХ — UI
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function loadGroupRolesUI(groupId) {
+    const [rolesResp, membersResp] = await Promise.all([
+        fetch(`/groups/${groupId}/roles`),
+        fetch(`/groups/${groupId}/members_with_roles`)
+    ]);
+    const rolesData = await rolesResp.json();
+    const membersData = await membersResp.json();
+    const roles = rolesData.roles || [];
+    const members = membersData.members || [];
+
+    const container = document.getElementById('gs-roles-list');
+    if (!container) return;
+
+    let html = '';
+    if (roles.length) {
+        html += '<div style="margin-bottom:8px;font-size:12px;color:var(--text-secondary);font-weight:600;">РОЛИ</div>';
+        html += roles.map(r => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:4px;">
+                <span style="width:12px;height:12px;border-radius:50%;background:${r.color};flex-shrink:0;"></span>
+                <span style="flex:1;font-size:13px;font-weight:600;">${escapeHtml(r.name)}</span>
+                <button onclick="deleteGroupRoleUI(${groupId},${r.id},this.closest('div'))" style="padding:3px 8px;background:none;border:1px solid #e53e3e;border-radius:6px;color:#e53e3e;cursor:pointer;font-size:11px;"><i class="fas fa-trash"></i></button>
+            </div>
+        `).join('');
+    }
+
+    if (members.length) {
+        html += '<div style="margin:10px 0 6px;font-size:12px;color:var(--text-secondary);font-weight:600;">УЧАСТНИКИ</div>';
+        html += members.map(m => `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;margin-bottom:4px;background:var(--bg-secondary);">
+                <div style="width:28px;height:28px;border-radius:50%;background:${m.avatar_url ? 'url(' + m.avatar_url + ') center/cover' : m.avatar_color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0;">${m.avatar_url ? '' : (m.display_name[0] || '?').toUpperCase()}</div>
+                <span style="flex:1;font-size:13px;">${escapeHtml(m.display_name)}</span>
+                <select onchange="assignMemberRoleUI(${groupId},${m.user_id},this.value)" style="padding:4px 8px;border:1px solid var(--border-color);border-radius:6px;font-size:12px;background:var(--bg-primary);color:var(--text-primary);">
+                    <option value="">— Без роли —</option>
+                    ${roles.map(r => `<option value="${r.id}" ${m.role && m.role.id === r.id ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+                </select>
+            </div>
+        `).join('');
+    }
+
+    container.innerHTML = html || '<div style="color:var(--text-secondary);font-size:13px;">Нет ролей</div>';
+}
+
+async function createGroupRoleUI(groupId) {
+    const nameInput = document.getElementById('gs-new-role-name');
+    const colorInput = document.getElementById('gs-new-role-color');
+    const name = nameInput?.value.trim();
+    if (!name) { showToast('Введите название роли', 'error'); return; }
+    const resp = await fetch(`/groups/${groupId}/roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color: colorInput?.value || '#667eea' })
+    });
+    const data = await resp.json();
+    if (data.success) {
+        nameInput.value = '';
+        showToast('Роль создана', 'success');
+        loadGroupRolesUI(groupId);
+    } else {
+        showToast(data.error || 'Ошибка', 'error');
+    }
+}
+
+async function deleteGroupRoleUI(groupId, roleId, el) {
+    if (!confirm('Удалить роль?')) return;
+    const resp = await fetch(`/groups/${groupId}/roles/${roleId}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.success) { showToast('Роль удалена', 'success'); loadGroupRolesUI(groupId); }
+    else showToast(data.error || 'Ошибка', 'error');
+}
+
+async function assignMemberRoleUI(groupId, userId, roleId) {
+    const resp = await fetch(`/groups/${groupId}/members/${userId}/role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_id: roleId || null })
+    });
+    const data = await resp.json();
+    if (data.success) showToast('Роль назначена', 'success');
+    else showToast(data.error || 'Ошибка', 'error');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Небольшая задержка чтобы не мешать основной загрузке
     setTimeout(initWebPush, 3000);
