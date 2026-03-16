@@ -1211,6 +1211,55 @@ function displaySearchResults(data) {
 // Открытие чата с пользователем
 async function openChat(userId, username) {
     console.log('[openChat] called, userId=', userId, 'username=', username);
+
+    // Проверяем репутацию — показываем предупреждение если < 50%
+    // Пропускаем если уже видели предупреждение для этого пользователя
+    const _warnKey = `rep_warned_${userId}`;
+    if (!localStorage.getItem(_warnKey)) {
+        try {
+            const repResp = await fetch(`/api/user/${userId}/reputation`);
+            if (repResp.ok) {
+                const repData = await repResp.json();
+                if (repData.reputation < 50) {
+                    const proceed = await new Promise(resolve => {
+                        const modal = document.createElement('div');
+                        modal.className = 'modal active';
+                        modal.innerHTML = `
+                            <div class="modal-content" style="max-width:360px;text-align:center;">
+                                <div class="modal-header" style="justify-content:center;border-bottom:none;padding-bottom:0;">
+                                    <h2 style="color:#e53e3e;"><i class="fas fa-exclamation-triangle"></i> Внимание!</h2>
+                                </div>
+                                <div class="modal-body" style="padding-top:10px;">
+                                    <p style="font-size:15px;margin-bottom:8px;">Будьте осторожны!</p>
+                                    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">У этого пользователя репутация ниже 50%</p>
+                                    <div class="reputation-bar-bg" style="margin-bottom:20px;">
+                                        <div class="reputation-bar-fill" style="width:${repData.reputation}%;background:${repData.color};"></div>
+                                    </div>
+                                    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                                        <button class="btn btn-primary" id="_rep_ok_btn" style="min-width:120px;">Хорошо</button>
+                                        <button class="btn btn-secondary" id="_rep_no_btn" style="min-width:120px;">Лучше не надо</button>
+                                    </div>
+                                    <p style="font-size:11px;color:var(--text-secondary);margin-top:12px;">Нажав «Хорошо», вы больше не увидите это предупреждение</p>
+                                </div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                        document.getElementById('_rep_ok_btn').onclick = () => {
+                            localStorage.setItem(_warnKey, '1');
+                            modal.remove();
+                            resolve(true);
+                        };
+                        document.getElementById('_rep_no_btn').onclick = () => {
+                            modal.remove();
+                            resolve(false);
+                        };
+                    });
+                    if (!proceed) return;
+                }
+            }
+        } catch(e) {}
+    }
+
     _cancelReply();
     currentChatUserId = userId;
     _favoritesOpen = false;
