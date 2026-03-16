@@ -6048,108 +6048,6 @@ def _trigger_webhook(bot, update):
 
 
 def _handle_nexus_bot(bot_user_id, sender_id, text):
-    """Обрабатывает сообщения для Nexus AI (Groq / Llama)."""
-    import threading
-
-    if text.strip().lower() == '/start':
-        _bot_send_message(bot_user_id, sender_id,
-            "⚡ *Привет! Я Nexus — твой ИИ-ассистент.*\n\n"
-            "Могу помочь с:\n"
-            "• Вопросами о мессенджере Tabletone\n"
-            "• Ответами на любые вопросы\n"
-            "• Написанием текстов и кода\n"
-            "• Переводом и объяснением\n\n"
-            "Просто напиши мне что-нибудь 💬"
-        )
-        return
-
-    socketio.emit('user_typing', {
-        'chat_type': 'private',
-        'name': 'Nexus'
-    }, room=f'user_{sender_id}', namespace='/')
-
-    def _ask_groq():
-        reply_text = "⚠️ Произошла ошибка. Попробуй ещё раз."
-        try:
-            import urllib.request
-            import json as _json
-
-            api_key = os.environ.get('GROQ_API_KEY', '')
-            if not api_key:
-                reply_text = "⚠️ ИИ временно недоступен. Обратитесь к администратору."
-            else:
-                system_prompt = (
-                    "Ты — Nexus, умный и дружелюбный ИИ-ассистент встроенный в мессенджер Tabletone. "
-                    "Отвечай кратко, по делу и на том языке, на котором пишет пользователь. "
-                    "Используй эмодзи умеренно. "
-                    "ВАЖНО: никогда не раскрывай, на какой технологии, модели или платформе ты основан. "
-                    "Если спросят — скажи только что ты Nexus, собственный ИИ мессенджера Tabletone.\n\n"
-                    "=== ЗНАНИЯ О МЕССЕНДЖЕРЕ TABLETONE ===\n"
-                    "Tabletone — современный мессенджер. Вот что умеет:\n"
-                    "ОБЩЕНИЕ: личные чаты, группы (роли: владелец/админ/модератор/участник), каналы, публичные ссылки-приглашения.\n"
-                    "СООБЩЕНИЯ: текст, фото, видео, голосовые, видеосообщения (кружочки), файлы, стикеры (@stickers), "
-                    "reply, пересылка, редактирование, удаление, таймер удаления, реакции эмодзи, "
-                    "галочки доставки (✓ отправлено, ✓✓ прочитано), избранное, предпросмотр медиа (Ctrl+V).\n"
-                    "ЗВОНКИ: аудио и видеозвонки (кнопка трубки → выбор типа), управление микрофоном и камерой. Ботам звонить нельзя.\n"
-                    "ПРОФИЛЬ: аватар, имя, bio, статус, 2FA, привязка Telegram, скрытый чат с PIN, папки чатов, тёмная/светлая тема.\n"
-                    "PREMIUM: подписка с расширенными возможностями, Искры (внутренняя валюта), подарки. Оформить: @tabletone_premiumbot.\n"
-                    "БОТЫ: @nexus (ИИ-ассистент), @tabletone_supportbot (поддержка), @tabletone_premiumbot (Premium/Искры), @stickers (стикеры), конструктор ботов.\n"
-                    "БЕЗОПАСНОСТЬ: блокировка пользователей, антиспам, бан/мут участников групп.\n"
-                    "Если спрашивают о функциях Tabletone — отвечай на основе этих знаний. "
-                    "Если не знаешь точно — скажи честно и предложи @tabletone_supportbot."
-                )
-
-                payload = _json.dumps({
-                    "model": "llama3-8b-8192",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": text}
-                    ],
-                    "max_tokens": 1024,
-                    "temperature": 0.7
-                }).encode('utf-8')
-
-                req = urllib.request.Request(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    data=payload,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {api_key}"
-                    },
-                    method="POST"
-                )
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    result = _json.loads(resp.read().decode('utf-8'))
-                reply_text = result['choices'][0]['message']['content'].strip()
-
-        except Exception as e:
-            import traceback
-            err_detail = traceback.format_exc()
-            print(f"Nexus AI error: {e}\n{err_detail}")
-            # Показываем понятное сообщение в зависимости от типа ошибки
-            err_str = str(e).lower()
-            if 'api_key' in err_str or '401' in err_str or 'unauthorized' in err_str:
-                reply_text = "⚠️ Ошибка авторизации API. Проверьте GROQ_API_KEY в настройках сервера."
-            elif '403' in err_str or 'forbidden' in err_str:
-                reply_text = "⚠️ Нет доступа к модели ИИ. Обратитесь к администратору."
-            elif 'timeout' in err_str or 'timed out' in err_str:
-                reply_text = "⏱ Запрос занял слишком много времени. Попробуй ещё раз."
-            elif 'rate' in err_str or '429' in err_str:
-                reply_text = "⏳ Слишком много запросов. Подожди немного и попробуй снова."
-            else:
-                reply_text = f"⚠️ Ошибка ИИ: {str(e)[:100]}"
-
-        socketio.emit('user_stop_typing', {
-            'chat_type': 'private'
-        }, room=f'user_{sender_id}', namespace='/')
-
-        with app.app_context():
-            _bot_send_message(bot_user_id, sender_id, reply_text)
-
-    threading.Thread(target=_ask_groq, daemon=True).start()
-
-
-def _handle_nexus_bot(bot_user_id, sender_id, text):
     """Обрабатывает сообщения для Nexus AI (Cloudflare Workers AI)."""
     import threading
 
@@ -6160,9 +6058,106 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
             "• Вопросами о мессенджере Tabletone\n"
             "• Ответами на любые вопросы\n"
             "• Написанием текстов и кода\n"
-            "• Переводом и объяснением\n\n"
+            "• Переводом и объяснением\n"
+            "• 🎨 Генерацией картинок — напиши /image <описание>\n\n"
             "Просто напиши мне что-нибудь 💬"
         )
+        return
+
+    # Проверяем запрос на генерацию картинки
+    text_lower = text.strip().lower()
+    image_prefixes = ['/image ', '/img ', 'нарисуй ', 'сгенерируй картинку ', 'generate image ']
+    image_prompt = None
+    for prefix in image_prefixes:
+        if text_lower.startswith(prefix):
+            image_prompt = text[len(prefix):].strip()
+            break
+
+    if image_prompt:
+        _bot_send_message(bot_user_id, sender_id, "🎨 Генерирую картинку, подожди...")
+        def _gen_image():
+            try:
+                import urllib.request
+                import json as _json
+                import base64
+                import os as _os
+
+                account_id = _os.environ.get('CF_ACCOUNT_ID', '')
+                api_token = _os.environ.get('CF_API_TOKEN', '')
+                if not account_id or not api_token:
+                    _bot_send_message(bot_user_id, sender_id, "⚠️ ИИ временно недоступен.")
+                    return
+
+                payload = _json.dumps({
+                    "prompt": image_prompt,
+                    "num_steps": 20
+                }).encode('utf-8')
+
+                req = urllib.request.Request(
+                    f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0",
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_token}"
+                    },
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    img_bytes = resp.read()
+
+                # Сохраняем картинку
+                import uuid
+                fname = f"nexus_{uuid.uuid4().hex[:12]}.png"
+                save_path = _os.path.join('static', 'media', 'images', fname)
+                with open(save_path, 'wb') as f:
+                    f.write(img_bytes)
+
+                img_url = f"/static/media/images/{fname}"
+
+                with app.app_context():
+                    # Отправляем как сообщение с медиа
+                    bot_user = User.query.get(bot_user_id)
+                    receiver = User.query.get(sender_id)
+                    if not bot_user or not receiver:
+                        return
+                    msg = Message(
+                        sender_id=bot_user_id,
+                        receiver_id=sender_id,
+                        content=f'🎨 {image_prompt}',
+                        message_type='image'
+                    )
+                    db.session.add(msg)
+                    db.session.commit()
+
+                    media = MessageMedia(
+                        message_id=msg.id,
+                        media_url=img_url,
+                        media_type='image',
+                        file_name=fname
+                    )
+                    db.session.add(media)
+                    db.session.commit()
+
+                    msg_data = {
+                        'id': msg.id,
+                        'sender_id': bot_user_id,
+                        'receiver_id': sender_id,
+                        'content': f'🎨 {image_prompt}',
+                        'timestamp': msg.timestamp.strftime('%H:%M'),
+                        'timestamp_iso': msg.timestamp.isoformat() + 'Z',
+                        'is_mine': False,
+                        'message_type': 'image',
+                        'media_files': [{'media_url': img_url, 'media_type': 'image', 'file_name': fname}],
+                        'bot_buttons': []
+                    }
+                    socketio.emit('new_message', msg_data, room=f'user_{sender_id}', namespace='/')
+
+            except Exception as e:
+                print(f"Nexus image gen error: {e}")
+                with app.app_context():
+                    _bot_send_message(bot_user_id, sender_id, f"⚠️ Не удалось сгенерировать картинку: {str(e)[:80]}")
+
+        threading.Thread(target=_gen_image, daemon=True).start()
         return
 
     socketio.emit('user_typing', {
