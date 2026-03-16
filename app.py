@@ -2737,9 +2737,12 @@ def send_voice_message():
     if not receiver_id:
         return jsonify({'error': 'Получатель не указан'}), 400
     
-    receiver = User.query.get( int(receiver_id))
-    if not receiver or receiver.is_banned:
-        return jsonify({'error': 'Получатель не найден'}), 404
+    receiver = User.query.get(int(receiver_id))
+    if not receiver:
+        app.logger.warning(f"send_voice: receiver {receiver_id} not found")
+        return jsonify({'error': f'Получатель {receiver_id} не найден'}), 404
+    if receiver.is_banned:
+        return jsonify({'error': 'Получатель заблокирован'}), 404
     
     # Сохраняем файл
     filename = secure_filename(f"voice_{session['user_id']}_{int(time.time())}.webm")
@@ -2750,7 +2753,7 @@ def send_voice_message():
     # Создаем сообщение
     message = Message(
         sender_id=session['user_id'],
-        receiver_id=receiver_id,
+        receiver_id=int(receiver_id),
         content='[Голосовое сообщение]',
         message_type='voice',
         media_url=f'/static/media/voice/{filename}',

@@ -6927,6 +6927,7 @@ async function _uploadVoice() {
     const blob = new Blob(_voiceChunks, { type: 'audio/webm' });
     const duration = Math.floor((Date.now() - _voiceStartTime) / 1000);
     if (duration < 1) return;
+    if (!currentChatUserId) { showToast('Откройте чат перед записью', 'error'); return; }
     const fd = new FormData();
     fd.append('audio', blob, 'voice.webm');
     fd.append('receiver_id', currentChatUserId);
