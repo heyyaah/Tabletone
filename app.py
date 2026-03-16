@@ -6593,8 +6593,10 @@ def _send_email_2fa(to_email, code):
 def _send_telegram_2fa(chat_id, code):
     """Отправляет код 2FA через Telegram бота."""
     import urllib.request
+    import urllib.error
     token = os.environ.get('TELEGRAM_BOT_TOKEN')
     if not token:
+        print("[2FA] TELEGRAM_BOT_TOKEN not set — cannot send Telegram 2FA")
         return
     text = (
         f"🔐 Код входа в Tabletone:\n\n"
@@ -6605,7 +6607,16 @@ def _send_telegram_2fa(chat_id, code):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     data = json.dumps({'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'}).encode()
     req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
-    urllib.request.urlopen(req, timeout=5)
+    try:
+        resp = urllib.request.urlopen(req, timeout=5)
+        print(f"[2FA] Telegram message sent to chat_id={chat_id}, status={resp.status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        print(f"[2FA] Telegram HTTPError {e.code} for chat_id={chat_id}: {body}")
+        raise
+    except Exception as e:
+        print(f"[2FA] Telegram send failed for chat_id={chat_id}: {type(e).__name__}: {e}")
+        raise
 
 
 
