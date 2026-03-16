@@ -5610,8 +5610,7 @@ def _delete_group_cascade(group_id):
         "DELETE FROM favorite_message WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
         # media
         "DELETE FROM group_message_media WHERE message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
-        # reactions
-        "DELETE FROM group_message_reaction WHERE group_id = :gid",
+        # reactions (group_message_reaction table does not exist, reactions are in message_reaction)
         "DELETE FROM message_reaction WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
         # last read
         "DELETE FROM last_read_group_message WHERE group_id = :gid",
@@ -5663,12 +5662,13 @@ def _delete_user_cascade(user_id):
         "DELETE FROM story WHERE user_id = :uid",
         # reports
         "DELETE FROM report WHERE reporter_id = :uid OR reported_user_id = :uid",
-        # verification / admin apps / password reset
+        # verification / admin apps
         "DELETE FROM verification_request WHERE user_id = :uid",
         "DELETE FROM admin_application WHERE user_id = :uid",
-        "DELETE FROM password_reset_request WHERE user_id = :uid",
-        # bots owned by user
-        "DELETE FROM bot_command WHERE bot_id IN (SELECT id FROM bot WHERE owner_id = :uid)",
+        # password_reset_request has no user_id column, only reviewed_by
+        "UPDATE password_reset_request SET reviewed_by = NULL WHERE reviewed_by = :uid",
+        # bots: commands first, then bot
+        "DELETE FROM bot_command WHERE bot_id IN (SELECT id FROM bot WHERE owner_id = :uid OR user_id = :uid)",
         "DELETE FROM bot WHERE owner_id = :uid OR user_id = :uid",
         # hidden chats
         "DELETE FROM hidden_chat WHERE user_id = :uid OR other_user_id = :uid",
@@ -5678,9 +5678,8 @@ def _delete_user_cascade(user_id):
         "DELETE FROM message_reaction WHERE user_id = :uid",
         "DELETE FROM message_media WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)",
         "DELETE FROM message WHERE sender_id = :uid OR receiver_id = :uid",
-        # group membership
+        # group membership (group_message_reaction table does not exist, reactions are in message_reaction)
         "DELETE FROM last_read_group_message WHERE user_id = :uid",
-        "DELETE FROM group_message_reaction WHERE user_id = :uid",
         "DELETE FROM group_member WHERE user_id = :uid",
         "DELETE FROM slow_mode_tracker WHERE user_id = :uid",
         # contacts, sessions, tickets, stickers
