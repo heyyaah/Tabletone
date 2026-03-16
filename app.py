@@ -3993,14 +3993,42 @@ def remove_user(user_id):
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
     
-    # Удаляем все сообщения пользователя
-    Message.query.filter(
-        (Message.sender_id == user_id) | (Message.receiver_id == user_id)
-    ).delete()
-    
+    try:
+        from sqlalchemy import text as _text
+        with db.engine.connect() as _conn:
+            # Удаляем FK-зависимые записи
+            for tbl in ['last_read_message']:
+                try:
+                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE user_id = :uid OR chat_with_user_id = :uid"), {"uid": user_id})
+                except Exception: pass
+            try:
+                _conn.execute(_text("DELETE FROM last_read_message WHERE last_read_message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)"), {"uid": user_id})
+            except Exception: pass
+            for tbl in ['message_reaction', 'message_media']:
+                try:
+                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)"), {"uid": user_id})
+                except Exception: pass
+            try:
+                _conn.execute(_text("DELETE FROM message_reaction WHERE user_id = :uid"), {"uid": user_id})
+            except Exception: pass
+            try:
+                _conn.execute(_text("DELETE FROM message WHERE sender_id = :uid OR receiver_id = :uid"), {"uid": user_id})
+            except Exception: pass
+            for tbl in ['last_read_group_message', 'group_message_reaction', 'group_member', 'contact', 'user_session', 'support_ticket', 'user_sticker_pack']:
+                try:
+                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE user_id = :uid"), {"uid": user_id})
+                except Exception: pass
+            try:
+                _conn.execute(_text("DELETE FROM contact WHERE contact_id = :uid"), {"uid": user_id})
+            except Exception: pass
+            _conn.commit()
+    except Exception as e:
+        print(f"remove_user cleanup error: {e}")
+        db.session.rollback()
+
     db.session.delete(user)
     db.session.commit()
-    
+
     return jsonify({'success': True})
 
 # Бан пользователя
