@@ -2969,7 +2969,8 @@ body[data-theme="dark"] .profile-card {
     }
 
     .chat-header .icon-btn:not(.back-btn):not(#add-to-chat-btn):not(#call-btn):not(#clear-history-btn) { display: none !important; }
-    .chat-header .icon-btn[onclick="viewChatInfo()"] { display: flex !important; }
+    .chat-header .icon-btn[onclick="viewChatInfo()"],
+    .chat-header .icon-btn[onclick="showReportModal()"] { display: flex !important; }
 
     .chat-user-info { flex: 1; min-width: 0; }
     .chat-user-info h3 {
