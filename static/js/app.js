@@ -2052,6 +2052,7 @@ window.openChat = async function(userId, displayName, avatarColor, avatarLetter)
 
 // Добавление сообщения в чат
 function addMessageToChat(message) {
+    console.log('[addMessageToChat]', JSON.stringify({id: message.id, type: message.message_type, media_url: message.media_url ? message.media_url.substring(0,50) : null, content: message.content}));
     const container = document.getElementById('messages-container');
     
     // Проверяем, не добавлено ли уже это сообщение
