@@ -1058,7 +1058,10 @@ function displayChats(users) {
         // Определяем статус
         let statusText = 'Offline';
         let statusColor = '#a0aec0';
-        if (user.is_online) {
+        if (user.is_bot) {
+            statusText = 'Бот';
+            statusColor = '#667eea';
+        } else if (user.is_online) {
             statusText = 'Online';
             statusColor = '#38a169';
         } else if (user.last_seen) {
@@ -1387,7 +1390,10 @@ async function loadMessages(userId) {
             
             // Обновляем статус
             if (chatStatus) {
-                if (data.other_user.is_online) {
+                if (data.other_user.is_bot) {
+                    chatStatus.textContent = 'Бот';
+                    chatStatus.style.color = '#667eea';
+                } else if (data.other_user.is_online) {
                     chatStatus.textContent = 'Online';
                     chatStatus.style.color = '#38a169';
                 } else if (data.other_user.last_seen) {
@@ -2272,6 +2278,8 @@ function updateUserOnlineStatus(userId, isOnline, lastSeen = null) {
     const chatItem = document.querySelector(`.chat-item[data-user-id="${userId}"]`);
     if (chatItem) {
         const statusEl = chatItem.querySelector('.user-status');
+        // Не трогаем статус ботов
+        if (statusEl && statusEl.textContent === 'Бот') return;
         if (statusEl) {
             if (isOnline) {
                 statusEl.textContent = 'Online';
