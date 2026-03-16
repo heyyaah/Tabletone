@@ -5962,7 +5962,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                 )
 
                 payload = _json.dumps({
-                    "model": "llama3-70b-8192",
+                    "model": "llama3-8b-8192",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": text}
