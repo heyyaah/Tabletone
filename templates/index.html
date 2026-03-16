@@ -240,6 +240,12 @@
                     <button type="button" class="media-btn" id="sticker-btn" title="Стикеры" onclick="toggleStickerPanel()">
                         <i class="fas fa-sticky-note"></i>
                     </button>
+                    <button type="button" class="media-btn" id="voice-btn" title="Голосовое сообщение" onmousedown="startVoiceRecord()" onmouseup="stopVoiceRecord()" ontouchstart="startVoiceRecord()" ontouchend="stopVoiceRecord()">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button type="button" class="media-btn" id="gift-btn" title="Подарок" onclick="showGiftShop()">
+                        <i class="fas fa-gift"></i>
+                    </button>
                     <input type="text" id="message-input" 
                            placeholder="Введите сообщение..." autocomplete="off">
                     <!-- @mention dropdown -->
@@ -377,7 +383,105 @@
     </div>
 </div>
 
-{% endblock %}
+<!-- ═══ МАГАЗИН СТИКЕРОВ ═══ -->
+<div id="sticker-shop-modal" class="modal">
+    <div class="modal-content" style="max-width:500px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-store"></i> Магазин стикеров</h3>
+            <button class="close-btn" onclick="document.getElementById('sticker-shop-modal').classList.remove('active')">&times;</button>
+        </div>
+        <div class="modal-body" id="sticker-shop-body" style="max-height:60vh;overflow-y:auto;">
+            <div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ МАГАЗИН ПОДАРКОВ ═══ -->
+<div id="gift-shop-modal" class="modal">
+    <div class="modal-content" style="max-width:520px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-gift"></i> Подарок</h3>
+            <button class="close-btn" onclick="document.getElementById('gift-shop-modal').classList.remove('active')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="gift-recipient-info" style="display:flex;align-items:center;gap:10px;padding:10px 0 14px;border-bottom:1px solid var(--border-color);margin-bottom:14px;">
+                <div id="gift-recipient-avatar" style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:16px;flex-shrink:0;"></div>
+                <div>
+                    <div style="font-weight:600;" id="gift-recipient-name"></div>
+                    <div style="font-size:12px;color:var(--text-secondary);">Получатель подарка</div>
+                </div>
+                <div style="margin-left:auto;font-size:13px;color:var(--text-secondary);">Баланс: <span id="gift-balance" style="color:#667eea;font-weight:700;"></span> ✨</div>
+            </div>
+            <div id="gift-shop-body" style="max-height:50vh;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;">
+                <div style="text-align:center;padding:20px;color:var(--text-secondary);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ПРОСМОТР ПОДАРКА В ЧАТЕ ═══ -->
+<div id="gift-view-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content" style="max-width:360px;text-align:center;">
+        <div class="modal-body" style="padding:30px 20px;">
+            <div id="gift-view-emoji" style="font-size:72px;margin-bottom:12px;"></div>
+            <div id="gift-view-name" style="font-size:20px;font-weight:700;margin-bottom:6px;"></div>
+            <div id="gift-view-rarity" style="font-size:13px;margin-bottom:10px;"></div>
+            <div id="gift-view-desc" style="font-size:14px;color:var(--text-secondary);margin-bottom:14px;"></div>
+            <div id="gift-view-price" style="font-size:14px;color:#667eea;font-weight:600;margin-bottom:6px;"></div>
+            <div id="gift-view-total" style="font-size:12px;color:var(--text-secondary);margin-bottom:20px;"></div>
+            <div id="gift-view-add-btn"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="document.getElementById('gift-view-modal').classList.remove('active')">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ СЕКРЕТНЫЙ ЧАТ ═══ -->
+<div id="secret-chat-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content" style="max-width:480px;">
+        <div class="modal-header" style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;border-radius:12px 12px 0 0;">
+            <h3 style="color:white;"><i class="fas fa-lock" style="color:#667eea;"></i> Секретный чат</h3>
+            <button class="close-btn" style="color:white;" onclick="closeSecretChat()">&times;</button>
+        </div>
+        <div class="modal-body" style="background:#0f0f1a;color:#e2e8f0;min-height:300px;max-height:50vh;overflow-y:auto;padding:12px;" id="secret-messages-container">
+            <div style="text-align:center;padding:30px;color:#718096;">
+                <i class="fas fa-lock" style="font-size:32px;margin-bottom:10px;display:block;color:#667eea;"></i>
+                Сообщения зашифрованы и не хранятся на сервере после закрытия чата
+            </div>
+        </div>
+        <div style="background:#0f0f1a;padding:10px;border-top:1px solid #2d3748;display:flex;gap:8px;align-items:center;">
+            <input type="text" id="secret-msg-input" placeholder="Секретное сообщение..." 
+                style="flex:1;background:#1a1a2e;border:1px solid #2d3748;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:14px;"
+                onkeydown="if(event.key==='Enter')sendSecretMessage()">
+            <select id="secret-destruct" style="background:#1a1a2e;border:1px solid #2d3748;border-radius:8px;padding:8px;color:#a0aec0;font-size:12px;">
+                <option value="0">Не удалять</option>
+                <option value="10">10 сек</option>
+                <option value="30">30 сек</option>
+                <option value="60">1 мин</option>
+            </select>
+            <button onclick="sendSecretMessage()" style="background:#667eea;border:none;border-radius:8px;padding:8px 14px;color:white;cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+        </div>
+        <div style="background:#0f0f1a;padding:8px 10px;border-top:1px solid #1a1a2e;display:flex;justify-content:flex-end;">
+            <button onclick="closeAndDeleteSecretChat()" style="background:#e53e3e;border:none;border-radius:6px;padding:6px 14px;color:white;font-size:12px;cursor:pointer;"><i class="fas fa-trash"></i> Закрыть и удалить</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ПРЕДУПРЕЖДЕНИЕ О БЛОКИРОВКЕ ═══ -->
+<div id="blocked-warning-modal" class="modal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-content" style="max-width:360px;text-align:center;">
+        <div class="modal-body" style="padding:28px 20px;">
+            <i class="fas fa-ban" style="font-size:48px;color:#e53e3e;margin-bottom:14px;display:block;"></i>
+            <h3 style="margin-bottom:8px;" id="blocked-warning-title">Пользователь заблокирован</h3>
+            <p style="color:var(--text-secondary);font-size:14px;" id="blocked-warning-text"></p>
+        </div>
+        <div class="modal-footer" style="gap:10px;">
+            <button class="btn btn-secondary" onclick="document.getElementById('blocked-warning-modal').classList.remove('active')">Закрыть</button>
+            <button class="btn btn-danger" id="unblock-btn-modal" style="display:none;" onclick="unblockFromModal()">Разблокировать</button>
+        </div>
+    </div>
+</div>
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/app.js') }}?v={{ range(10000,99999)|random }}"></script>

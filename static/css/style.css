@@ -3320,3 +3320,71 @@ body:not(.messenger-page) .container {
 /* ── Истории ─────────────────────────────────────────────────────────────── */
 #stories-bar::-webkit-scrollbar { display: none; }
 #stories-list::-webkit-scrollbar { display: none; }
+
+
+/* ═══ ГОЛОСОВЫЕ СООБЩЕНИЯ ═══ */
+.voice-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    min-width: 200px;
+}
+.voice-play-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #667eea;
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.voice-waveform {
+    flex: 1;
+    height: 28px;
+    background: linear-gradient(to right, #667eea 0%, #667eea var(--progress, 0%), var(--border-color) var(--progress, 0%));
+    border-radius: 4px;
+    cursor: pointer;
+}
+.voice-duration {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* ═══ СЕКРЕТНЫЙ ЧАТ — кнопка в меню ═══ */
+.secret-chat-btn {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #667eea;
+    border: 1px solid #667eea;
+}
+
+/* ═══ БЛОКИРОВКА — индикатор ═══ */
+.blocked-indicator {
+    background: #fee2e2;
+    color: #991b1b;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    text-align: center;
+    margin: 8px;
+}
+
+/* ═══ ПРЕДПРОСМОТР ССЫЛОК ═══ */
+#link-preview-bar {
+    animation: slideUp 0.2s ease;
+}
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══ ПОДАРКИ В ЧАТЕ ═══ */
+.gift-message-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0;
+}

@@ -1572,6 +1572,19 @@ function createMessageHTML(msg) {
         
         content = mediaHtml;
     }
+    // Голосовое сообщение
+    else if (msg.message_type === 'voice' && msg.media_url) {
+        const dur = msg.duration || 0;
+        const m = String(Math.floor(dur / 60)).padStart(2, '0');
+        const s = String(dur % 60).padStart(2, '0');
+        const uid = 'voice_' + msg.id;
+        content = `<div class="voice-message">
+            <button class="voice-play-btn" onclick="playVoiceMsg('${msg.media_url}','${uid}',this)"><i class="fas fa-play"></i></button>
+            <div class="voice-waveform" id="${uid}_bar"></div>
+            <span class="voice-duration" id="${uid}_dur">${m}:${s}</span>
+            <audio id="${uid}" src="${msg.media_url}" onended="resetVoiceBtn('${uid}')"></audio>
+        </div>`;
+    }
     // Стикер
     else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
         const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : msg.media_url;
@@ -1603,6 +1616,8 @@ function createMessageHTML(msg) {
         if (msg.message_type === 'poll' && msg.poll_id) {
             content = `<div class="poll-widget" id="poll-widget-${msg.poll_id}"><div class="poll-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка опроса...</div></div>`;
             setTimeout(() => loadAndShowPoll(msg.poll_id, `poll-widget-${msg.poll_id}`), 50);
+        } else if (msg.message_type === 'gift' && msg.gift) {
+            content = renderGiftMessage(msg);
         } else {
             content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
         }
@@ -3403,6 +3418,8 @@ function createGroupMessageHTML(msg) {
         if (msg.message_type === 'poll' && msg.poll_id) {
             content = `<div class="poll-widget" id="poll-widget-${msg.poll_id}"><div class="poll-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка опроса...</div></div>`;
             setTimeout(() => loadAndShowPoll(msg.poll_id, `poll-widget-${msg.poll_id}`), 50);
+        } else if (msg.message_type === 'gift' && msg.gift) {
+            content = renderGiftMessage(msg);
         } else {
             content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
         }
@@ -3645,10 +3662,45 @@ async function showUserInfo(userId) {
                     if (barEl) { barEl.style.width = rep.reputation + '%'; barEl.style.background = rep.color; }
                     if (lvlEl) { lvlEl.textContent = rep.level; lvlEl.style.color = rep.color; }
                 }).catch(() => {});
+
+            // Кнопки действий
+            const actionsDiv = document.createElement('div');
+            actionsDiv.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;padding:0 20px 16px;';
+            checkBlockStatus(userId).then(bs => {
+                actionsDiv.innerHTML = `
+                    <button onclick="openSecretChat(${userId},'${escapeHtml(data.display_name)}');this.closest('.modal').remove();"
+                        style="padding:8px 16px;border-radius:10px;border:1px solid #667eea;background:transparent;color:#667eea;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                        <i class="fas fa-lock"></i> Секретный чат
+                    </button>
+                    <button id="block-btn-${userId}" onclick="toggleBlockFromInfo(${userId},'${escapeHtml(data.display_name)}',this)"
+                        style="padding:8px 16px;border-radius:10px;border:1px solid ${bs.i_blocked ? '#38a169' : '#e53e3e'};background:transparent;color:${bs.i_blocked ? '#38a169' : '#e53e3e'};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                        <i class="fas fa-${bs.i_blocked ? 'unlock' : 'ban'}"></i> ${bs.i_blocked ? 'Разблокировать' : 'Заблокировать'}
+                    </button>
+                    <a href="/u/${escapeHtml(data.username)}" target="_blank"
+                        style="padding:8px 16px;border-radius:10px;border:1px solid var(--border-color);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;text-decoration:none;">
+                        <i class="fas fa-external-link-alt"></i> Профиль
+                    </a>
+                `;
+                modal.querySelector('.modal-content').appendChild(actionsDiv);
+            });
         }
     } catch (error) {
         console.error('Ошибка загрузки информации о пользователе:', error);
         showError('Не удалось загрузить информацию');
+    }
+}
+
+async function toggleBlockFromInfo(userId, name, btn) {
+    const isBlocked = btn.textContent.includes('Разблокировать');
+    if (isBlocked) {
+        await unblockUser(userId);
+        btn.innerHTML = '<i class="fas fa-ban"></i> Заблокировать';
+        btn.style.color = '#e53e3e'; btn.style.borderColor = '#e53e3e';
+    } else {
+        if (!confirm(`Заблокировать ${name}?`)) return;
+        await blockUser(userId);
+        btn.innerHTML = '<i class="fas fa-unlock"></i> Разблокировать';
+        btn.style.color = '#38a169'; btn.style.borderColor = '#38a169';
     }
 }
 
@@ -5966,7 +6018,8 @@ async function toggleStickerPanel() {
         <div id="sticker-panel-body" style="overflow-y:auto;flex:1;padding:8px;"></div>
         <div style="display:flex;border-top:1px solid var(--border-color);flex-shrink:0;">
             <button id="ep-tab-emoji" onclick="_emojiTabSwitch('emoji')" style="flex:1;padding:10px;border:none;background:var(--primary-color);color:#fff;font-size:13px;font-weight:600;cursor:pointer;border-radius:0 0 0 16px;">Эмодзи</button>
-            <button id="ep-tab-stickers" onclick="_emojiTabSwitch('stickers')" style="flex:1;padding:10px;border:none;background:var(--bg-secondary);color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;border-radius:0 0 16px 0;">Стикеры</button>
+            <button id="ep-tab-stickers" onclick="_emojiTabSwitch('stickers')" style="flex:1;padding:10px;border:none;background:var(--bg-secondary);color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;">Стикеры</button>
+            <button onclick="showStickerShop()" style="flex:1;padding:10px;border:none;background:var(--bg-secondary);color:#667eea;font-size:13px;font-weight:600;cursor:pointer;border-radius:0 0 16px 0;"><i class="fas fa-store"></i> Магазин</button>
         </div>
     `;
 
@@ -6672,3 +6725,453 @@ function prevStory() {
 
 // Загружаем истории при старте
 document.addEventListener('DOMContentLoaded', loadStories);
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ГОЛОСОВЫЕ СООБЩЕНИЯ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _voiceRecorder = null;
+let _voiceChunks = [];
+let _voiceStartTime = 0;
+let _voiceTimerInterval = null;
+
+async function startVoiceRecord() {
+    if (_voiceRecorder) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        _voiceChunks = [];
+        _voiceStartTime = Date.now();
+        _voiceRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        _voiceRecorder.ondataavailable = e => { if (e.data.size > 0) _voiceChunks.push(e.data); };
+        _voiceRecorder.onstop = _uploadVoice;
+        _voiceRecorder.start();
+        const btn = document.getElementById('voice-btn');
+        if (btn) { btn.style.background = '#e53e3e'; btn.style.color = 'white'; }
+        // Timer
+        _voiceTimerInterval = setInterval(() => {
+            const sec = Math.floor((Date.now() - _voiceStartTime) / 1000);
+            const m = String(Math.floor(sec / 60)).padStart(2, '0');
+            const s = String(sec % 60).padStart(2, '0');
+            const inp = document.getElementById('message-input');
+            if (inp) inp.placeholder = `🔴 ${m}:${s} — отпустите для отправки`;
+        }, 500);
+    } catch (e) {
+        showToast('Нет доступа к микрофону', 'error');
+    }
+}
+
+function stopVoiceRecord() {
+    if (!_voiceRecorder || _voiceRecorder.state === 'inactive') return;
+    _voiceRecorder.stop();
+    _voiceRecorder.stream.getTracks().forEach(t => t.stop());
+    _voiceRecorder = null;
+    clearInterval(_voiceTimerInterval);
+    const btn = document.getElementById('voice-btn');
+    if (btn) { btn.style.background = ''; btn.style.color = ''; }
+    const inp = document.getElementById('message-input');
+    if (inp) inp.placeholder = 'Введите сообщение...';
+}
+
+function playVoiceMsg(url, uid, btn) {
+    const audio = document.getElementById(uid);
+    if (!audio) return;
+    if (audio.paused) {
+        // Pause all others
+        document.querySelectorAll('audio[id^="voice_"]').forEach(a => { if (a.id !== uid) { a.pause(); a.currentTime = 0; } });
+        audio.play();
+        btn.innerHTML = '<i class="fas fa-pause"></i>';
+        // Progress
+        audio._progressInterval = setInterval(() => {
+            const bar = document.getElementById(uid + '_bar');
+            const durEl = document.getElementById(uid + '_dur');
+            if (bar && audio.duration) {
+                const pct = (audio.currentTime / audio.duration * 100).toFixed(1);
+                bar.style.setProperty('--progress', pct + '%');
+            }
+            if (durEl && audio.duration) {
+                const rem = Math.floor(audio.duration - audio.currentTime);
+                durEl.textContent = String(Math.floor(rem/60)).padStart(2,'0') + ':' + String(rem%60).padStart(2,'0');
+            }
+        }, 200);
+    } else {
+        audio.pause();
+        btn.innerHTML = '<i class="fas fa-play"></i>';
+        clearInterval(audio._progressInterval);
+    }
+}
+
+function resetVoiceBtn(uid) {
+    const audio = document.getElementById(uid);
+    if (audio) { clearInterval(audio._progressInterval); audio.currentTime = 0; }
+    const bar = document.getElementById(uid + '_bar');
+    if (bar) bar.style.setProperty('--progress', '0%');
+    const btn = document.querySelector(`button[onclick*="${uid}"]`);
+    if (btn) btn.innerHTML = '<i class="fas fa-play"></i>';
+}
+
+async function _uploadVoice() {
+    if (!_voiceChunks.length) return;
+    const blob = new Blob(_voiceChunks, { type: 'audio/webm' });
+    const duration = Math.floor((Date.now() - _voiceStartTime) / 1000);
+    if (duration < 1) return;
+    const fd = new FormData();
+    fd.append('file', blob, 'voice.webm');
+    try {
+        const resp = await fetch('/upload/voice', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (data.url && currentChatUserId) {
+            socket.emit('send_message', {
+                receiver_id: currentChatUserId,
+                content: '[Голосовое сообщение]',
+                message_type: 'voice',
+                media_url: data.url,
+                duration: duration
+            });
+        }
+    } catch (e) { showToast('Ошибка загрузки голосового', 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ПРЕДПРОСМОТР ССЫЛОК
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _linkPreviewTimeout = null;
+let _lastPreviewUrl = null;
+
+function initLinkPreview() {
+    const inp = document.getElementById('message-input');
+    if (!inp) return;
+    inp.addEventListener('input', () => {
+        clearTimeout(_linkPreviewTimeout);
+        _linkPreviewTimeout = setTimeout(() => {
+            const text = inp.value;
+            const urlMatch = text.match(/https?:\/\/[^\s]+/);
+            if (urlMatch && urlMatch[0] !== _lastPreviewUrl) {
+                _lastPreviewUrl = urlMatch[0];
+                fetchLinkPreview(urlMatch[0]);
+            } else if (!urlMatch) {
+                hideLinkPreview();
+                _lastPreviewUrl = null;
+            }
+        }, 600);
+    });
+}
+
+async function fetchLinkPreview(url) {
+    try {
+        const resp = await fetch('/api/link_preview?url=' + encodeURIComponent(url));
+        const data = await resp.json();
+        if (data.title || data.description) showLinkPreview(data);
+        else hideLinkPreview();
+    } catch (e) { hideLinkPreview(); }
+}
+
+function showLinkPreview(data) {
+    let el = document.getElementById('link-preview-bar');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'link-preview-bar';
+        el.style.cssText = 'position:absolute;bottom:60px;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start;z-index:50;margin:0 8px;';
+        const form = document.getElementById('message-form');
+        if (form) form.style.position = 'relative';
+        const container = document.querySelector('.message-input-container');
+        if (container) container.appendChild(el);
+    }
+    const img = data.image ? `<img src="${data.image}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'">` : '';
+    el.innerHTML = `
+        ${img}
+        <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;color:#667eea;margin-bottom:2px;">${escapeHtml(data.site_name || new URL(data.url).hostname)}</div>
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(data.title || '')}</div>
+            ${data.description ? `<div style="font-size:12px;color:var(--text-secondary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(data.description)}</div>` : ''}
+        </div>
+        <button onclick="hideLinkPreview()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:16px;padding:0;">&times;</button>
+    `;
+    el.style.display = 'flex';
+}
+
+function hideLinkPreview() {
+    const el = document.getElementById('link-preview-bar');
+    if (el) el.style.display = 'none';
+    _lastPreviewUrl = null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// БЛОКИРОВКА ПОЛЬЗОВАТЕЛЕЙ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _currentBlockTargetId = null;
+
+async function blockUser(userId) {
+    const resp = await fetch(`/user/${userId}/block`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.success || data.already) {
+        showToast('Пользователь заблокирован', 'success');
+        return true;
+    }
+    return false;
+}
+
+async function unblockUser(userId) {
+    await fetch(`/user/${userId}/unblock`, { method: 'POST' });
+    showToast('Пользователь разблокирован', 'success');
+}
+
+async function checkBlockStatus(userId) {
+    try {
+        const resp = await fetch(`/user/${userId}/block_status`);
+        return await resp.json();
+    } catch (e) { return { i_blocked: false, they_blocked: false }; }
+}
+
+function unblockFromModal() {
+    if (_currentBlockTargetId) {
+        unblockUser(_currentBlockTargetId);
+        document.getElementById('blocked-warning-modal').classList.remove('active');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LAST SEEN — статус вместо Offline (formatLastSeen уже определена выше)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// СЕКРЕТНЫЕ ЧАТЫ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _secretChatId = null;
+let _secretChatOtherId = null;
+
+async function openSecretChat(userId, userName) {
+    _secretChatOtherId = userId;
+    const resp = await fetch(`/secret/start/${userId}`, { method: 'POST' });
+    const data = await resp.json();
+    if (!data.success) { showToast(data.error || 'Ошибка', 'error'); return; }
+    _secretChatId = data.chat_id;
+    document.getElementById('secret-chat-modal').classList.add('active');
+    loadSecretMessages();
+}
+
+async function loadSecretMessages() {
+    if (!_secretChatId) return;
+    const resp = await fetch(`/secret/${_secretChatId}/messages`);
+    const data = await resp.json();
+    const container = document.getElementById('secret-messages-container');
+    if (!data.messages || !data.messages.length) {
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:#718096;"><i class="fas fa-lock" style="font-size:32px;margin-bottom:10px;display:block;color:#667eea;"></i>Сообщения зашифрованы</div>';
+        return;
+    }
+    const myId = parseInt(document.body.dataset.userId);
+    container.innerHTML = data.messages.map(m => {
+        const isMine = m.sender_id === myId;
+        return `<div style="display:flex;justify-content:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:8px;">
+            <div style="max-width:75%;background:${isMine ? '#667eea' : '#1a1a2e'};color:white;border-radius:12px;padding:8px 12px;font-size:14px;">
+                <div>${escapeHtml(m.content)}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.6);margin-top:4px;text-align:right;">
+                    ${m.timestamp}${m.self_destruct ? ` · 🔥${m.self_destruct}с` : ''}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendSecretMessage() {
+    if (!_secretChatId) return;
+    const inp = document.getElementById('secret-msg-input');
+    const content = inp.value.trim();
+    if (!content) return;
+    const selfDestruct = parseInt(document.getElementById('secret-destruct').value) || 0;
+    inp.value = '';
+    const resp = await fetch(`/secret/${_secretChatId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, self_destruct: selfDestruct })
+    });
+    const data = await resp.json();
+    if (data.success) loadSecretMessages();
+}
+
+async function closeAndDeleteSecretChat() {
+    if (!_secretChatId) return;
+    if (!confirm('Удалить все сообщения секретного чата?')) return;
+    await fetch(`/secret/${_secretChatId}/close`, { method: 'POST' });
+    _secretChatId = null;
+    document.getElementById('secret-chat-modal').classList.remove('active');
+    showToast('Секретный чат удалён', 'success');
+}
+
+function closeSecretChat() {
+    document.getElementById('secret-chat-modal').classList.remove('active');
+}
+
+// Socket: входящий секретный чат
+socket.on('secret_chat_invite', data => {
+    showToast(`🔒 ${data.from_user.username} приглашает в секретный чат`, 'info');
+});
+socket.on('secret_message', data => {
+    if (_secretChatId === data.chat_id) loadSecretMessages();
+    else showToast(`🔒 Новое секретное сообщение от ${data.sender_name}`, 'info');
+});
+socket.on('secret_chat_closed', data => {
+    if (_secretChatId === data.chat_id) {
+        document.getElementById('secret-chat-modal').classList.remove('active');
+        showToast('Секретный чат был закрыт', 'info');
+        _secretChatId = null;
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// МАГАЗИН СТИКЕРОВ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function showStickerShop() {
+    document.getElementById('sticker-shop-modal').classList.add('active');
+    const body = document.getElementById('sticker-shop-body');
+    body.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i></div>';
+    const resp = await fetch('/stickers/shop');
+    const data = await resp.json();
+    if (!data.packs || !data.packs.length) {
+        body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Паков стикеров пока нет</div>';
+        return;
+    }
+    body.innerHTML = data.packs.map(p => `
+        <div style="border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <div style="font-weight:600;flex:1;">${escapeHtml(p.name)}</div>
+                <div style="font-size:12px;color:var(--text-secondary);">${p.sticker_count} стикеров</div>
+                <button onclick="toggleStickerPackAdd(${p.id}, this, ${p.added})"
+                    style="padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${p.added ? '#e53e3e' : '#667eea'};color:white;">
+                    ${p.added ? 'Удалить' : 'Добавить'}
+                </button>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${p.preview.map(url => `<img src="${url}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:var(--bg-primary);">`).join('')}
+            </div>
+        </div>
+    `).join('');
+}
+
+async function toggleStickerPackAdd(packId, btn, isAdded) {
+    const url = isAdded ? `/stickers/pack/${packId}/remove` : `/stickers/pack/${packId}/add`;
+    await fetch(url, { method: 'POST' });
+    if (isAdded) {
+        btn.textContent = 'Добавить'; btn.style.background = '#667eea';
+        btn.onclick = () => toggleStickerPackAdd(packId, btn, false);
+    } else {
+        btn.textContent = 'Удалить'; btn.style.background = '#e53e3e';
+        btn.onclick = () => toggleStickerPackAdd(packId, btn, true);
+    }
+    // Перезагружаем панель стикеров
+    if (typeof loadUserStickers === 'function') loadUserStickers();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// МАГАЗИН ПОДАРКОВ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _giftRecipientId = null;
+let _giftRecipientName = null;
+
+async function showGiftShop() {
+    if (!currentChatUserId) { showToast('Сначала откройте чат', 'error'); return; }
+    _giftRecipientId = currentChatUserId;
+    _giftRecipientName = document.getElementById('chat-username')?.textContent || '';
+    document.getElementById('gift-shop-modal').classList.add('active');
+    // Recipient info
+    const avatarEl = document.getElementById('gift-recipient-avatar');
+    const nameEl = document.getElementById('gift-recipient-name');
+    if (avatarEl) { avatarEl.style.background = '#667eea'; avatarEl.textContent = (_giftRecipientName[0] || '?').toUpperCase(); }
+    if (nameEl) nameEl.textContent = _giftRecipientName;
+    // Load gifts
+    const body = document.getElementById('gift-shop-body');
+    body.innerHTML = '<div style="text-align:center;padding:20px;grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i></div>';
+    const resp = await fetch('/gifts/shop');
+    const data = await resp.json();
+    document.getElementById('gift-balance').textContent = data.balance || 0;
+    const rarityColors = { common: '#718096', rare: '#3182ce', epic: '#805ad5', legendary: '#d69e2e' };
+    body.innerHTML = (data.gifts || []).map(g => `
+        <div style="border:1px solid var(--border-color);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:transform 0.15s;"
+             onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform=''"
+             onclick="sendGift(${g.id}, '${escapeHtml(g.name)}', '${g.emoji}', ${g.price})">
+            <div style="font-size:40px;margin-bottom:6px;">${g.emoji}</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px;">${escapeHtml(g.name)}</div>
+            <div style="font-size:11px;color:${rarityColors[g.rarity] || '#718096'};margin-bottom:6px;font-weight:600;">${g.rarity}</div>
+            <div style="font-size:13px;color:#667eea;font-weight:700;">${g.price} ✨</div>
+        </div>
+    `).join('');
+}
+
+async function sendGift(giftTypeId, name, emoji, price) {
+    if (!confirm(`Отправить подарок "${name}" за ${price} ✨?`)) return;
+    const resp = await fetch('/gifts/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gift_type_id: giftTypeId, recipient_id: _giftRecipientId })
+    });
+    const data = await resp.json();
+    if (data.success) {
+        document.getElementById('gift-shop-modal').classList.remove('active');
+        document.getElementById('gift-balance').textContent = data.new_balance;
+        showToast(`Подарок ${emoji} отправлен!`, 'success');
+    } else {
+        showToast(data.error || 'Ошибка', 'error');
+    }
+}
+
+async function showGiftInfo(giftTypeId, userGiftId) {
+    const resp = await fetch(`/gifts/info/${giftTypeId}`);
+    const g = await resp.json();
+    const rarityColors = { common: '#718096', rare: '#3182ce', epic: '#805ad5', legendary: '#d69e2e' };
+    const rarityLabels = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+    document.getElementById('gift-view-emoji').textContent = g.emoji;
+    document.getElementById('gift-view-name').textContent = g.name;
+    document.getElementById('gift-view-rarity').innerHTML = `<span style="color:${rarityColors[g.rarity]};font-weight:700;">${rarityLabels[g.rarity] || g.rarity}</span>`;
+    document.getElementById('gift-view-desc').textContent = g.description || '';
+    document.getElementById('gift-view-price').textContent = `${g.price} ✨ искр`;
+    document.getElementById('gift-view-total').textContent = `Отправлено всего: ${g.total_sent} раз`;
+    const addBtn = document.getElementById('gift-view-add-btn');
+    if (userGiftId) {
+        addBtn.innerHTML = `<button class="btn btn-primary" onclick="toggleGiftDisplay(${userGiftId}, this)">Добавить в профиль</button>`;
+    } else { addBtn.innerHTML = ''; }
+    document.getElementById('gift-view-modal').classList.add('active');
+}
+
+async function toggleGiftDisplay(giftId, btn) {
+    const resp = await fetch(`/gifts/${giftId}/display`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.success) {
+        btn.textContent = data.displayed ? 'Убрать из профиля' : 'Добавить в профиль';
+        showToast(data.displayed ? 'Добавлено в профиль' : 'Убрано из профиля', 'success');
+    }
+}
+
+// Рендер подарка в сообщении
+function renderGiftMessage(msg) {
+    const g = msg.gift;
+    if (!g) return '';
+    const rarityColors = { common: '#718096', rare: '#3182ce', epic: '#805ad5', legendary: '#d69e2e' };
+    return `
+        <div style="text-align:center;padding:16px 20px;background:linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1));border-radius:16px;border:1px solid rgba(102,126,234,0.2);min-width:200px;">
+            <div style="font-size:48px;margin-bottom:8px;">${g.emoji}</div>
+            <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🎁 Подарок</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">${escapeHtml(g.name)}</div>
+            <div style="font-size:12px;color:${rarityColors[g.rarity] || '#718096'};font-weight:600;margin-bottom:8px;">${g.rarity}</div>
+            <div style="font-size:12px;color:#667eea;margin-bottom:10px;">Стоимость: ${g.price} ✨ искр</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Вы можете добавить его в свой профиль</div>
+            <button onclick="showGiftInfo(${g.id}, ${g.user_gift_id || 'null'})"
+                style="padding:7px 18px;background:#667eea;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">
+                Просмотреть
+            </button>
+        </div>
+    `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ИНИЦИАЛИЗАЦИЯ НОВЫХ ФИЧ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+    initLinkPreview();
+});
