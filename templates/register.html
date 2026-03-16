@@ -74,7 +74,35 @@
                 </select>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block">
+            <div style="margin-bottom:16px; display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:#4a5568; line-height:1.5;">
+                    <input type="checkbox" id="agree_privacy" name="agree_privacy" required
+                           style="margin-top:2px; width:16px; height:16px; flex-shrink:0; cursor:pointer;"
+                           onchange="checkAgreements()">
+                    <span>Я прочитал(а) и соглашаюсь с
+                        <a href="/privacy" target="_blank" style="color:#667eea;">Политикой конфиденциальности</a>
+                        и даю согласие на обработку персональных данных
+                    </span>
+                </label>
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:#4a5568; line-height:1.5;">
+                    <input type="checkbox" id="agree_terms" name="agree_terms" required
+                           style="margin-top:2px; width:16px; height:16px; flex-shrink:0; cursor:pointer;"
+                           onchange="checkAgreements()">
+                    <span>Я принимаю
+                        <a href="/terms" target="_blank" style="color:#667eea;">Условия использования</a>
+                        сервиса Tabletone
+                    </span>
+                </label>
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:#4a5568; line-height:1.5;">
+                    <input type="checkbox" id="agree_age" name="agree_age" required
+                           style="margin-top:2px; width:16px; height:16px; flex-shrink:0; cursor:pointer;"
+                           onchange="checkAgreements()">
+                    <span>Мне исполнилось 13 лет</span>
+                </label>
+            </div>
+
+            <button type="submit" id="register-btn" class="btn btn-primary btn-block" disabled
+                    style="opacity:0.5; cursor:not-allowed; transition:opacity 0.2s;">
                 <i class="fas fa-user-plus"></i> Зарегистрироваться
             </button>
         </form>
@@ -90,6 +118,16 @@
     const sel = document.getElementById('timezone');
     for (let opt of sel.options) {
         if (opt.value === tz) { opt.selected = true; break; }
+    }
+
+    function checkAgreements() {
+        const ok = document.getElementById('agree_privacy').checked
+                && document.getElementById('agree_terms').checked
+                && document.getElementById('agree_age').checked;
+        const btn = document.getElementById('register-btn');
+        btn.disabled = !ok;
+        btn.style.opacity = ok ? '1' : '0.5';
+        btn.style.cursor = ok ? 'pointer' : 'not-allowed';
     }
 </script>
 {% endblock %}

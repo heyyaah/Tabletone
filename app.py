@@ -2162,8 +2162,14 @@ def login():
             if user.is_banned:
                 return render_template('login.html', error='Ваш аккаунт заблокирован администратором')
             
-            # Проверяем 2FA
-            if user.two_fa_enabled:
+            # Trusted IP bypass
+            import time as _time
+            _trusted_ip = session.get('trusted_ip')
+            _trusted_until = session.get('trusted_ip_until', 0)
+            _ip_trusted = (_trusted_ip == request.remote_addr and _time.time() < _trusted_until)
+
+            # 2FA check
+            if user.two_fa_enabled and not _ip_trusted:
                 code = str(random.randint(100000, 999999))
                 from datetime import timedelta
                 user.two_fa_code = code
@@ -6669,6 +6675,11 @@ def login_2fa():
             user.two_fa_code = None
             user.two_fa_code_expires = None
             db.session.commit()
+            # Trusted IP: store in session for 5 minutes
+            if request.form.get('trust_ip'):
+                import time as _time
+                session['trusted_ip'] = request.remote_addr
+                session['trusted_ip_until'] = _time.time() + 300  # 5 minutes
             session.pop('2fa_pending_user_id', None)
             session['user_id'] = user.id
             user.last_seen = datetime.utcnow()
@@ -9332,6 +9343,10 @@ def get_members_with_roles(group_id):
 @app.route('/privacy')
 def privacy():
     return render_template('privacy.html')
+
+@app.route('/terms')
+def terms():
+    return render_template('terms.html')
 
 
 if __name__ == '__main__':
