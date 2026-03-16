@@ -26,5 +26,17 @@
         <a href="/privacy">Политика конфиденциальности</a>
     </footer>
     {% endblock %}
+    <!-- FCM токен: регистрируем на сервере когда Android-приложение передаёт токен -->
+    <script>
+    window.onFcmToken = function(token) {
+        fetch('/fcm/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({token: token})
+        }).catch(function(){});
+    };
+    // Если токен уже был передан до загрузки страницы
+    if (window._fcmToken) window.onFcmToken(window._fcmToken);
+    </script>
 </body>
 </html>

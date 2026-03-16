@@ -300,6 +300,14 @@ class UserSession(db.Model):
     
     user = db.relationship('User', foreign_keys=[user_id])
 
+class FCMToken(db.Model):
+    """FCM токен устройства для push-уведомлений."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(500), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', foreign_keys=[user_id])
+
 class Story(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -3143,6 +3151,25 @@ def get_users():
         print(f"Error in /users: {e}")
         return jsonify({'users': []})
 
+# Регистрация FCM токена для push-уведомлений
+@app.route('/fcm/register', methods=['POST'])
+def fcm_register():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    token = request.json.get('token', '').strip()
+    if not token:
+        return jsonify({'error': 'Токен не указан'}), 400
+    uid = session['user_id']
+    existing = FCMToken.query.filter_by(token=token).first()
+    if not existing:
+        db.session.add(FCMToken(user_id=uid, token=token))
+        db.session.commit()
+    elif existing.user_id != uid:
+        existing.user_id = uid
+        db.session.commit()
+    return jsonify({'success': True})
+
+
 # Профиль пользователя
 @app.route('/profile')
 def profile():
@@ -5589,6 +5616,34 @@ def _sql_exec(sql, params=None):
         print(f"_sql_exec skip [{sql[:60]}]: {e}")
 
 
+def _send_fcm(user_id, title, body, notif_type='message'):
+    """Отправляет FCM push-уведомление пользователю на все его устройства."""
+    try:
+        import firebase_admin
+        from firebase_admin import credentials, messaging
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', 'firebase-service-account.json'))
+            firebase_admin.initialize_app(cred)
+        tokens = [t.token for t in FCMToken.query.filter_by(user_id=user_id).all()]
+        if not tokens:
+            return
+        for token in tokens:
+            try:
+                messaging.send(messaging.Message(
+                    data={'type': notif_type, 'title': title, 'body': body},
+                    notification=messaging.Notification(title=title, body=body),
+                    android=messaging.AndroidConfig(priority='high'),
+                    token=token
+                ))
+            except Exception as e:
+                print(f"FCM send error for token {token[:20]}: {e}")
+                if 'registration-token-not-registered' in str(e) or 'invalid-registration-token' in str(e):
+                    FCMToken.query.filter_by(token=token).delete()
+                    db.session.commit()
+    except Exception as e:
+        print(f"FCM error: {e}")
+
+
 def _delete_group_cascade(group_id):
     """Удаляет все зависимые данные группы перед удалением самой группы."""
     gid = {"gid": group_id}
@@ -6948,6 +7003,8 @@ def create_poll():
         sender_info = {'id': sender.id, 'username': sender.username, 'display_name': sender.display_name or sender.username, 'avatar_color': sender.avatar_color, 'avatar_letter': sender.get_avatar_letter()}
         socketio.emit('new_message', {'message': {**msg_data, 'is_mine': True}, 'other_user_id': int(receiver_id), 'sender_info': sender_info}, room=f'user_{uid}', namespace='/')
         socketio.emit('new_message', {'message': {**msg_data, 'is_mine': False}, 'other_user_id': uid, 'sender_info': sender_info}, room=f'user_{receiver_id}', namespace='/')
+        # Push-уведомление получателю
+        _send_fcm(int(receiver_id), sender.display_name or sender.username, msg_data.get('content', 'Новое сообщение')[:100], 'message')
     elif group_id:
         membership = GroupMember.query.filter_by(group_id=int(group_id), user_id=uid).first()
         if not membership:
@@ -8173,6 +8230,9 @@ def handle_call_offer(data):
         'sdp': data.get('sdp'),
         'is_video': data.get('is_video', False)
     }, room=f'user_{to_user_id}', namespace='/')
+    # Push-уведомление если получатель оффлайн
+    call_type = 'Видеозвонок' if data.get('is_video') else 'Звонок'
+    _send_fcm(to_user_id, f'{call_type} от {caller.display_name or caller.username}', 'Нажмите чтобы ответить', 'call')
 
 @socketio.on('call_answer')
 def handle_call_answer(data):
