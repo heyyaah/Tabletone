@@ -12,7 +12,7 @@
     "productName": "Tabletone",
     "win": {
       "target": "nsis",
-      "icon": "icon.ico"
+      "icon": "../static/images/logo.png"
     },
     "nsis": {
       "oneClick": false,

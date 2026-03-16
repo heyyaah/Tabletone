@@ -2,6 +2,7 @@ const { app, BrowserWindow, Notification, ipcMain, screen, Tray, Menu, nativeIma
 const path = require('path');
 
 const APP_URL = 'https://hi-j5rs.onrender.com';
+const ICON_PATH = path.join(__dirname, '..', 'static', 'images', 'logo.png');
 
 let mainWindow;
 let tray;
@@ -13,7 +14,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'Tabletone',
-    icon: path.join(__dirname, 'icon.ico'),
+    icon: ICON_PATH,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -48,7 +49,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'icon.ico'));
+  const icon = nativeImage.createFromPath(ICON_PATH);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip('Tabletone');
   tray.setContextMenu(Menu.buildFromTemplate([
@@ -67,7 +68,7 @@ ipcMain.on('show-notification', (event, { title, body }) => {
   const notif = new Notification({
     title,
     body,
-    icon: path.join(__dirname, 'icon.ico'),
+    icon: ICON_PATH,
     silent: false,
   });
 
