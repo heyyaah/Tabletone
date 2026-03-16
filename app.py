@@ -6424,8 +6424,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                     db.session.add(media)
                     db.session.commit()
 
-                    # В socket emit используем data_url для мгновенного отображения
-                    # (файл на диске может не быть доступен сразу)
+                    # В socket emit используем img_url — data_url слишком большой для WebSocket
                     msg_data = {
                         'id': msg.id,
                         'sender_id': bot_user_id,
@@ -6434,8 +6433,8 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         'timestamp_iso': msg.timestamp.isoformat() + 'Z',
                         'is_mine': False,
                         'message_type': 'image',
-                        'media_url': data_url,
-                        'media_files': [{'media_url': data_url, 'media_type': 'image', 'file_name': fname}],
+                        'media_url': img_url,
+                        'media_files': [{'media_url': img_url, 'media_type': 'image', 'file_name': fname}],
                         'duration': None, 'is_deleted': False, 'is_read': False,
                         'reply_to': None, 'bot_buttons': [], 'sticker_pack_id': None, 'gift': None,
                     }
@@ -9276,6 +9275,37 @@ def privacy():
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
+
+@app.route('/admin/test_cf_image')
+def test_cf_image():
+    """Debug: test Cloudflare image generation directly"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'not logged in'}), 401
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_admin:
+        return jsonify({'error': 'admin only'}), 403
+    import urllib.request, urllib.error, json as _json, os as _os
+    account_id = _os.environ.get('CF_ACCOUNT_ID', '')
+    api_token = _os.environ.get('CF_API_TOKEN', '')
+    if not account_id or not api_token:
+        return jsonify({'error': 'CF_ACCOUNT_ID or CF_API_TOKEN not set'})
+    payload = _json.dumps({"prompt": "a lion", "num_steps": 5}).encode('utf-8')
+    req = urllib.request.Request(
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0",
+        data=payload,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_token}"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            ct = resp.headers.get('Content-Type', '')
+            data = resp.read()
+            return jsonify({'status': 'ok', 'content_type': ct, 'bytes': len(data), 'first_bytes': data[:20].hex()})
+    except urllib.error.HTTPError as he:
+        body = he.read().decode('utf-8', errors='replace')
+        return jsonify({'status': 'http_error', 'code': he.code, 'body': body[:500]})
+    except Exception as e:
+        return jsonify({'status': 'error', 'msg': str(e)})
 
 
 if __name__ == '__main__':
