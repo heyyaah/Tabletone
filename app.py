@@ -4155,14 +4155,19 @@ def admin_delete_group(group_id):
     if not group:
         return jsonify({'error': 'Не найдено'}), 404
     GroupMember.query.filter_by(group_id=group_id).delete()
-    # Удаляем last_read_group_message записи (FK на group_message)
     try:
         from sqlalchemy import text as _text
         with db.engine.connect() as _conn:
-            _conn.execute(_text("DELETE FROM last_read_group_message WHERE group_id = :gid"), {"gid": group_id})
+            for tbl in ['slow_mode_tracker', 'last_read_group_message', 'group_message_reaction']:
+                try:
+                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE group_id = :gid"), {"gid": group_id})
+                except Exception: pass
+            try:
+                _conn.execute(_text("DELETE FROM last_read_group_message WHERE last_read_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)"), {"gid": group_id})
+            except Exception: pass
             _conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"admin_delete_group cleanup error: {e}")
     GroupMessage.query.filter_by(group_id=group_id).delete()
     db.session.delete(group)
     db.session.commit()
@@ -4972,14 +4977,20 @@ def delete_group(group_id):
     if group.creator_id != session['user_id']:
         return jsonify({'error': 'Только создатель может удалить группу'}), 403
     GroupMember.query.filter_by(group_id=group_id).delete()
-    # Удаляем last_read_group_message записи (FK на group_message)
     try:
         from sqlalchemy import text as _text
         with db.engine.connect() as _conn:
-            _conn.execute(_text("DELETE FROM last_read_group_message WHERE group_id = :gid"), {"gid": group_id})
+            for tbl in ['slow_mode_tracker', 'last_read_group_message', 'group_message_reaction']:
+                try:
+                    _conn.execute(_text(f"DELETE FROM {tbl} WHERE group_id = :gid"), {"gid": group_id})
+                except Exception: pass
+            # FK на group_message
+            try:
+                _conn.execute(_text("DELETE FROM last_read_group_message WHERE last_read_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)"), {"gid": group_id})
+            except Exception: pass
             _conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"delete_group cleanup error: {e}")
     GroupMessage.query.filter_by(group_id=group_id).delete()
     db.session.delete(group)
     db.session.commit()
