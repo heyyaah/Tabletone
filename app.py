@@ -9200,49 +9200,6 @@ def slow_mode_check(group_id):
 # ЗАКРЕПЛЁННЫЕ СООБЩЕНИЯ В ГРУППАХ
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@app.route('/groups/<int:group_id>/pin', methods=['POST'])
-def pin_group_message(group_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    group = Group.query.get_or_404(group_id)
-    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
-    is_admin = group.creator_id == uid or (member and member.is_admin)
-    if not is_admin:
-        return jsonify({'error': 'Нет прав'}), 403
-    data = request.get_json()
-    msg_id = data.get('message_id')
-    msg = GroupMessage.query.get_or_404(msg_id)
-    # Удаляем старое закреплённое
-    PinnedMessage.query.filter_by(group_id=group_id).delete()
-    pin = PinnedMessage(group_id=group_id, group_message_id=msg_id,
-                        pinned_by=uid, content_preview=msg.decrypted_content[:100])
-    db.session.add(pin)
-    db.session.commit()
-    socketio.emit('message_pinned', {
-        'group_id': group_id, 'message_id': msg_id,
-        'preview': msg.decrypted_content[:100]
-    }, room=f'group_{group_id}')
-    return jsonify({'success': True})
-
-@app.route('/groups/<int:group_id>/unpin', methods=['POST'])
-def unpin_group_message(group_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    group = Group.query.get_or_404(group_id)
-    member = GroupMember.query.filter_by(group_id=group_id, user_id=uid).first()
-    if group.creator_id != uid and not (member and member.is_admin):
-        return jsonify({'error': 'Нет прав'}), 403
-    PinnedMessage.query.filter_by(group_id=group_id).delete()
-    db.session.commit()
-    socketio.emit('message_unpinned', {'group_id': group_id}, room=f'group_{group_id}')
-    return jsonify({'success': True})
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ПРИГЛАШЕНИЕ В ГРУППУ ПО ССЫЛКЕ
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @app.route('/groups/<int:group_id>/invite_link', methods=['POST'])
 def generate_invite_link(group_id):
     if 'user_id' not in session:
@@ -9261,42 +9218,6 @@ def generate_invite_link(group_id):
 # ══════════════════════════════════════════════════════════════════════════════
 # РОЛИ В ГРУППАХ
 # ══════════════════════════════════════════════════════════════════════════════
-
-@app.route('/groups/<int:group_id>/roles', methods=['GET'])
-def get_group_roles(group_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    roles = GroupRole.query.filter_by(group_id=group_id).all()
-    return jsonify({'roles': [{'id': r.id, 'name': r.name, 'color': r.color, 'permissions': r.permissions} for r in roles]})
-
-@app.route('/groups/<int:group_id>/roles', methods=['POST'])
-def create_group_role(group_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    group = Group.query.get_or_404(group_id)
-    if group.creator_id != uid:
-        return jsonify({'error': 'Нет прав'}), 403
-    data = request.get_json()
-    role = GroupRole(group_id=group_id, name=data.get('name','Роль'), color=data.get('color','#667eea'), permissions=data.get('permissions','{}'))
-    db.session.add(role)
-    db.session.commit()
-    return jsonify({'success': True, 'id': role.id, 'name': role.name, 'color': role.color})
-
-@app.route('/groups/<int:group_id>/roles/<int:role_id>', methods=['DELETE'])
-def delete_group_role(group_id, role_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    group = Group.query.get_or_404(group_id)
-    if group.creator_id != uid:
-        return jsonify({'error': 'Нет прав'}), 403
-    role = GroupRole.query.get_or_404(role_id)
-    GroupMemberRole.query.filter_by(role_id=role_id).delete()
-    db.session.delete(role)
-    db.session.commit()
-    return jsonify({'success': True})
-
 @app.route('/groups/<int:group_id>/members/<int:member_id>/role', methods=['POST'])
 def assign_member_role(group_id, member_id):
     if 'user_id' not in session:
