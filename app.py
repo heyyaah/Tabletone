@@ -7699,11 +7699,16 @@ def channel_spark_withdraw(group_id):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route('/gifts/catalog')
+@app.route('/gifts/shop')
 def gifts_catalog():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     gifts = GiftType.query.filter_by(is_active=True).all()
-    return jsonify({'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'description': g.description, 'price_sparks': g.price_sparks, 'rarity': g.rarity} for g in gifts]})
+    balance = _get_spark_balance(session['user_id']).balance
+    return jsonify({
+        'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'description': g.description, 'price': g.price_sparks, 'price_sparks': g.price_sparks, 'rarity': g.rarity} for g in gifts],
+        'balance': balance
+    })
 
 @app.route('/gifts/send', methods=['POST'])
 def gifts_send():
@@ -7726,7 +7731,41 @@ def gifts_send():
     ug = UserGift(owner_id=recipient_id, gift_type_id=gift_type_id, sender_id=uid)
     db.session.add(ug)
     db.session.commit()
-    return jsonify({'success': True})
+
+    # Отправляем сообщение-подарок в чат
+    sender = User.query.get(uid)
+    gift_msg = Message(
+        sender_id=uid,
+        receiver_id=recipient_id,
+        content=f'[gift:{gift_type_id}]',
+        message_type='gift'
+    )
+    db.session.add(gift_msg)
+    db.session.commit()
+
+    msg_data = {
+        'id': gift_msg.id,
+        'sender_id': uid,
+        'content': f'[gift:{gift_type_id}]',
+        'message_type': 'gift',
+        'gift': {'id': gt.id, 'name': gt.name, 'emoji': gt.emoji, 'rarity': gt.rarity, 'price': gt.price_sparks},
+        'timestamp': gift_msg.timestamp.strftime('%H:%M %d.%m'),
+        'timestamp_iso': gift_msg.timestamp.isoformat() + 'Z',
+        'media_url': None, 'media_files': [], 'duration': None,
+        'is_deleted': False, 'is_read': False, 'reply_to': None,
+        'bot_buttons': [], 'sticker_pack_id': None,
+    }
+    sender_info = {
+        'id': sender.id, 'username': sender.username,
+        'display_name': sender.display_name or sender.username,
+        'avatar_color': sender.avatar_color,
+        'avatar_letter': sender.get_avatar_letter(),
+    }
+    socketio.emit('new_message', {'message': {**msg_data, 'is_mine': True}, 'other_user_id': recipient_id, 'sender_info': sender_info}, room=f'user_{uid}', namespace='/')
+    socketio.emit('new_message', {'message': {**msg_data, 'is_mine': False}, 'other_user_id': uid, 'sender_info': sender_info}, room=f'user_{recipient_id}', namespace='/')
+
+    new_balance = _get_spark_balance(uid).balance
+    return jsonify({'success': True, 'new_balance': new_balance})
 
 @app.route('/gifts/my')
 def gifts_my():

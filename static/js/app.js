@@ -6926,19 +6926,13 @@ async function _uploadVoice() {
     const duration = Math.floor((Date.now() - _voiceStartTime) / 1000);
     if (duration < 1) return;
     const fd = new FormData();
-    fd.append('file', blob, 'voice.webm');
+    fd.append('audio', blob, 'voice.webm');
+    fd.append('receiver_id', currentChatUserId);
+    fd.append('duration', duration);
     try {
-        const resp = await fetch('/upload/voice', { method: 'POST', body: fd });
+        const resp = await fetch('/send/voice', { method: 'POST', body: fd });
         const data = await resp.json();
-        if (data.url && currentChatUserId) {
-            socket.emit('send_message', {
-                receiver_id: currentChatUserId,
-                content: '[Голосовое сообщение]',
-                message_type: 'voice',
-                media_url: data.url,
-                duration: duration
-            });
-        }
+        if (!data.success) showToast(data.error || 'Ошибка отправки', 'error');
     } catch (e) { showToast('Ошибка загрузки голосового', 'error'); }
 }
 
