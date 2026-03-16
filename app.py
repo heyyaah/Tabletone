@@ -26,6 +26,13 @@ elif _db_url.startswith('postgresql://'):
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 3,          # макс активных соединений
+    'max_overflow': 2,       # доп. соединений сверх pool_size
+    'pool_timeout': 20,      # сек ожидания свободного соединения
+    'pool_recycle': 300,     # переиспользовать соединение каждые 5 мин
+    'pool_pre_ping': True,   # проверять соединение перед использованием
+}
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -135,25 +142,27 @@ def update_last_seen():
     if 'user_id' in session and request.endpoint not in ['static', None]:
         try:
             user_id = session['user_id']
-            
-            # Проверяем когда последний раз обновляли (используем глобальный словарь вместо session)
             if not hasattr(app, 'last_seen_cache'):
                 app.last_seen_cache = {}
-            
             current_time = time.time()
             last_update = app.last_seen_cache.get(user_id, 0)
-            
-            # Обновляем раз в 30 секунд
-            if current_time - last_update > 30:
+            # Обновляем раз в 60 секунд (было 30 — слишком часто)
+            if current_time - last_update > 60:
                 user = User.query.get(user_id)
                 if user:
                     user.last_seen = datetime.utcnow()
                     db.session.commit()
                     app.last_seen_cache[user_id] = current_time
-                    print(f"✓ Updated last_seen for user {user_id}: {user.last_seen}")
         except Exception as e:
-            print(f"Error updating last_seen: {e}")
-            pass  # Игнорируем ошибки обновления last_seen
+            db.session.rollback()
+            app.logger.debug(f"Error updating last_seen: {e}")
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    """Возвращаем соединение в пул после каждого запроса."""
+    if exception:
+        db.session.rollback()
+    db.session.remove()
 
 # Модели базы данных
 class User(db.Model):
