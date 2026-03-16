@@ -5581,9 +5581,33 @@ def _delete_group_cascade(group_id):
     """Удаляет все зависимые данные группы перед удалением самой группы."""
     gid = {"gid": group_id}
     for sql in [
-        "DELETE FROM slow_mode_tracker WHERE group_id = :gid",
-        "DELETE FROM last_read_group_message WHERE group_id = :gid",
+        # spark/channel
+        "DELETE FROM channel_spark_withdraw WHERE group_id = :gid",
+        "DELETE FROM spark_reaction WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # paid posts
+        "DELETE FROM paid_post_purchase WHERE paid_post_id IN (SELECT pp.id FROM paid_post pp JOIN group_message gm ON pp.group_message_id = gm.id WHERE gm.group_id = :gid)",
+        "DELETE FROM paid_post WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # polls
+        "DELETE FROM poll_vote WHERE poll_id IN (SELECT id FROM poll WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid))",
+        "DELETE FROM poll_option WHERE poll_id IN (SELECT id FROM poll WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid))",
+        "DELETE FROM poll WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # pinned messages
+        "DELETE FROM pinned_message WHERE group_id = :gid",
+        "DELETE FROM pinned_message WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # favorites
+        "DELETE FROM favorite_message WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # media
+        "DELETE FROM group_message_media WHERE message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # reactions
         "DELETE FROM group_message_reaction WHERE group_id = :gid",
+        "DELETE FROM message_reaction WHERE group_message_id IN (SELECT id FROM group_message WHERE group_id = :gid)",
+        # last read
+        "DELETE FROM last_read_group_message WHERE group_id = :gid",
+        # slow mode
+        "DELETE FROM slow_mode_tracker WHERE group_id = :gid",
+        # hidden chats
+        "DELETE FROM hidden_chat WHERE group_id = :gid",
+        # members & messages
         "DELETE FROM group_member WHERE group_id = :gid",
         "DELETE FROM group_message WHERE group_id = :gid",
     ]:
@@ -5605,20 +5629,50 @@ def _delete_user_cascade(user_id):
     for gid in owned:
         _delete_group_cascade(gid)
         _sql_exec('DELETE FROM "group" WHERE id = :gid', {"gid": gid})
-    # Личные сообщения
     for sql in [
+        # sparks
+        "DELETE FROM spark_reaction WHERE sender_id = :uid",
+        "DELETE FROM spark_transaction WHERE user_id = :uid",
+        "DELETE FROM spark_balance WHERE user_id = :uid",
+        "DELETE FROM channel_spark_withdraw WHERE owner_id = :uid",
+        # gifts
+        "DELETE FROM user_gift WHERE owner_id = :uid OR sender_id = :uid",
+        # polls
+        "DELETE FROM poll_vote WHERE user_id = :uid",
+        "DELETE FROM poll_option WHERE poll_id IN (SELECT id FROM poll WHERE creator_id = :uid)",
+        "DELETE FROM poll WHERE creator_id = :uid",
+        # paid posts
+        "DELETE FROM paid_post_purchase WHERE user_id = :uid",
+        # pinned messages
+        "DELETE FROM pinned_message WHERE pinned_by = :uid OR user1_id = :uid OR user2_id = :uid",
+        # favorites
+        "DELETE FROM favorite_message WHERE user_id = :uid",
+        # stories
+        "DELETE FROM story WHERE user_id = :uid",
+        # reports
+        "DELETE FROM report WHERE reporter_id = :uid OR reported_user_id = :uid",
+        # verification / admin apps / password reset
+        "DELETE FROM verification_request WHERE user_id = :uid",
+        "DELETE FROM admin_application WHERE user_id = :uid",
+        "DELETE FROM password_reset_request WHERE user_id = :uid",
+        # bots owned by user
+        "DELETE FROM bot_command WHERE bot_id IN (SELECT id FROM bot WHERE owner_id = :uid)",
+        "DELETE FROM bot WHERE owner_id = :uid OR user_id = :uid",
+        # hidden chats
+        "DELETE FROM hidden_chat WHERE user_id = :uid OR other_user_id = :uid",
+        # personal messages
         "DELETE FROM last_read_message WHERE user_id = :uid OR chat_with_user_id = :uid",
-        "DELETE FROM last_read_message WHERE last_read_message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)",
         "DELETE FROM message_reaction WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)",
         "DELETE FROM message_reaction WHERE user_id = :uid",
         "DELETE FROM message_media WHERE message_id IN (SELECT id FROM message WHERE sender_id = :uid OR receiver_id = :uid)",
         "DELETE FROM message WHERE sender_id = :uid OR receiver_id = :uid",
+        # group membership
         "DELETE FROM last_read_group_message WHERE user_id = :uid",
         "DELETE FROM group_message_reaction WHERE user_id = :uid",
         "DELETE FROM group_member WHERE user_id = :uid",
         "DELETE FROM slow_mode_tracker WHERE user_id = :uid",
-        "DELETE FROM contact WHERE user_id = :uid",
-        "DELETE FROM contact WHERE contact_id = :uid",
+        # contacts, sessions, tickets, stickers
+        "DELETE FROM contact WHERE user_id = :uid OR contact_id = :uid",
         "DELETE FROM user_session WHERE user_id = :uid",
         "DELETE FROM support_ticket WHERE user_id = :uid",
         "DELETE FROM user_sticker_pack WHERE user_id = :uid",
