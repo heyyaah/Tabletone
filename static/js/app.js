@@ -1607,9 +1607,13 @@ function createMessageHTML(msg) {
     }
     // Изображение
     else if (msg.message_type === 'image' && msg.media_url) {
-        content = `
-            <img src="${msg.media_url}" class="message-image" onclick="viewImage('${msg.media_url}')" alt="Изображение" loading="lazy">
-        `;
+        const isDataUrl = msg.media_url.startsWith('data:');
+        if (isDataUrl) {
+            // data URL нельзя вставлять в onclick атрибут — используем data-атрибут
+            content = `<img src="${msg.media_url}" class="message-image" data-msg-id="${msg.id}" onclick="viewImageById(this)" alt="Изображение" loading="lazy">`;
+        } else {
+            content = `<img src="${msg.media_url}" class="message-image" onclick="viewImage('${msg.media_url}')" alt="Изображение" loading="lazy">`;
+        }
     }
     // Обычное текстовое сообщение
     else {
@@ -2793,17 +2797,18 @@ function viewImage(imageUrl) {
         </div>
     `;
     document.body.appendChild(modal);
-    
-    // Закрытие по клику вне изображения
     modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.remove();
-        }
+        if (e.target === modal) modal.remove();
     });
+}
+
+function viewImageById(imgEl) {
+    viewImage(imgEl.src);
 }
 
 window.handleImageSelect = handleImageSelect;
 window.viewImage = viewImage;
+window.viewImageById = viewImageById;
 
 
 // ============================================

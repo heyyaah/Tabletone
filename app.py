@@ -5710,9 +5710,18 @@ def _bot_send_message(bot_user_id, receiver_id, content, buttons=None):
         'sender_id': message.sender_id,
         'content': message.decrypted_content,
         'message_type': 'text',
+        'media_url': None,
+        'media_files': [],
+        'duration': None,
         'timestamp': message.timestamp.strftime('%H:%M %d.%m'),
         'timestamp_iso': message.timestamp.isoformat() + 'Z',
+        'edited_at': None,
+        'is_deleted': False,
+        'is_read': False,
+        'reply_to': None,
         'bot_buttons': buttons or [],
+        'sticker_pack_id': None,
+        'gift': None,
     }
     socketio.emit('new_message', {
         'message': {**msg_data, 'is_mine': True},
