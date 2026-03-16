@@ -313,10 +313,12 @@ class Story(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    media_type = db.Column(db.String(20))
+    media_type = db.Column(db.String(20), default='text')  # text, image, video
+    media_url = db.Column(db.String(500))  # URL медиа файла
+    views_count = db.Column(db.Integer, default=0)  # Счётчик просмотров
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime)
-    
+
     user = db.relationship('User', foreign_keys=[user_id])
 
 # Модель для отслеживания последнего прочитанного сообщения в личных чатах
@@ -693,6 +695,8 @@ with app.app_context():
             "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'text'",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_apply_blocked_until TIMESTAMP",
             f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS reputation INTEGER DEFAULT 100",
+            "ALTER TABLE story ADD COLUMN IF NOT EXISTS media_url VARCHAR(500)",
+            "ALTER TABLE story ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0",
             "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS slow_mode_seconds INTEGER DEFAULT 0',
             'ALTER TABLE "group" ADD COLUMN IF NOT EXISTS welcome_message VARCHAR(500)',
@@ -729,6 +733,8 @@ with app.app_context():
             "ALTER TABLE group_message ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'",
             f"ALTER TABLE {user_table} ADD COLUMN admin_apply_blocked_until DATETIME",
             f"ALTER TABLE {user_table} ADD COLUMN reputation INTEGER DEFAULT 100",
+            "ALTER TABLE story ADD COLUMN media_url VARCHAR(500)",
+            "ALTER TABLE story ADD COLUMN views_count INTEGER DEFAULT 0",
             "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
             "ALTER TABLE 'group' ADD COLUMN slow_mode_seconds INTEGER DEFAULT 0",
             "ALTER TABLE 'group' ADD COLUMN welcome_message VARCHAR(500)",
@@ -2135,11 +2141,26 @@ def login():
                 user_agent=user_agent
             )
             db.session.add(new_session)
-            
+
             # Сохраняем токен сессии в Flask session
             session['session_token'] = session_token
-            
+
             db.session.commit()
+
+            # Уведомление о входе с нового устройства
+            existing_sessions = UserSession.query.filter_by(
+                user_id=user.id, is_active=True
+            ).filter(UserSession.id != new_session.id).count()
+            if existing_sessions == 0:
+                # Первый вход — не уведомляем
+                pass
+            else:
+                import threading
+                threading.Thread(
+                    target=_notify_new_login,
+                    args=(user.id, device_name, ip_address),
+                    daemon=True
+                ).start()
 
             # Уведомление администратору о новых обращениях в поддержку
             if user.is_admin:
@@ -4292,36 +4313,50 @@ def update_premium_emoji():
 def create_story():
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401
-    
-    user = User.query.get( session['user_id'])
-    if not user or not user.is_premium:
-        return jsonify({'error': 'Истории доступны только для премиум пользователей'}), 403
-    
+
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'Не авторизован'}), 401
+
+    # Лимит: обычные пользователи — 1 история в день
+    if not user.is_premium:
+        from datetime import timedelta
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_count = Story.query.filter(
+            Story.user_id == user.id,
+            Story.created_at >= today_start
+        ).count()
+        if today_count >= 1:
+            return jsonify({'error': 'Обычные пользователи могут публиковать только 1 историю в день. Оформите Premium для безлимитных историй!'}), 429
+
     data = request.get_json()
     content = data.get('content', '').strip()
-    
-    if not content or len(content) > 500:
-        return jsonify({'error': 'Неверное содержимое истории'}), 400
-    
-    # Истории исчезают через 24 часа
+    media_url = data.get('media_url', '').strip()
+    media_type = data.get('media_type', 'text')
+
+    if not content and not media_url:
+        return jsonify({'error': 'Пустая история'}), 400
+    if len(content) > 500:
+        return jsonify({'error': 'Слишком длинный текст (макс. 500 символов)'}), 400
+
     from datetime import timedelta
     expires_at = datetime.utcnow() + timedelta(hours=24)
-    
+
     story = Story(
         user_id=user.id,
-        content=content,
-        media_type='text',
+        content=content or media_url,
+        media_type=media_type,
         expires_at=expires_at
     )
-    
     db.session.add(story)
     db.session.commit()
-    
+
     return jsonify({
         'success': True,
         'story': {
             'id': story.id,
             'content': story.content,
+            'media_type': story.media_type,
             'created_at': story.created_at.strftime('%H:%M %d.%m'),
             'expires_at': story.expires_at.strftime('%H:%M %d.%m')
         }
@@ -5727,6 +5762,67 @@ def _send_fcm(user_id, title, body, notif_type='message'):
         print(f"FCM error: {e}")
 
 
+
+
+@app.route('/story/<int:story_id>/view', methods=['POST'])
+def view_story(story_id):
+    """Отмечает просмотр истории."""
+    story = Story.query.get(story_id)
+    if story:
+        story.views_count = (story.views_count or 0) + 1
+        db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/story/upload', methods=['POST'])
+def upload_story_media():
+    """Загружает медиа для истории."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    if 'file' not in request.files:
+        return jsonify({'error': 'Файл не найден'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'Пустой файл'}), 400
+    import uuid, os as _os
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
+    allowed = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov'}
+    if ext not in allowed:
+        return jsonify({'error': 'Недопустимый формат'}), 400
+    fname = f"story_{uuid.uuid4().hex[:12]}.{ext}"
+    media_type = 'video' if ext in {'mp4', 'mov'} else 'image'
+    save_dir = _os.path.join('static', 'media', 'images')
+    _os.makedirs(save_dir, exist_ok=True)
+    file.save(_os.path.join(save_dir, fname))
+    return jsonify({'success': True, 'media_url': f'/static/media/images/{fname}', 'media_type': media_type})
+
+
+@app.route('/u/<username>')
+def public_profile(username):
+    """Публичная страница профиля пользователя."""
+    user = User.query.filter_by(username=username).first_or_404()
+    if user.is_bot:
+        return redirect(url_for('index'))
+    # Активные истории
+    stories = Story.query.filter(
+        Story.user_id == user.id,
+        Story.expires_at > datetime.utcnow()
+    ).order_by(Story.created_at.desc()).all()
+    # Репутация
+    rep = user.reputation if user.reputation is not None else 100
+    if rep >= 80: rep_level, rep_color = 'Отличная', '#38a169'
+    elif rep >= 60: rep_level, rep_color = 'Хорошая', '#667eea'
+    elif rep >= 40: rep_level, rep_color = 'Средняя', '#d69e2e'
+    elif rep >= 20: rep_level, rep_color = 'Плохая', '#e53e3e'
+    else: rep_level, rep_color = 'Критическая', '#742a2a'
+    viewer = None
+    if 'user_id' in session:
+        viewer = User.query.get(session['user_id'])
+    return render_template('public_profile.html',
+        user=user, stories=stories,
+        rep=rep, rep_level=rep_level, rep_color=rep_color,
+        viewer=viewer)
+
 def _delete_group_cascade(group_id):
     """Удаляет все зависимые данные группы перед удалением самой группы."""
     gid = {"gid": group_id}
@@ -6363,6 +6459,57 @@ def _send_telegram_2fa(chat_id, code):
     req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
     urllib.request.urlopen(req, timeout=5)
 
+
+
+
+def _notify_new_login(user_id, device_name, ip_address):
+    """Уведомляет пользователя о входе с нового устройства — в мессенджер и Telegram."""
+    with app.app_context():
+        user = User.query.get(user_id)
+        if not user:
+            return
+
+        from datetime import datetime as _dt
+        now = _dt.utcnow().strftime('%d.%m.%Y %H:%M') + ' UTC'
+
+        # ── Уведомление в мессенджер (от tabletone_supportbot) ──
+        bot_user = User.query.filter_by(username='tabletone_supportbot').first()
+        if bot_user:
+            nl = "\n"
+            msg_text = (
+                "🔔 *Новый вход в аккаунт*" + nl + nl +
+                "📱 Устройство: " + device_name + nl +
+                "🌐 IP-адрес: " + ip_address + nl +
+                "🕐 Время: " + now + nl + nl +
+                "Если это были не вы — немедленно смените пароль и завершите все сессии в настройках профиля."
+            )
+            _bot_send_message(bot_user.id, user_id, msg_text)
+
+        # ── Уведомление в Telegram ──
+        if user.telegram_chat_id:
+            try:
+                import urllib.request, json as _json
+                token = os.environ.get('TELEGRAM_BOT_TOKEN')
+                if token:
+                    text = (
+                        "\U0001f6e1 <b>Tabletone \u2014 \u041d\u043e\u0432\u044b\u0439 \u0432\u0445\u043e\u0434</b>\n\n"
+                        "\U0001f464 \u0410\u043a\u043a\u0430\u0443\u043d\u0442: <b>@" + user.username + "</b>\n"
+                        "\U0001f4f1 \u0423\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u043e: <b>" + device_name + "</b>\n"
+                        "\U0001f310 IP-\u0430\u0434\u0440\u0435\u0441: <code>" + ip_address + "</code>\n"
+                        "\U0001f550 \u0412\u0440\u0435\u043c\u044f: <b>" + now + "</b>\n\n"
+                        "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
+                        "\u26a0\ufe0f \u0415\u0441\u043b\u0438 \u044d\u0442\u043e \u0431\u044b\u043b\u0438 \u043d\u0435 \u0432\u044b \u2014 \u043d\u0435\u043c\u0435\u0434\u043b\u0435\u043d\u043d\u043e \u0441\u043c\u0435\u043d\u0438\u0442\u0435 \u043f\u0430\u0440\u043e\u043b\u044c!"
+                    )
+                    url = "https://api.telegram.org/bot" + token + "/sendMessage"
+                    data = _json.dumps({
+                        'chat_id': user.telegram_chat_id,
+                        'text': text,
+                        'parse_mode': 'HTML'
+                    }).encode()
+                    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+                    urllib.request.urlopen(req, timeout=5)
+            except Exception as e:
+                print("Login notify Telegram error: " + str(e))
 
 def _notify_admin_support(admin_user_id):
     """Отправляет администратору уведомление об открытых обращениях при логине."""

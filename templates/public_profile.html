@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ user.display_name or user.username }} — Tabletone{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:0 auto;padding:20px 16px;">
+
+    <!-- Шапка профиля -->
+    <div style="background:var(--bg-secondary);border-radius:20px;padding:30px 24px;text-align:center;margin-bottom:20px;border:1px solid var(--border-color);">
+        <!-- Аватар -->
+        <div style="position:relative;display:inline-block;margin-bottom:16px;">
+            {% if user.avatar_url %}
+            <div style="width:96px;height:96px;border-radius:50%;background-image:url('{{ user.avatar_url }}');background-size:cover;background-position:center;margin:0 auto;border:3px solid {% if user.is_premium %}#d69e2e{% else %}var(--border-color){% endif %};"></div>
+            {% else %}
+            <div style="width:96px;height:96px;border-radius:50%;background:{{ user.avatar_color }};display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:white;margin:0 auto;border:3px solid {% if user.is_premium %}#d69e2e{% else %}var(--border-color){% endif %};">
+                {{ user.get_avatar_letter() }}
+            </div>
+            {% endif %}
+            {% if user.is_premium %}
+            <div style="position:absolute;bottom:0;right:0;background:#d69e2e;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid var(--bg-secondary);">👑</div>
+            {% endif %}
+        </div>
+
+        <!-- Имя -->
+        <h1 style="font-size:22px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+            {{ user.display_name or user.username }}
+            {% if user.is_verified %}
+            <i class="fas fa-check-circle" style="color:#667eea;font-size:18px;" title="Верифицирован"></i>
+            {% endif %}
+            {% if user.premium_emoji %}
+            <span>{{ user.premium_emoji }}</span>
+            {% endif %}
+        </h1>
+        <div style="color:var(--text-secondary);font-size:14px;margin-bottom:12px;">@{{ user.username }}</div>
+
+        {% if user.status_text %}
+        <div style="background:var(--bg-primary);border-radius:10px;padding:8px 14px;font-size:14px;color:var(--text-secondary);margin-bottom:12px;display:inline-block;">
+            💬 {{ user.status_text }}
+        </div>
+        {% endif %}
+
+        {% if user.bio %}
+        <p style="font-size:14px;color:var(--text-primary);margin:0 0 16px;line-height:1.5;">{{ user.bio }}</p>
+        {% endif %}
+
+        <!-- Репутация -->
+        <div style="margin:16px 0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;"><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Репутация</span>
+                <span style="font-size:13px;font-weight:700;color:{{ rep_color }};">{{ rep }}% — {{ rep_level }}</span>
+            </div>
+            <div style="height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:{{ rep }}%;background:{{ rep_color }};border-radius:4px;transition:width 0.4s;"></div>
+            </div>
+        </div>
+
+        <!-- Дата регистрации -->
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:12px;">
+            <i class="fas fa-calendar" style="margin-right:4px;"></i>На Tabletone с {{ user.created_at.strftime('%d.%m.%Y') }}
+        </div>
+
+        <!-- Кнопки -->
+        {% if viewer and viewer.id != user.id %}
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+            <a href="/" onclick="sessionStorage.setItem('openChatUserId','{{ user.id }}');sessionStorage.setItem('openChatUsername','{{ user.display_name or user.username }}');" class="btn btn-primary" style="padding:10px 24px;">
+                <i class="fas fa-comment"></i> Написать
+            </a>
+        </div>
+        {% elif not viewer %}
+        <div style="margin-top:20px;">
+            <a href="/login" class="btn btn-primary" style="padding:10px 24px;">
+                <i class="fas fa-sign-in-alt"></i> Войти чтобы написать
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Истории -->
+    {% if stories %}
+    <div style="background:var(--bg-secondary);border-radius:20px;padding:20px 24px;margin-bottom:20px;border:1px solid var(--border-color);">
+        <h2 style="font-size:16px;font-weight:700;margin:0 0 16px;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-circle" style="color:#e53e3e;font-size:10px;"></i> Истории
+        </h2>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+            {% for story in stories %}
+            <div style="background:var(--bg-primary);border-radius:12px;padding:14px 16px;border:1px solid var(--border-color);">
+                {% if story.media_type == 'image' %}
+                <img src="{{ story.content }}" style="width:100%;border-radius:8px;margin-bottom:8px;max-height:300px;object-fit:cover;" alt="История">
+                {% elif story.media_type == 'video' %}
+                <video src="{{ story.content }}" controls style="width:100%;border-radius:8px;margin-bottom:8px;max-height:300px;"></video>
+                {% else %}
+                <p style="font-size:15px;margin:0 0 8px;line-height:1.5;">{{ story.content }}</p>
+                {% endif %}
+                <div style="font-size:12px;color:var(--text-secondary);display:flex;justify-content:space-between;">
+                    <span><i class="fas fa-clock"></i> {{ story.created_at.strftime('%H:%M %d.%m') }}</span>
+                    <span><i class="fas fa-eye"></i> {{ story.views_count or 0 }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Если пришли с мессенджера — открываем чат
+const _uid = sessionStorage.getItem('openChatUserId');
+if (_uid) {
+    sessionStorage.removeItem('openChatUserId');
+    sessionStorage.removeItem('openChatUsername');
+    window.location.href = '/?chat=' + _uid;
+}
+</script>
+{% endblock %}

@@ -6487,3 +6487,188 @@ if (typeof socket !== 'undefined' && socket) {
         });
     });
 }
+
+// ── Истории (Stories) ────────────────────────────────────────────────────────
+
+let _storyType = 'text';
+let _storyMediaUrl = null;
+let _storyMediaType = 'text';
+
+function setStoryType(type) {
+    _storyType = type;
+    document.getElementById('story-text-area').style.display = type === 'text' ? 'block' : 'none';
+    document.getElementById('story-media-area').style.display = type !== 'text' ? 'block' : 'none';
+    ['text','image','video'].forEach(t => {
+        const btn = document.getElementById('story-type-' + t);
+        if (btn) btn.className = 'btn ' + (t === type ? 'btn-primary' : 'btn-secondary');
+    });
+    _storyMediaUrl = null;
+}
+
+function showCreateStoryModal() {
+    setStoryType('text');
+    document.getElementById('story-content').value = '';
+    document.getElementById('story-char-count').textContent = '0/500';
+    document.getElementById('create-story-modal').classList.add('active');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const ta = document.getElementById('story-content');
+    if (ta) ta.addEventListener('input', function() {
+        document.getElementById('story-char-count').textContent = this.value.length + '/500';
+    });
+});
+
+function previewStoryMedia(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const preview = document.getElementById('story-media-preview');
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch('/story/upload', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert(data.error); return; }
+            _storyMediaUrl = data.media_url;
+            _storyMediaType = data.media_type;
+            if (data.media_type === 'image') {
+                preview.innerHTML = `<img src="${data.media_url}" style="max-width:100%;border-radius:8px;max-height:200px;object-fit:cover;">`;
+            } else {
+                preview.innerHTML = `<video src="${data.media_url}" controls style="max-width:100%;border-radius:8px;max-height:200px;"></video>`;
+            }
+        }).catch(() => alert('Ошибка загрузки файла'));
+}
+
+async function submitStory() {
+    let content = '';
+    let mediaType = 'text';
+    let mediaUrl = '';
+
+    if (_storyType === 'text') {
+        content = document.getElementById('story-content').value.trim();
+        if (!content) { alert('Введите текст истории'); return; }
+        mediaType = 'text';
+    } else {
+        if (!_storyMediaUrl) { alert('Выберите файл'); return; }
+        mediaUrl = _storyMediaUrl;
+        mediaType = _storyMediaType;
+        content = mediaUrl;
+    }
+
+    const resp = await fetch('/story/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, media_url: mediaUrl, media_type: mediaType })
+    });
+    const data = await resp.json();
+    if (data.error) { alert(data.error); return; }
+    document.getElementById('create-story-modal').classList.remove('active');
+    loadStories();
+}
+
+async function loadStories() {
+    const container = document.getElementById('stories-list');
+    if (!container) return;
+    try {
+        const resp = await fetch('/stories');
+        const data = await resp.json();
+        if (!data.stories || !data.stories.length) {
+            container.innerHTML = '';
+            return;
+        }
+        // Группируем по пользователю
+        const byUser = {};
+        data.stories.forEach(s => {
+            if (!byUser[s.user.id]) byUser[s.user.id] = { user: s.user, stories: [] };
+            byUser[s.user.id].stories.push(s);
+        });
+        container.innerHTML = Object.values(byUser).map(({ user, stories }) => {
+            const avatarStyle = user.avatar_url
+                ? `background-image:url('${user.avatar_url}');background-size:cover;background-position:center;background-color:${user.avatar_color};`
+                : `background:${user.avatar_color};`;
+            const avatarContent = user.avatar_url ? '' : `<span style="color:white;font-weight:700;font-size:18px;">${user.avatar_letter}</span>`;
+            return `
+                <div onclick="viewUserStories(${JSON.stringify(stories).replace(/"/g,'&quot;')}, '${escapeHtml(user.display_name)}')"
+                    style="flex-shrink:0;cursor:pointer;text-align:center;">
+                    <div style="width:52px;height:52px;border-radius:50%;${avatarStyle}display:flex;align-items:center;justify-content:center;border:2.5px solid #667eea;box-sizing:border-box;">
+                        ${avatarContent}
+                    </div>
+                    <div style="font-size:10px;color:var(--text-secondary);margin-top:3px;white-space:nowrap;max-width:56px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(user.display_name)}</div>
+                </div>
+            `;
+        }).join('');
+    } catch(e) {}
+}
+
+let _storyViewIndex = 0;
+let _storyViewList = [];
+
+function viewUserStories(stories, userName) {
+    _storyViewList = stories;
+    _storyViewIndex = 0;
+    renderStoryView();
+    document.getElementById('story-view-modal').classList.add('active');
+    // Отмечаем просмотр
+    fetch('/story/' + stories[0].id + '/view', { method: 'POST' }).catch(() => {});
+}
+
+function renderStoryView() {
+    const story = _storyViewList[_storyViewIndex];
+    if (!story) return;
+    const total = _storyViewList.length;
+    const progress = Array.from({length: total}, (_, i) =>
+        `<div style="flex:1;height:3px;border-radius:2px;background:${i <= _storyViewIndex ? 'white' : 'rgba(255,255,255,0.3)'};"></div>`
+    ).join('');
+
+    let mediaHtml = '';
+    if (story.media_type === 'image') {
+        mediaHtml = `<img src="${story.content}" style="width:100%;border-radius:12px;max-height:400px;object-fit:cover;">`;
+    } else if (story.media_type === 'video') {
+        mediaHtml = `<video src="${story.content}" controls autoplay style="width:100%;border-radius:12px;max-height:400px;"></video>`;
+    } else {
+        mediaHtml = `<div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;padding:40px 24px;text-align:center;min-height:200px;display:flex;align-items:center;justify-content:center;">
+            <p style="color:white;font-size:18px;font-weight:500;line-height:1.5;margin:0;">${escapeHtml(story.content)}</p>
+        </div>`;
+    }
+
+    document.getElementById('story-view-content').innerHTML = `
+        <div style="display:flex;gap:4px;margin-bottom:12px;">${progress}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:${story.user.avatar_color};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;flex-shrink:0;">
+                ${story.user.avatar_letter}
+            </div>
+            <div>
+                <div style="color:white;font-weight:600;font-size:14px;">${escapeHtml(story.user.display_name)}</div>
+                <div style="color:rgba(255,255,255,0.7);font-size:12px;">${story.created_at}</div>
+            </div>
+        </div>
+        ${mediaHtml}
+        <div style="display:flex;justify-content:space-between;margin-top:12px;">
+            <button onclick="prevStory()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:8px 16px;border-radius:8px;cursor:pointer;${_storyViewIndex === 0 ? 'opacity:0.3;' : ''}">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span style="color:rgba(255,255,255,0.7);font-size:13px;align-self:center;">${_storyViewIndex + 1} / ${total}</span>
+            <button onclick="nextStory()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:8px 16px;border-radius:8px;cursor:pointer;${_storyViewIndex === total - 1 ? 'opacity:0.3;' : ''}">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    `;
+}
+
+function nextStory() {
+    if (_storyViewIndex < _storyViewList.length - 1) {
+        _storyViewIndex++;
+        renderStoryView();
+        fetch('/story/' + _storyViewList[_storyViewIndex].id + '/view', { method: 'POST' }).catch(() => {});
+    }
+}
+
+function prevStory() {
+    if (_storyViewIndex > 0) {
+        _storyViewIndex--;
+        renderStoryView();
+    }
+}
+
+// Загружаем истории при старте
+document.addEventListener('DOMContentLoaded', loadStories);
