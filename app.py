@@ -2325,72 +2325,103 @@ def get_chat(user_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401
     
-    # Получаем параметр last_check для polling
-    last_check = request.args.get('last_check')
-    
-    uid = session['user_id']
-    query = Message.query.filter(
-        db.or_(
-            db.and_(Message.sender_id == uid, Message.receiver_id == user_id,
-                    Message.hidden_for_sender == False),
-            db.and_(Message.sender_id == user_id, Message.receiver_id == uid,
-                    Message.hidden_for_receiver == False)
+    try:
+        # Получаем параметр last_check для polling
+        last_check = request.args.get('last_check')
+        
+        uid = session['user_id']
+
+        other_user = User.query.get(user_id)
+        if not other_user:
+            return jsonify({'error': 'Пользователь не найден'}), 404
+
+        query = Message.query.filter(
+            db.or_(
+                db.and_(Message.sender_id == uid, Message.receiver_id == user_id,
+                        Message.hidden_for_sender == False),
+                db.and_(Message.sender_id == user_id, Message.receiver_id == uid,
+                        Message.hidden_for_receiver == False)
+            )
         )
-    )
-    
-    # Если есть last_check, фильтруем только новые сообщения
-    if last_check:
-        try:
-            last_check_time = datetime.fromtimestamp(int(last_check) / 1000)
-            query = query.filter(Message.timestamp > last_check_time)
-        except:
-            pass
-    
-    messages = query.order_by(Message.timestamp.asc()).all()
-    
-    other_user = User.query.get(user_id)
-    
-    return jsonify({
-        'other_user': {
-            'id': other_user.id, 
-            'username': other_user.username,
-            'display_name': other_user.display_name or other_user.username,
-            'avatar_color': other_user.avatar_color,
-            'avatar_url': other_user.avatar_url,
-            'avatar_letter': other_user.get_avatar_letter(),
-            'is_verified': other_user.is_verified,
-            'is_online': other_user.id in online_users,
-            'bio': other_user.bio,
-            'last_seen': other_user.last_seen.isoformat() if other_user.last_seen else None
-        },
-        'messages': [{
-            'id': msg.id,
-            'sender_id': msg.sender_id,
-            'content': msg.decrypted_content,
-            'message_type': msg.message_type or 'text',
-            'media_url': msg.media_url,
-            'media_files': [{
-                'media_type': mf.media_type,
-                'media_url': mf.media_url,
-                'file_name': mf.file_name,
-                'file_size': mf.file_size
-            } for mf in msg.media_files] if msg.media_files else [],
-            'duration': msg.duration,
-            'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
-            'timestamp_iso': msg.timestamp.isoformat() + 'Z',
-            'edited_at': msg.edited_at.strftime('%H:%M %d.%m') if msg.edited_at else None,
-            'is_deleted': msg.is_deleted,
-            'is_mine': msg.sender_id == session['user_id'],
-            'is_read': msg.is_read,
-            'reply_to': {
-                'id': msg.reply_to.id,
-                'content': msg.reply_to.decrypted_content if not msg.reply_to.is_deleted else '[удалено]',
-                'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
-            } if msg.reply_to_id and msg.reply_to else None,
-            'bot_buttons': _get_bot_buttons_for_msg(msg),
-            'sticker_pack_id': _get_sticker_pack_id(msg.decrypted_content) if msg.message_type == 'sticker' or (msg.decrypted_content and msg.decrypted_content.startswith('[sticker]')) else None,
-        } for msg in messages]
-    })
+        
+        # Если есть last_check, фильтруем только новые сообщения
+        if last_check:
+            try:
+                last_check_time = datetime.fromtimestamp(int(last_check) / 1000)
+                query = query.filter(Message.timestamp > last_check_time)
+            except:
+                pass
+        
+        messages = query.order_by(Message.timestamp.asc()).all()
+        
+        def safe_msg_dict(msg):
+            try:
+                decrypted = msg.decrypted_content
+                reply = None
+                if msg.reply_to_id and msg.reply_to:
+                    try:
+                        reply = {
+                            'id': msg.reply_to.id,
+                            'content': msg.reply_to.decrypted_content if not msg.reply_to.is_deleted else '[удалено]',
+                            'sender_name': (msg.reply_to.sender.display_name or msg.reply_to.sender.username) if msg.reply_to.sender else '?'
+                        }
+                    except Exception:
+                        reply = None
+                return {
+                    'id': msg.id,
+                    'sender_id': msg.sender_id,
+                    'content': decrypted,
+                    'message_type': msg.message_type or 'text',
+                    'media_url': msg.media_url,
+                    'media_files': [{
+                        'media_type': mf.media_type,
+                        'media_url': mf.media_url,
+                        'file_name': mf.file_name,
+                        'file_size': mf.file_size
+                    } for mf in msg.media_files] if msg.media_files else [],
+                    'duration': msg.duration,
+                    'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
+                    'timestamp_iso': msg.timestamp.isoformat() + 'Z',
+                    'edited_at': msg.edited_at.strftime('%H:%M %d.%m') if msg.edited_at else None,
+                    'is_deleted': msg.is_deleted,
+                    'is_mine': msg.sender_id == session['user_id'],
+                    'is_read': msg.is_read,
+                    'reply_to': reply,
+                    'bot_buttons': _get_bot_buttons_for_msg(msg),
+                    'sticker_pack_id': _get_sticker_pack_id(decrypted) if msg.message_type == 'sticker' or (decrypted and decrypted.startswith('[sticker]')) else None,
+                }
+            except Exception as e:
+                app.logger.error(f'Error serializing message {msg.id}: {e}')
+                return {
+                    'id': msg.id, 'sender_id': msg.sender_id, 'content': '',
+                    'message_type': msg.message_type or 'text', 'media_url': None,
+                    'media_files': [], 'duration': None,
+                    'timestamp': msg.timestamp.strftime('%H:%M %d.%m'),
+                    'timestamp_iso': msg.timestamp.isoformat() + 'Z',
+                    'edited_at': None, 'is_deleted': msg.is_deleted,
+                    'is_mine': msg.sender_id == session['user_id'],
+                    'is_read': msg.is_read, 'reply_to': None,
+                    'bot_buttons': [], 'sticker_pack_id': None,
+                }
+
+        return jsonify({
+            'other_user': {
+                'id': other_user.id, 
+                'username': other_user.username,
+                'display_name': other_user.display_name or other_user.username,
+                'avatar_color': other_user.avatar_color,
+                'avatar_url': other_user.avatar_url,
+                'avatar_letter': other_user.get_avatar_letter(),
+                'is_verified': other_user.is_verified,
+                'is_online': other_user.id in online_users,
+                'bio': other_user.bio,
+                'last_seen': other_user.last_seen.isoformat() if other_user.last_seen else None
+            },
+            'messages': [safe_msg_dict(msg) for msg in messages]
+        })
+    except Exception as e:
+        app.logger.error(f'get_chat error for user {user_id}: {e}', exc_info=True)
+        return jsonify({'error': 'Ошибка загрузки сообщений', 'detail': str(e)}), 500
 
 # Отметить сообщения как прочитанные в личном чате
 @app.route('/chat/<int:user_id>/mark_read', methods=['POST'])

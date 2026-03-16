@@ -827,13 +827,16 @@ body[data-theme="liquid"] .app-logo {
 
 /* Wallpapers */
 body[data-theme="light"] .messages-container[data-wallpaper="default"] {
-    background-image: url('/static/images/back_white.jpg') !important;
+    background-color: #f0f2f5 !important;
+    background-image: none !important;
 }
 body[data-theme="dark"] .messages-container[data-wallpaper="default"] {
-    background-image: url('/static/images/back_dark.jpg') !important;
+    background-color: #1a1a2e !important;
+    background-image: none !important;
 }
 body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
-    background-image: url('/static/images/back_white.jpg') !important;
+    background-color: #e8f4fd !important;
+    background-image: none !important;
 }
 .messages-container[data-wallpaper="back1"] {
     background-image: none !important;
