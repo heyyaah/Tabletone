@@ -5951,7 +5951,7 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                 )
 
                 payload = _json.dumps({
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "llama3-70b-8192",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": text}
@@ -5981,6 +5981,8 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
             err_str = str(e).lower()
             if 'api_key' in err_str or '401' in err_str or 'unauthorized' in err_str:
                 reply_text = "⚠️ Ошибка авторизации API. Проверьте GROQ_API_KEY в настройках сервера."
+            elif '403' in err_str or 'forbidden' in err_str:
+                reply_text = "⚠️ Нет доступа к модели ИИ. Обратитесь к администратору."
             elif 'timeout' in err_str or 'timed out' in err_str:
                 reply_text = "⏱ Запрос занял слишком много времени. Попробуй ещё раз."
             elif 'rate' in err_str or '429' in err_str:
