@@ -2438,7 +2438,7 @@ def get_chat(user_id):
                     'edited_at': None, 'is_deleted': msg.is_deleted,
                     'is_mine': msg.sender_id == session['user_id'],
                     'is_read': msg.is_read, 'reply_to': None,
-                    'bot_buttons': [], 'sticker_pack_id': None,
+                    'bot_buttons': [], 'sticker_pack_id': None, 'gift': None,
                 }
 
         return jsonify({
@@ -6414,7 +6414,11 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         'media_files': [{'media_url': img_url, 'media_type': 'image', 'file_name': fname}],
                         'bot_buttons': []
                     }
-                    socketio.emit('new_message', msg_data, room=f'user_{sender_id}', namespace='/')
+                    socketio.emit('new_message', {
+                        'message': msg_data,
+                        'other_user_id': bot_user_id,
+                        'sender_info': {'id': bot_user_id, 'username': 'nexus', 'display_name': 'Nexus AI', 'avatar_color': '#667eea', 'avatar_letter': 'N', 'avatar_url': None}
+                    }, room=f'user_{sender_id}', namespace='/')
 
             except Exception as e:
                 print(f"Nexus image gen error: {e}")
