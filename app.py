@@ -4001,7 +4001,7 @@ def remove_user(user_id):
                 except Exception as _e: print(f"remove_user sql skip: {_e}")
 
             # 1. Удаляем группы пользователя (где он creator) со всеми зависимостями
-            owned_groups = [r[0] for r in _conn.execute(_text("SELECT id FROM "group" WHERE creator_id = :uid"), {"uid": user_id})]
+            owned_groups = [r[0] for r in _conn.execute(_text('SELECT id FROM "group" WHERE creator_id = :uid'), {"uid": user_id})]
             for gid in owned_groups:
                 _ex("DELETE FROM slow_mode_tracker WHERE group_id = :gid", {"gid": gid})
                 _ex("DELETE FROM last_read_group_message WHERE group_id = :gid", {"gid": gid})
