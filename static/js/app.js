@@ -2523,11 +2523,39 @@ document.addEventListener('DOMContentLoaded', function() {
         _videoBtnCycle.addEventListener('touchend', _onSendBtnHoldEnd);
     }
     if (_voiceBtn) {
-        _voiceBtn.addEventListener('mousedown', (e) => { _onSendBtnHoldStart(e); startVoiceRecord(); });
-        _voiceBtn.addEventListener('mouseup', (e) => { _onSendBtnHoldEnd(e); stopVoiceRecord(); });
-        _voiceBtn.addEventListener('mouseleave', () => { if (_holdTimer) { clearTimeout(_holdTimer); _holdTimer = null; } });
-        _voiceBtn.addEventListener('touchstart', (e) => { _onSendBtnHoldStart(e); startVoiceRecord(); }, {passive: true});
-        _voiceBtn.addEventListener('touchend', (e) => { _onSendBtnHoldEnd(e); stopVoiceRecord(); });
+        // Голосовой: короткое нажатие = запись пока держишь, длинное (500мс) = переключение режима
+        let _voiceHolding = false;
+        let _voiceSwitchDone = false;
+
+        function _voiceStart(e) {
+            _voiceHolding = true;
+            _voiceSwitchDone = false;
+            _holdTimer = setTimeout(() => {
+                _holdTimer = null;
+                _voiceSwitchDone = true;
+                stopVoiceRecord(); // отменяем запись если началась
+                _setSendState((_sendBtnState + 1) % 3);
+            }, 500);
+            // Начинаем запись сразу
+            startVoiceRecord();
+        }
+
+        function _voiceEnd(e) {
+            if (_holdTimer) {
+                clearTimeout(_holdTimer);
+                _holdTimer = null;
+            }
+            if (!_voiceSwitchDone) {
+                stopVoiceRecord();
+            }
+            _voiceHolding = false;
+        }
+
+        _voiceBtn.addEventListener('mousedown', _voiceStart);
+        _voiceBtn.addEventListener('mouseup', _voiceEnd);
+        _voiceBtn.addEventListener('mouseleave', _voiceEnd);
+        _voiceBtn.addEventListener('touchstart', _voiceStart, {passive: true});
+        _voiceBtn.addEventListener('touchend', _voiceEnd);
     }
 });
 
