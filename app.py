@@ -17,7 +17,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production')
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
@@ -2210,7 +2210,7 @@ def _pay_main_kb():
 
 @app.route('/payment/webhook', methods=['POST'])
 def payment_webhook():
-    token = os.environ.get('PAYMENT_BOT_TOKEN', '8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M')
+    token = os.environ.get('PAYMENT_BOT_TOKEN', '')
     owner_tg_id = int(os.environ.get('OWNER_TELEGRAM_ID', '8081350794'))
     site_url_pay = os.environ.get('SITE_URL', 'https://hi-j5rs.onrender.com')
     pay_secret = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
@@ -9164,7 +9164,7 @@ def _auto_register_telegram_webhook():
             print(f"⚠️ 2FA webhook error: {e}")
 
     # Платёжный бот
-    token_pay = os.environ.get('PAYMENT_BOT_TOKEN', '8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M')
+    token_pay = os.environ.get('PAYMENT_BOT_TOKEN', '')
     if token_pay:
         try:
             url = f"https://api.telegram.org/bot{token_pay}/setWebhook"
