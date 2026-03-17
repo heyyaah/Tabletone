@@ -11164,24 +11164,39 @@ def translate_message():
     target_lang = data.get('lang', 'ru')
     if not text:
         return jsonify({'error': 'Нет текста'}), 400
+
+    import urllib.request as _req
+    import urllib.parse as _parse
+    import json as _json
+
+    # Пробуем Gemini если есть ключ
     gemini_key = _os.environ.get('GEMINI_API_KEY', '')
-    if not gemini_key:
-        return jsonify({'error': 'Gemini API не настроен'}), 503
+    if gemini_key:
+        try:
+            prompt = f"Translate the following text to {target_lang}. Reply with ONLY the translated text, no explanations:\n\n{text}"
+            payload = _json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
+            req = _req.Request(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                data=payload, headers={"Content-Type": "application/json"}, method="POST"
+            )
+            with _req.urlopen(req, timeout=10) as resp:
+                result = _json.loads(resp.read())
+            translated = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+            return jsonify({'translated': translated})
+        except Exception as e:
+            app.logger.warning(f"Gemini translate failed: {e}")
+
+    # Fallback: бесплатный Google Translate (неофициальный)
     try:
-        import urllib.request as _req
-        import json as _json
-        prompt = f"Translate the following text to {target_lang}. Reply with ONLY the translated text, no explanations:\n\n{text}"
-        payload = _json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
-        req = _req.Request(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
-            data=payload, headers={"Content-Type": "application/json"}, method="POST"
-        )
-        with _req.urlopen(req, timeout=10) as resp:
+        params = _parse.urlencode({'client': 'gtx', 'sl': 'auto', 'tl': target_lang, 'dt': 't', 'q': text})
+        url = f"https://translate.googleapis.com/translate_a/single?{params}"
+        req = _req.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with _req.urlopen(req, timeout=8) as resp:
             result = _json.loads(resp.read())
-        translated = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        translated = ''.join(part[0] for part in result[0] if part[0])
         return jsonify({'translated': translated})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Ошибка перевода: {e}'}), 500
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # КТО ПРОЧИТАЛ СООБЩЕНИЕ В ГРУППЕ
