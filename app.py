@@ -21,9 +21,9 @@ app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
 # Render даёт postgres://, SQLAlchemy требует postgresql://
 if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
-elif _db_url.startswith('postgresql://'):
-    _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+    _db_url = _db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
+elif _db_url.startswith('postgresql://') and 'psycopg2' not in _db_url and 'pg8000' not in _db_url:
+    _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 from sqlalchemy.pool import NullPool
