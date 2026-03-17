@@ -1,11 +1,5 @@
-"""
-Telegram-бот для приёма платежей Tabletone
-Оплата на карту → скриншот → подтверждение владельцем
-"""
-
-import os
-import logging
-import asyncio
+"""Telegram payment bot for Tabletone"""
+import os, logging, asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -15,441 +9,352 @@ from telegram.ext import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.environ.get("PAYMENT_BOT_TOKEN", "8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M")
-
-# Твой Telegram ID — сюда будут приходить заявки на подтверждение
-# Узнать свой ID: написать @userinfobot
+BOT_TOKEN         = os.environ.get("PAYMENT_BOT_TOKEN", "8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M")
 OWNER_TELEGRAM_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
-
-# Реквизиты
-CARD_NUMBER = "+79519603466"
-CARD_BANK = "по номеру телефона (СБП / любой банк)"
-
-# URL сайта для автоактивации
-SITE_URL = os.environ.get("SITE_URL", "https://hi-latest.onrender.com")
-PAYMENT_SECRET = os.environ.get("PAYMENT_SECRET", "tabletone_payment_secret")
-
-# Таймаут ожидания скриншота (секунды)
-SCREENSHOT_TIMEOUT = 600  # 10 минут
+CARD_NUMBER       = "+79519603466"
+CARD_BANK         = "po nomeru telefona (SBP / lyuboy bank)"
+SITE_URL          = os.environ.get("SITE_URL", "https://hi-latest.onrender.com")
+PAYMENT_SECRET    = os.environ.get("PAYMENT_SECRET", "tabletone_payment_secret")
+SCREENSHOT_TIMEOUT = 600
 
 PREMIUM_PLANS = {
-    "premium_7":   {"label": "Premium 7 дней",    "price": "59 ₽",  "days": 7},
-    "premium_14":  {"label": "Premium 14 дней",   "price": "99 ₽",  "days": 14},
-    "premium_30":  {"label": "Premium 30 дней",   "price": "149 ₽", "days": 30},
-    "premium_180": {"label": "Premium 6 месяцев", "price": "499 ₽", "days": 180},
-    "premium_365": {"label": "Premium 1 год",     "price": "799 ₽", "days": 365},
+    "premium_7":   {"label": "Premium 7 dney",    "price": "59 rub",  "days": 7},
+    "premium_14":  {"label": "Premium 14 dney",   "price": "99 rub",  "days": 14},
+    "premium_30":  {"label": "Premium 30 dney",   "price": "149 rub", "days": 30},
+    "premium_180": {"label": "Premium 6 mesyacev", "price": "499 rub", "days": 180},
+    "premium_365": {"label": "Premium 1 god",     "price": "799 rub", "days": 365},
 }
-
 SPARKS_PLANS = {
-    "sparks_100":  {"label": "100 Искр ✨",  "price": "29 ₽",  "sparks": 100},
-    "sparks_300":  {"label": "300 Искр ✨",  "price": "79 ₽",  "sparks": 300},
-    "sparks_700":  {"label": "700 Искр ✨",  "price": "149 ₽", "sparks": 700},
-    "sparks_1500": {"label": "1500 Искр ✨", "price": "299 ₽", "sparks": 1500},
-    "sparks_5000": {"label": "5000 Искр ✨", "price": "799 ₽", "sparks": 5000},
+    "sparks_100":  {"label": "100 Iskr",  "price": "29 rub",  "sparks": 100},
+    "sparks_300":  {"label": "300 Iskr",  "price": "79 rub",  "sparks": 300},
+    "sparks_700":  {"label": "700 Iskr",  "price": "149 rub", "sparks": 700},
+    "sparks_1500": {"label": "1500 Iskr", "price": "299 rub", "sparks": 1500},
+    "sparks_5000": {"label": "5000 Iskr", "price": "799 rub", "sparks": 5000},
 }
 
-# ── /start ────────────────────────────────────────────────────────────────────
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👑 Купить Premium", callback_data="menu_premium")],
-        [InlineKeyboardButton("✨ Купить Искры",   callback_data="menu_sparks")],
-    ])
-    await update.message.reply_text(
-        "👋 Привет! Я бот оплаты *Tabletone*.\n\n"
-        "Выбери что хочешь купить 👇",
-        parse_mode="Markdown", reply_markup=kb
-    )
-
-# ── Owner-команды ─────────────────────────────────────────────────────────────
 def owner_only(func):
-    """Декоратор — только для владельца."""
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != OWNER_TELEGRAM_ID:
-            await update.message.reply_text("⛔ Нет доступа.")
+            await update.message.reply_text("No access.")
             return
         await func(update, context)
     return wrapper
 
-@owner_only
-async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    /givepremium <username> <days>
-    Пример: /givepremium romancev228 30
-    """
-    args = context.args
-    if len(args) < 2:
-        await update.message.reply_text(
-            "Использование: `/givepremium <username> <дней>`\n"
-            "Пример: `/givepremium romancev228 30`",
-            parse_mode="Markdown"
-        )
-        return
-    username = args[0].lstrip("@")
-    try:
-        days = int(args[1])
-    except ValueError:
-        await update.message.reply_text("❌ Количество дней должно быть числом.")
-        return
+def main_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Kupit Premium", callback_data="menu_premium")],
+        [InlineKeyboardButton("Kupit Iskry",   callback_data="menu_sparks")],
+        [InlineKeyboardButton("Kupit NFT",     callback_data="menu_nft")],
+    ])
 
+async def _api_post(path, payload):
+    import aiohttp
+    async with aiohttp.ClientSession() as s:
+        r = await s.post(
+            f"{SITE_URL}{path}",
+            json={**payload, "secret": PAYMENT_SECRET},
+            timeout=aiohttp.ClientTimeout(total=10)
+        )
+        return await r.json()
+
+async def _get_nft_list():
     try:
         import aiohttp
-        async with aiohttp.ClientSession() as session:
-            resp = await session.post(
-                f"{SITE_URL}/api/payment/activate-premium",
-                json={"username": username, "days": days, "secret": PAYMENT_SECRET},
-                timeout=aiohttp.ClientTimeout(total=10)
-            )
-            data = await resp.json()
-        if data.get("success"):
-            await update.message.reply_text(
-                f"✅ Premium на *{days} дней* выдан пользователю @{username}.",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text(f"❌ Ошибка: {data.get('error', 'неизвестно')}")
+        async with aiohttp.ClientSession() as s:
+            r = await s.get(f"{SITE_URL}/api/nft/collections", timeout=aiohttp.ClientTimeout(total=10))
+            d = await r.json()
+            return d.get("collections", [])
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка соединения: {e}")
+        logger.error(f"NFT list error: {e}")
+        return []
 
-@owner_only
-async def cmd_give_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    /givesparks <username> <количество>
-    Пример: /givesparks romancev228 500
-    """
-    args = context.args
-    if len(args) < 2:
-        await update.message.reply_text(
-            "Использование: `/givesparks <username> <количество>`\n"
-            "Пример: `/givesparks romancev228 500`",
-            parse_mode="Markdown"
-        )
-        return
-    username = args[0].lstrip("@")
-    try:
-        sparks = int(args[1])
-    except ValueError:
-        await update.message.reply_text("❌ Количество искр должно быть числом.")
-        return
-    if sparks == 0:
-        await update.message.reply_text("❌ Количество не может быть 0.")
-        return
-
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            resp = await session.post(
-                f"{SITE_URL}/api/payment/add-sparks",
-                json={"username": username, "sparks": sparks, "secret": PAYMENT_SECRET},
-                timeout=aiohttp.ClientTimeout(total=10)
-            )
-            data = await resp.json()
-        if data.get("success"):
-            sign = "+" if sparks > 0 else ""
-            await update.message.reply_text(
-                f"✅ {sign}{sparks} ✨ Искр {'начислено' if sparks > 0 else 'снято'} у @{username}.",
-                parse_mode="Markdown"
-            )
-        else:
-            await update.message.reply_text(f"❌ Ошибка: {data.get('error', 'неизвестно')}")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка соединения: {e}")
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Privet! Ya bot oplaty Tabletone.\n\nVyberi chto hochesh kupit:", reply_markup=main_kb())
 
 @owner_only
 async def cmd_owner_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🔧 *Owner-команды:*\n\n"
-        "`/givepremium <username> <дней>` — выдать Premium\n"
-        "`/givesparks <username> <кол-во>` — начислить Искры\n"
-        "_(отрицательное число — снять Искры)_\n\n"
-        "Примеры:\n"
-        "`/givepremium romancev228 30`\n"
-        "`/givesparks romancev228 1000`\n"
-        "`/givesparks romancev228 -200`",
-        parse_mode="Markdown"
+        "Owner commands:\n/givepremium <user> <days>\n/givesparks <user> <amount>\n"
+        "/givegift <user> <gift_id>\n/givenft <user> <nft_id>\n/giftlist\n/nftlist"
     )
 
-# ── Меню Premium ──────────────────────────────────────────────────────────────
+@owner_only
+async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /givepremium <username> <days>"); return
+    username = args[0].lstrip("@")
+    try: days = int(args[1])
+    except ValueError:
+        await update.message.reply_text("Days must be a number."); return
+    try:
+        data = await _api_post("/api/payment/activate-premium", {"username": username, "days": days})
+        if data.get("success"):
+            await update.message.reply_text(f"Premium {days}d given to @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
+async def cmd_give_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /givesparks <username> <amount>"); return
+    username = args[0].lstrip("@")
+    try: sparks = int(args[1])
+    except ValueError:
+        await update.message.reply_text("Amount must be a number."); return
+    try:
+        data = await _api_post("/api/payment/add-sparks", {"username": username, "sparks": sparks})
+        if data.get("success"):
+            await update.message.reply_text(f"{sparks:+} sparks for @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
+async def cmd_give_gift(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /givegift <username> <gift_id>"); return
+    username, gift_id = args[0].lstrip("@"), args[1]
+    try:
+        data = await _api_post("/api/gifts/give", {"username": username, "gift_id": gift_id})
+        if data.get("success"):
+            await update.message.reply_text(f"Gift {gift_id} sent to @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
+async def cmd_give_nft(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /givenft <username> <nft_id>"); return
+    username, nft_id = args[0].lstrip("@"), args[1]
+    try:
+        data = await _api_post("/api/nft/give", {"username": username, "nft_id": nft_id})
+        if data.get("success"):
+            await update.message.reply_text(f"NFT {nft_id} given to @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
+async def cmd_gift_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as s:
+            r = await s.get(f"{SITE_URL}/api/gifts/list", timeout=aiohttp.ClientTimeout(total=10))
+            d = await r.json()
+        gifts = d.get("gifts", [])
+        if not gifts:
+            await update.message.reply_text("No gifts found."); return
+        lines = [f"{g['id']} - {g['name']} ({g.get('price',0)} sparks)" for g in gifts]
+        await update.message.reply_text("Gifts:\n\n" + "\n".join(lines))
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
+async def cmd_nft_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cols = await _get_nft_list()
+    if not cols:
+        await update.message.reply_text("No NFT collections."); return
+    lines = [f"{c['id']} - {c['name']} (limit: {c.get('max_supply','inf')})" for c in cols]
+    await update.message.reply_text("NFT collections:\n\n" + "\n".join(lines))
+
 async def menu_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    buttons = [[InlineKeyboardButton(
-        f"{p['label']} — {p['price']}", callback_data=f"buy_{k}"
-    )] for k, p in PREMIUM_PLANS.items()]
-    buttons.append([InlineKeyboardButton("◀️ Назад", callback_data="menu_main")])
-    await q.edit_message_text(
-        "👑 *Выберите срок Premium:*",
-        parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons)
-    )
+    q = update.callback_query; await q.answer()
+    buttons = [[InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")] for k, p in PREMIUM_PLANS.items()]
+    buttons.append([InlineKeyboardButton("Back", callback_data="menu_main")])
+    await q.edit_message_text("Choose Premium plan:", reply_markup=InlineKeyboardMarkup(buttons))
 
-# ── Меню Искр ─────────────────────────────────────────────────────────────────
 async def menu_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    buttons = [[InlineKeyboardButton(
-        f"{p['label']} — {p['price']}", callback_data=f"buy_{k}"
-    )] for k, p in SPARKS_PLANS.items()]
-    buttons.append([InlineKeyboardButton("◀️ Назад", callback_data="menu_main")])
-    await q.edit_message_text(
-        "✨ *Выберите количество Искр:*",
-        parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons)
-    )
+    q = update.callback_query; await q.answer()
+    buttons = [[InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")] for k, p in SPARKS_PLANS.items()]
+    buttons.append([InlineKeyboardButton("Back", callback_data="menu_main")])
+    await q.edit_message_text("Choose Sparks amount:", reply_markup=InlineKeyboardMarkup(buttons))
 
-# ── Главное меню ──────────────────────────────────────────────────────────────
-async def menu_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👑 Купить Premium", callback_data="menu_premium")],
-        [InlineKeyboardButton("✨ Купить Искры",   callback_data="menu_sparks")],
-    ])
-    await q.edit_message_text("Выбери что хочешь купить 👇", reply_markup=kb)
-
-# ── Выбор товара → спрашиваем username ───────────────────────────────────────
-async def buy_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    key = q.data[4:]
-    plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
-    if not plan:
+async def menu_nft(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    cols = await _get_nft_list()
+    if not cols:
+        await q.edit_message_text("No NFT collections yet.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="menu_main")]]))
         return
+    buttons = [[InlineKeyboardButton(f"{c['name']} - {c.get('price','?')} rub", callback_data=f"buy_nft_{c['id']}")] for c in cols]
+    buttons.append([InlineKeyboardButton("Back", callback_data="menu_main")])
+    await q.edit_message_text("Choose NFT:", reply_markup=InlineKeyboardMarkup(buttons))
+
+async def menu_main_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    await q.edit_message_text("Choose what to buy:", reply_markup=main_kb())
+
+async def buy_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    key = q.data[4:]
+    is_nft = key.startswith("nft_")
+    if not is_nft:
+        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        if not plan: return
+        label, price = plan['label'], plan['price']
+    else:
+        nft_id = key[4:]
+        cols = await _get_nft_list()
+        nft = next((c for c in cols if str(c['id']) == str(nft_id)), None)
+        if not nft: return
+        label, price = nft['name'], f"{nft.get('price','?')} rub"
     context.user_data["pending_key"] = key
     context.user_data["awaiting_username"] = True
     context.user_data["awaiting_screenshot"] = False
     await q.edit_message_text(
-        f"✅ Вы выбрали: *{plan['label']}* — *{plan['price']}*\n\n"
-        "Введите ваш *username* в Tabletone (без @):",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("◀️ Отмена", callback_data="menu_main")
-        ]])
+        f"Selected: {label} - {price}\n\nEnter your Tabletone username (without @):",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Cancel", callback_data="menu_main")]])
     )
 
-# ── Обработка текста (username → реквизиты, потом таймаут) ───────────────────
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("awaiting_username"):
-        return
+    if not context.user_data.get("awaiting_username"): return
     username = update.message.text.strip().lstrip("@")
     if len(username) < 3:
-        await update.message.reply_text("❌ Слишком короткий username. Попробуйте ещё раз:")
-        return
-
-    key = context.user_data.get("pending_key")
-    plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
-    if not plan:
-        await update.message.reply_text("Что-то пошло не так. Напишите /start")
-        return
-
+        await update.message.reply_text("Username too short."); return
+    key = context.user_data.get("pending_key", "")
+    is_nft = key.startswith("nft_")
+    if not is_nft:
+        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        if not plan:
+            await update.message.reply_text("Error. Type /start"); return
+        price = plan['price']
+    else:
+        nft_id = key[4:]
+        cols = await _get_nft_list()
+        nft = next((c for c in cols if str(c['id']) == str(nft_id)), None)
+        if not nft:
+            await update.message.reply_text("Error. Type /start"); return
+        price = f"{nft.get('price','?')} rub"
     context.user_data["tabletone_username"] = username
     context.user_data["awaiting_username"] = False
     context.user_data["awaiting_screenshot"] = True
-
     await update.message.reply_text(
-        f"💳 *Реквизиты для оплаты:*\n\n"
-        f"📱 Номер: `{CARD_NUMBER}`\n"
-        f"🏦 {CARD_BANK}\n"
-        f"💰 Сумма: *{plan['price']}*\n\n"
-        f"После перевода пришлите *скриншот* подтверждения оплаты.\n"
-        f"⏳ У вас есть *10 минут*.",
-        parse_mode="Markdown"
+        f"Payment details:\n\nPhone: {CARD_NUMBER}\nBank: {CARD_BANK}\nAmount: {price}\n\nSend screenshot after payment. 10 minutes."
     )
-
-    # Запускаем таймаут
     async def timeout_check():
         await asyncio.sleep(SCREENSHOT_TIMEOUT)
         if context.user_data.get("awaiting_screenshot"):
             context.user_data["awaiting_screenshot"] = False
-            context.user_data["pending_key"] = None
-            try:
-                await update.message.reply_text(
-                    "⏰ Время вышло. Скриншот не был получен.\n"
-                    "Если вы оплатили — напишите /start и попробуйте снова."
-                )
-            except Exception:
-                pass
-
+            try: await update.message.reply_text("Time is up. Type /start to retry.")
+            except Exception: pass
     asyncio.create_task(timeout_check())
 
-# ── Получение скриншота ───────────────────────────────────────────────────────
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("awaiting_screenshot"):
-        return
-
+    if not context.user_data.get("awaiting_screenshot"): return
     context.user_data["awaiting_screenshot"] = False
-    key = context.user_data.get("pending_key")
+    key = context.user_data.get("pending_key", "")
     username = context.user_data.get("tabletone_username", "?")
-    plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
-    if not plan:
-        await update.message.reply_text("Что-то пошло не так. Напишите /start")
-        return
-
+    is_nft = key.startswith("nft_")
+    if not is_nft:
+        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        label = plan['label'] if plan else key
+        price = plan['price'] if plan else "?"
+    else:
+        nft_id = key[4:]
+        cols = await _get_nft_list()
+        nft = next((c for c in cols if str(c['id']) == str(nft_id)), None)
+        label = nft['name'] if nft else key
+        price = f"{nft.get('price','?')} rub" if nft else "?"
     user = update.effective_user
     user_info = f"@{user.username}" if user.username else f"id:{user.id}"
-
-    # Сохраняем данные для подтверждения
     photo_file_id = update.message.photo[-1].file_id
-    context.user_data["pending_photo_id"] = photo_file_id
     context.user_data["pending_user_chat_id"] = update.effective_chat.id
-
-    await update.message.reply_text(
-        "📨 Скриншот получен! Ожидайте подтверждения от администратора.\n"
-        "Обычно это занимает до 15 минут."
-    )
-
-    # Отправляем владельцу
+    await update.message.reply_text("Screenshot received! Waiting for admin confirmation.")
     if not OWNER_TELEGRAM_ID:
-        logger.warning("OWNER_TELEGRAM_ID не задан! Установите переменную окружения.")
-        return
-
+        logger.warning("OWNER_TELEGRAM_ID not set!"); return
     confirm_kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            "✅ Да, подтвердить",
-            callback_data=f"confirm_{key}_{username}_{update.effective_chat.id}"
-        ),
-        InlineKeyboardButton(
-            "❌ Нет, отклонить",
-            callback_data=f"reject_{key}_{username}_{update.effective_chat.id}"
-        ),
+        InlineKeyboardButton("Confirm", callback_data=f"confirm_{key}_{username}_{update.effective_chat.id}"),
+        InlineKeyboardButton("Reject",  callback_data=f"reject_{key}_{username}_{update.effective_chat.id}"),
     ]])
-
     await context.bot.send_photo(
-        chat_id=OWNER_TELEGRAM_ID,
-        photo=photo_file_id,
-        caption=(
-            f"⚠️ *Внимание!*\n"
-            f"Новая заявка на подтверждение оплаты!\n\n"
-            f"👤 Пользователь TG: {user_info}\n"
-            f"🎮 Username Tabletone: @{username}\n"
-            f"🛒 Товар: {plan['label']}\n"
-            f"💰 Сумма: {plan['price']}\n\n"
-            f"Вы подтверждаете перевод?"
-        ),
-        parse_mode="Markdown",
+        chat_id=OWNER_TELEGRAM_ID, photo=photo_file_id,
+        caption=f"New payment!\nTG: {user_info}\nTabletone: @{username}\nItem: {label}\nPrice: {price}\n\nConfirm?",
         reply_markup=confirm_kb
     )
 
-# ── Подтверждение / отклонение владельцем ────────────────────────────────────
 async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-
-    # Только владелец может подтверждать
+    q = update.callback_query; await q.answer()
     if update.effective_user.id != OWNER_TELEGRAM_ID:
-        await q.answer("Нет доступа", show_alert=True)
-        return
-
-    parts = q.data.split("_", 3)
-    # parts: ["confirm"/"reject", key_part1, key_part2(optional), username, chat_id]
-    # callback_data формат: confirm_premium_30_username_chatid
-    action = parts[0]  # confirm / reject
-    # Восстанавливаем key и остальное
-    raw = q.data[len(action)+1:]  # "premium_30_username_chatid"
-    # Ищем key среди известных
+        await q.answer("No access", show_alert=True); return
+    action = "confirm" if q.data.startswith("confirm_") else "reject"
+    raw = q.data[len(action)+1:]
     key = None
-    for k in list(PREMIUM_PLANS.keys()) + list(SPARKS_PLANS.keys()):
-        if raw.startswith(k + "_"):
-            key = k
-            remainder = raw[len(k)+1:]  # "username_chatid"
-            break
+    if raw.startswith("nft_"):
+        parts = raw.split("_")
+        key = f"nft_{parts[1]}"
+        remainder = "_".join(parts[2:])
+    else:
+        for k in list(PREMIUM_PLANS.keys()) + list(SPARKS_PLANS.keys()):
+            if raw.startswith(k + "_"):
+                key = k; remainder = raw[len(k)+1:]; break
     if not key:
-        await q.edit_message_caption("⚠️ Не удалось определить товар.")
-        return
-
-    last_underscore = remainder.rfind("_")
-    username = remainder[:last_underscore]
-    user_chat_id = int(remainder[last_underscore+1:])
-    plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
-
+        await q.edit_message_caption("Could not determine item."); return
+    last_ = remainder.rfind("_")
+    username = remainder[:last_]
+    user_chat_id = int(remainder[last_+1:])
     if action == "confirm":
-        # Активируем через API
         activated = False
         try:
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                if key.startswith("premium"):
-                    resp = await session.post(
-                        f"{SITE_URL}/api/payment/activate-premium",
-                        json={"username": username, "days": plan["days"], "secret": PAYMENT_SECRET},
-                        timeout=aiohttp.ClientTimeout(total=10)
-                    )
-                else:
-                    resp = await session.post(
-                        f"{SITE_URL}/api/payment/add-sparks",
-                        json={"username": username, "sparks": plan["sparks"], "secret": PAYMENT_SECRET},
-                        timeout=aiohttp.ClientTimeout(total=10)
-                    )
-                data = await resp.json()
-                activated = data.get("success", False)
+            is_nft = key.startswith("nft_")
+            if is_nft:
+                data = await _api_post("/api/nft/give", {"username": username, "nft_id": key[4:]})
+            elif key.startswith("premium"):
+                plan = PREMIUM_PLANS[key]
+                data = await _api_post("/api/payment/activate-premium", {"username": username, "days": plan["days"]})
+            else:
+                plan = SPARKS_PLANS[key]
+                data = await _api_post("/api/payment/add-sparks", {"username": username, "sparks": plan["sparks"]})
+            activated = data.get("success", False)
         except Exception as e:
-            logger.error(f"Ошибка активации: {e}")
-
-        # Сообщаем пользователю
-        if key.startswith("premium"):
-            user_msg = (
-                f"🎉 *Оплата подтверждена!*\n\n"
-                f"👑 Premium на *{plan['days']} дней* активирован для @{username}!\n"
-                f"Перезайдите в Tabletone если изменения не видны."
-            )
+            logger.error(f"Activation error: {e}")
+        is_nft = key.startswith("nft_")
+        if is_nft: user_msg = f"Payment confirmed! NFT given to @{username}."
+        elif key.startswith("premium"):
+            plan = PREMIUM_PLANS[key]; user_msg = f"Payment confirmed! Premium {plan['days']}d for @{username}."
         else:
-            user_msg = (
-                f"🎉 *Оплата подтверждена!*\n\n"
-                f"✨ *{plan['sparks']} Искр* зачислено для @{username}!\n"
-                f"Перезайдите в Tabletone если изменения не видны."
-            )
-        if not activated:
-            user_msg += "\n\n_(Автоактивация не удалась — администратор активирует вручную)_"
+            plan = SPARKS_PLANS[key]; user_msg = f"Payment confirmed! {plan['sparks']} sparks for @{username}."
+        if not activated: user_msg += " (manual activation needed)"
+        await context.bot.send_message(chat_id=user_chat_id, text=user_msg)
+        await q.edit_message_caption((q.message.caption or "") + f"\n\nConfirmed! {'auto' if activated else 'manual'}")
+    else:
+        await context.bot.send_message(chat_id=user_chat_id, text="Payment rejected. Contact @kotakbaslife.")
+        await q.edit_message_caption((q.message.caption or "") + "\n\nRejected.")
 
-        await context.bot.send_message(chat_id=user_chat_id, text=user_msg, parse_mode="Markdown")
-        await q.edit_message_caption(
-            q.message.caption + f"\n\n✅ *Подтверждено!* Активация: {'✓' if activated else 'вручную'}",
-            parse_mode="Markdown"
-        )
-
-    else:  # reject
-        await context.bot.send_message(
-            chat_id=user_chat_id,
-            text=(
-                "❌ *Оплата отклонена.*\n\n"
-                "Администратор не подтвердил перевод.\n"
-                "Если вы уверены что оплатили — напишите @kotakbaslife."
-            ),
-            parse_mode="Markdown"
-        )
-        await q.edit_message_caption(
-            q.message.caption + "\n\n❌ *Отклонено.*",
-            parse_mode="Markdown"
-        )
-
-
-# ── Роутинг callback ──────────────────────────────────────────────────────────
 async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data
-    if data == "menu_premium":
-        await menu_premium(update, context)
-    elif data == "menu_sparks":
-        await menu_sparks(update, context)
-    elif data == "menu_main":
-        await menu_main(update, context)
-    elif data.startswith("buy_"):
-        await buy_item(update, context)
+    if data == "menu_premium":    await menu_premium(update, context)
+    elif data == "menu_sparks":   await menu_sparks(update, context)
+    elif data == "menu_nft":      await menu_nft(update, context)
+    elif data == "menu_main":     await menu_main_cb(update, context)
+    elif data.startswith("buy_"): await buy_item(update, context)
     elif data.startswith("confirm_") or data.startswith("reject_"):
         await handle_confirm_reject(update, context)
-    else:
-        await update.callback_query.answer()
+    else: await update.callback_query.answer()
 
-
-# ── Запуск ────────────────────────────────────────────────────────────────────
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("start",       cmd_start))
+    app.add_handler(CommandHandler("ownerhelp",   cmd_owner_help))
     app.add_handler(CommandHandler("givepremium", cmd_give_premium))
-    app.add_handler(CommandHandler("givesparks", cmd_give_sparks))
-    app.add_handler(CommandHandler("ownerhelp", cmd_owner_help))
+    app.add_handler(CommandHandler("givesparks",  cmd_give_sparks))
+    app.add_handler(CommandHandler("givegift",    cmd_give_gift))
+    app.add_handler(CommandHandler("givenft",     cmd_give_nft))
+    app.add_handler(CommandHandler("giftlist",    cmd_gift_list))
+    app.add_handler(CommandHandler("nftlist",     cmd_nft_list))
     app.add_handler(CallbackQueryHandler(callback_router))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    logger.info("Бот запущен...")
+    logger.info("Bot started.")
     app.run_polling(drop_pending_updates=True)
-
 
 if __name__ == "__main__":
     main()
