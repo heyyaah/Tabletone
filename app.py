@@ -7743,9 +7743,11 @@ def _send_email_register_verify(to_email, code, username):
             server.starttls()
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, to_email, msg.as_string())
-        print(f"[EMAIL VERIFY] Отправлено на {to_email}")
+        print(f"[EMAIL VERIFY] Отправлено на {to_email}", flush=True)
     except Exception as e:
-        print(f"[EMAIL VERIFY] Ошибка отправки: {e}")
+        import traceback
+        print(f"[EMAIL VERIFY] Ошибка отправки: {e}", flush=True)
+        traceback.print_exc()
 
 
 def _send_email_2fa(to_email, code):
