@@ -2,7 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 instance/
-*.db
 .env
 tabletone-desktop/node_modules/
 tabletone-desktop/dist/
