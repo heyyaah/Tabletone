@@ -3764,7 +3764,8 @@ def get_user_info(user_id):
         'status_text': user.status_text,
         'last_seen': user.last_seen.isoformat() if user.last_seen else None,
         'is_online': user.id in online_users,
-        'created_at': user.created_at.strftime('%d.%m.%Y')
+        'created_at': user.created_at.strftime('%d.%m.%Y'),
+        'msg_price': getattr(user, 'msg_price', None) or 0
     })
 
 @app.route('/api/user-by-username/<username>')

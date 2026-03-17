@@ -1436,6 +1436,18 @@ async function openChat(userId, username) {
                 document.getElementById('call-btn')?.classList.remove('bot-hidden');
             }
             // Кнопка очистки истории — всегда видна в личных чатах (управляется data-visible)
+
+            // Баннер платных сообщений
+            const _existingBanner = document.getElementById('_msg-price-banner');
+            if (_existingBanner) _existingBanner.remove();
+            if (userData.msg_price && userData.msg_price > 0 && !userData.is_bot) {
+                const _banner = document.createElement('div');
+                _banner.id = '_msg-price-banner';
+                _banner.style.cssText = 'background:linear-gradient(135deg,rgba(214,158,46,0.15),rgba(237,137,54,0.1));border:1px solid rgba(214,158,46,0.4);border-radius:10px;padding:8px 14px;margin:6px 20px 0;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);';
+                _banner.innerHTML = `<span style="font-size:16px;">⚡</span><span>Первое сообщение стоит <b style="color:#d69e2e;">${userData.msg_price} ✨</b> искр</span><button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:16px;line-height:1;">×</button>`;
+                const _msgContainer = document.querySelector('.message-input-container');
+                if (_msgContainer) _msgContainer.parentElement.insertBefore(_banner, _msgContainer);
+            }
         }
     } catch (error) {
         console.error('Error loading user info:', error);
