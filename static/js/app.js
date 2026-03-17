@@ -403,7 +403,9 @@ function setupEventListeners() {
         // Авто-ресайз textarea при переносах строк + счётчик символов
         messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+            const newH = Math.min(this.scrollHeight, 160);
+            this.style.height = newH + 'px';
+            this.style.overflowY = this.scrollHeight > 160 ? 'auto' : 'hidden';
             // Счётчик символов — показываем при > 800 из 4096
             const MAX = 4096;
             const len = this.value.length;
@@ -7883,7 +7885,9 @@ function _restoreDraft(key) {
     const saved = localStorage.getItem('draft_' + key);
     inp.value = saved || '';
     inp.style.height = 'auto';
-    inp.style.height = Math.min(inp.scrollHeight, 160) + 'px';
+    const _dH = Math.min(inp.scrollHeight, 160);
+    inp.style.height = _dH + 'px';
+    inp.style.overflowY = inp.scrollHeight > 160 ? 'auto' : 'hidden';
     if (typeof _updateBtns === 'function') _updateBtns();
     // Показываем индикатор черновика
     const indicator = document.getElementById('_draft-indicator');

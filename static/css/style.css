@@ -1022,7 +1022,7 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
     color: var(--text-primary);
     font-family: inherit;
     resize: none;
-    overflow: hidden;
+    overflow-y: auto;
     line-height: 1.4;
     min-height: 44px;
     max-height: 160px;
