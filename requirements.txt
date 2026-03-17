@@ -6,8 +6,9 @@ gunicorn
 werkzeug
 flask-limiter
 pg8000
-python-telegram-bot[all]
+python-telegram-bot
 aiohttp
-firebase-admin
 cryptography
 Pillow
+requests
+google-auth

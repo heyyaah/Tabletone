@@ -6085,36 +6085,48 @@ def _sql_exec(sql, params=None):
 
 
 def _send_fcm(user_id, title, body, notif_type='message'):
-    """Отправляет FCM push только если пользователь не онлайн (не в приложении)."""
-    # Не отправляем если пользователь сейчас в сети
+    """Отправляет FCM push через HTTP v1 API без firebase-admin."""
     if user_id in online_users:
         return
     try:
-        import firebase_admin
-        from firebase_admin import credentials, messaging
-        if not firebase_admin._apps:
-            import json as _json
-            sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
-            if not sa_json:
-                return
-            cred = credentials.Certificate(_json.loads(sa_json))
-            firebase_admin.initialize_app(cred)
+        import json as _json
+        import requests as _req
+        sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
+        if not sa_json:
+            return
         tokens = [t.token for t in FCMToken.query.filter_by(user_id=user_id).all()]
         if not tokens:
             return
+        # Получаем OAuth2 токен через service account
+        sa = _json.loads(sa_json)
+        project_id = sa.get('project_id', '')
+        # Используем google-auth если доступен, иначе пропускаем
+        try:
+            import google.auth
+            import google.auth.transport.requests
+            from google.oauth2 import service_account
+            creds = service_account.Credentials.from_service_account_info(
+                sa, scopes=['https://www.googleapis.com/auth/firebase.messaging'])
+            creds.refresh(google.auth.transport.requests.Request())
+            access_token = creds.token
+        except Exception:
+            return
+        url = f'https://fcm.googleapis.com/v1/projects/{project_id}/messages:send'
+        headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
         for token in tokens:
             try:
-                messaging.send(messaging.Message(
-                    data={'type': notif_type, 'title': title, 'body': body},
-                    notification=messaging.Notification(title=title, body=body),
-                    android=messaging.AndroidConfig(priority='high'),
-                    token=token
-                ))
-            except Exception as e:
-                print(f"FCM send error for token {token[:20]}: {e}")
-                if 'registration-token-not-registered' in str(e) or 'invalid-registration-token' in str(e):
+                payload = {'message': {
+                    'token': token,
+                    'notification': {'title': title, 'body': body},
+                    'data': {'type': notif_type, 'title': title, 'body': body},
+                    'android': {'priority': 'high'}
+                }}
+                r = _req.post(url, headers=headers, json=payload, timeout=5)
+                if r.status_code == 404 or (r.status_code == 400 and 'INVALID_ARGUMENT' in r.text):
                     FCMToken.query.filter_by(token=token).delete()
                     db.session.commit()
+            except Exception as e:
+                print(f"FCM send error: {e}")
     except Exception as e:
         print(f"FCM error: {e}")
 
