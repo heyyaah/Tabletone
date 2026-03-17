@@ -1008,7 +1008,7 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
 #message-form {
     display: flex;
     gap: 8px;
-    align-items: center;
+    align-items: flex-end;
 }
 
 #message-input {
@@ -1021,6 +1021,12 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
     background: var(--bg-secondary);
     color: var(--text-primary);
     font-family: inherit;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.4;
+    min-height: 44px;
+    max-height: 160px;
+    display: block;
 }
 
 #message-input:focus {
@@ -3030,7 +3036,7 @@ body[data-theme="dark"] .profile-card {
         overflow: hidden;
     }
 
-    #message-form { gap: 6px; width: 100%; }
+    #message-form { gap: 6px; width: 100%; align-items: flex-end; }
 
     #message-input {
         padding: 11px 14px;

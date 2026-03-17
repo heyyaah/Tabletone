@@ -2523,6 +2523,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ПКМ — переключить между кружком и гс
     [_videoBtnCycle, _voiceBtn].forEach(btn => {
         if (!btn) return;
         btn.addEventListener('contextmenu', (e) => {
@@ -2531,6 +2532,15 @@ document.addEventListener('DOMContentLoaded', function() {
             _updateBtns();
         });
     });
+
+    // Клик на кружок → переключиться в гс (голосовое)
+    if (_videoBtnCycle) {
+        _videoBtnCycle.addEventListener('click', (e) => {
+            if (_recording) return; // не переключать во время записи
+            _mediaMode = 'voice';
+            _updateBtns();
+        });
+    }
 
     if (_msgInput) _msgInput.addEventListener('input', _updateBtns);
 
