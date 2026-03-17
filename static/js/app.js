@@ -7271,18 +7271,25 @@ function renderGiftMessage(msg) {
     const g = msg.gift;
     if (!g) return '';
     const rarityColors = { common: '#718096', rare: '#3182ce', epic: '#805ad5', legendary: '#d69e2e' };
+    const rarityLabels = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+    // Кнопка "Добавить в профиль" только у получателя
+    const addBtn = (!msg.is_mine && g.user_gift_id)
+        ? `<button onclick="showGiftInfo(${g.id}, ${g.user_gift_id})"
+                style="padding:7px 18px;background:#667eea;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">
+                Просмотреть / Добавить в профиль
+            </button>`
+        : `<button onclick="showGiftInfo(${g.id}, null)"
+                style="padding:7px 18px;background:#667eea;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">
+                Просмотреть
+            </button>`;
     return `
         <div style="text-align:center;padding:16px 20px;background:linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1));border-radius:16px;border:1px solid rgba(102,126,234,0.2);min-width:200px;">
             <div style="font-size:48px;margin-bottom:8px;">${g.emoji}</div>
             <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🎁 Подарок</div>
             <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">${escapeHtml(g.name)}</div>
-            <div style="font-size:12px;color:${rarityColors[g.rarity] || '#718096'};font-weight:600;margin-bottom:8px;">${g.rarity}</div>
+            <div style="font-size:12px;color:${rarityColors[g.rarity] || '#718096'};font-weight:600;margin-bottom:8px;">${rarityLabels[g.rarity] || g.rarity}</div>
             <div style="font-size:12px;color:#667eea;margin-bottom:10px;">Стоимость: ${g.price} ✨ искр</div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Вы можете добавить его в свой профиль</div>
-            <button onclick="showGiftInfo(${g.id}, ${g.user_gift_id || 'null'})"
-                style="padding:7px 18px;background:#667eea;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">
-                Просмотреть
-            </button>
+            ${addBtn}
         </div>
     `;
 }

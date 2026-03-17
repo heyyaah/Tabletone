@@ -9195,11 +9195,13 @@ def my_gifts():
         gt = GiftType.query.get(g.gift_type_id)
         sender = User.query.get(g.sender_id) if g.sender_id else None
         result.append({
-            'id': g.id, 'gift_type': {'id': gt.id, 'name': gt.name, 'emoji': gt.emoji,
-                                       'price': gt.price_sparks, 'rarity': gt.rarity},
-            'sender': {'username': sender.username, 'display_name': sender.display_name or sender.username} if sender else None,
+            'id': g.id,
+            'name': gt.name, 'emoji': gt.emoji,
+            'rarity': gt.rarity, 'price_sparks': gt.price_sparks,
+            'sender_name': (sender.display_name or sender.username) if sender else None,
+            'sender_username': sender.username if sender else None,
             'is_displayed': g.is_displayed,
-            'received_at': g.received_at.strftime('%d.%m.%Y')
+            'received_at': g.received_at.strftime('%d.%m.%Y') if g.received_at else '',
         })
     return jsonify({'gifts': result})
 

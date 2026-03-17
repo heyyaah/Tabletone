@@ -277,8 +277,11 @@
                 {% if displayed_gifts %}
                 <div id="profile-gifts-display" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
                     {% for g in displayed_gifts %}
-                    <div class="gift-badge gift-{{ g.gift_type.rarity }}" title="{{ g.gift_type.name }}">
+                    <div class="gift-badge gift-{{ g.gift_type.rarity }}" title="{{ g.gift_type.name }}{% if g.sender %} — от {{ g.sender.display_name or g.sender.username }}{% endif %}">
                         {{ g.gift_type.emoji }}
+                        {% if g.sender %}
+                        <div style="font-size:9px;color:#a0aec0;margin-top:2px;">от {{ g.sender.display_name or g.sender.username }}</div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -691,20 +694,22 @@ async function showMyGifts() {
     const r = await fetch('/gifts/my');
     const d = await r.json();
     const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
-    const content = d.gifts.length ? `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+    const rarityLabels = {common:'Обычный', rare:'Редкий', epic:'Эпический', legendary:'Легендарный'};
+    const content = d.gifts && d.gifts.length ? `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
             ${d.gifts.map(g => `
             <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
-                <div style="font-size:32px;margin-bottom:6px;">${g.emoji}</div>
+                <div style="font-size:36px;margin-bottom:6px;">${g.emoji}</div>
                 <div style="font-weight:600;font-size:13px;">${g.name}</div>
-                <div style="font-size:11px;color:${rarityColors[g.rarity]};text-transform:uppercase;margin:4px 0;">${g.rarity}</div>
-                ${g.sender_name ? `<div style="font-size:11px;color:#a0aec0;">от ${g.sender_name}</div>` : ''}
-                <div style="display:flex;gap:6px;margin-top:8px;justify-content:center;">
+                <div style="font-size:11px;color:${rarityColors[g.rarity]};font-weight:600;margin:4px 0;">${rarityLabels[g.rarity]||g.rarity}</div>
+                ${g.sender_name ? `<div style="font-size:11px;color:#a0aec0;margin-bottom:2px;">от <b>${g.sender_name}</b></div>` : ''}
+                ${g.received_at ? `<div style="font-size:10px;color:#cbd5e0;margin-bottom:6px;">${g.received_at}</div>` : ''}
+                <div style="display:flex;gap:6px;margin-top:8px;justify-content:center;flex-wrap:wrap;">
                     <button onclick="toggleGiftDisplay(${g.id},this)" style="font-size:11px;padding:4px 8px;border:1px solid #667eea;border-radius:6px;background:${g.is_displayed?'#667eea':'transparent'};color:${g.is_displayed?'#fff':'#667eea'};cursor:pointer;">
                         ${g.is_displayed ? '👁 Скрыть' : '👁 Показать'}
                     </button>
-                    <button onclick="sellGift(${g.id},${Math.floor(g.price_sparks*0.8)},this)" style="font-size:11px;padding:4px 8px;border:1px solid #e53e3e;border-radius:6px;background:transparent;color:#e53e3e;cursor:pointer;">
-                        💰 ${Math.floor(g.price_sparks*0.8)} ✨
+                    <button onclick="sellGift(${g.id},${Math.floor((g.price_sparks||0)*0.8)},this)" style="font-size:11px;padding:4px 8px;border:1px solid #e53e3e;border-radius:6px;background:transparent;color:#e53e3e;cursor:pointer;">
+                        💰 ${Math.floor((g.price_sparks||0)*0.8)} ✨
                     </button>
                 </div>
             </div>`).join('')}
