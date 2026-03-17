@@ -2562,11 +2562,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ПКМ — переключить между кружком и гс
+    // ПКМ — переключить между кружком и гс (только правая кнопка мыши, не тач)
     [_videoBtnCycle, _voiceBtn].forEach(btn => {
         if (!btn) return;
         btn.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            // Только реальный ПКМ (button === 2), не тач-долгое нажатие
+            if (e.button !== 2) return;
             _mediaMode = _mediaMode === 'video' ? 'voice' : 'video';
             _updateBtns();
         });
