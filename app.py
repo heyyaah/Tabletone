@@ -7714,28 +7714,51 @@ def _send_2fa_code(user_id, code):
 
 def _send_email_register_verify(to_email, code, username):
     """Отправляет код подтверждения email при регистрации."""
+    smtp_user = os.environ.get('SMTP_USER')
+    resend_key = os.environ.get('RESEND_API_KEY')
+    print(f"[EMAIL VERIFY] smtp_user={smtp_user!r} resend={'yes' if resend_key else 'no'} to={to_email}", flush=True)
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;background:#f7f8fc;border-radius:12px;">
+      <h2 style="color:#667eea;margin-bottom:8px;">👋 Привет, {username}!</h2>
+      <p style="color:#4a5568;">Для подтверждения email введите этот код:</p>
+      <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#2d3748;background:#fff;padding:20px;border-radius:8px;text-align:center;margin:20px 0;">{code}</div>
+      <p style="color:#718096;font-size:13px;">⏱ Код действителен 30 минут.</p>
+      <p style="color:#e53e3e;font-size:13px;">⚠️ Если вы не запрашивали код — просто проигнорируйте это письмо.</p>
+    </div>
+    """
+
+    # Resend API (работает на Render)
+    if resend_key:
+        try:
+            import resend as _resend
+            _resend.api_key = resend_key
+            from_addr = smtp_user if smtp_user else 'noreply@tabletone.app'
+            _resend.Emails.send({
+                'from': f'Tabletone <{from_addr}>',
+                'to': [to_email],
+                'subject': 'Подтверждение email — Tabletone',
+                'html': html,
+            })
+            print(f"[EMAIL VERIFY] Отправлено через Resend на {to_email}", flush=True)
+        except Exception as e:
+            import traceback
+            print(f"[EMAIL VERIFY] Ошибка Resend: {e}", flush=True)
+            traceback.print_exc()
+        return
+
+    # Fallback: SMTP (может не работать на Render из-за блокировки портов)
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
-    smtp_user = os.environ.get('SMTP_USER')
     smtp_pass = os.environ.get('SMTP_PASS')
-    print(f"[EMAIL VERIFY] smtp_user={smtp_user!r} smtp_pass={'***' if smtp_pass else None!r} to={to_email}")
     if not smtp_user or not smtp_pass:
-        print(f"[EMAIL VERIFY] SMTP не настроен — код: {code}")
+        print(f"[EMAIL VERIFY] SMTP не настроен — код: {code}", flush=True)
         return
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = f'Подтверждение email — Tabletone'
+    msg['Subject'] = 'Подтверждение email — Tabletone'
     msg['From'] = f'Tabletone <{smtp_user}>'
     msg['To'] = to_email
-    html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;background:#f7f8fc;border-radius:12px;">
-      <h2 style="color:#667eea;margin-bottom:8px;">👋 Добро пожаловать в Tabletone, {username}!</h2>
-      <p style="color:#4a5568;">Для завершения регистрации введите этот код:</p>
-      <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#2d3748;background:#fff;padding:20px;border-radius:8px;text-align:center;margin:20px 0;">{code}</div>
-      <p style="color:#718096;font-size:13px;">⏱ Код действителен 30 минут.</p>
-      <p style="color:#e53e3e;font-size:13px;">⚠️ Если вы не регистрировались — просто проигнорируйте это письмо.</p>
-    </div>
-    """
     msg.attach(MIMEText(html, 'html'))
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as server:
@@ -7743,10 +7766,10 @@ def _send_email_register_verify(to_email, code, username):
             server.starttls()
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, to_email, msg.as_string())
-        print(f"[EMAIL VERIFY] Отправлено на {to_email}", flush=True)
+        print(f"[EMAIL VERIFY] Отправлено через SMTP на {to_email}", flush=True)
     except Exception as e:
         import traceback
-        print(f"[EMAIL VERIFY] Ошибка отправки: {e}", flush=True)
+        print(f"[EMAIL VERIFY] Ошибка SMTP: {e}", flush=True)
         traceback.print_exc()
 
 

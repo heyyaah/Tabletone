@@ -12,3 +12,4 @@ cryptography
 Pillow
 requests
 google-auth
+resend
