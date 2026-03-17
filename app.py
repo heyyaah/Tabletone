@@ -20,14 +20,17 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
 if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql+psycopg://', 1)
-elif _db_url.startswith('postgresql://') and '+' not in _db_url:
-    _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
-
+    _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
+elif _db_url.startswith('postgresql://') and 'pg8000' not in _db_url and 'psycopg2' not in _db_url:
+    _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'poolclass': __import__('sqlalchemy.pool', fromlist=['NullPool']).NullPool,
+    'pool_size': 5,
+    'max_overflow': 10,
+    'pool_timeout': 10,
+    'pool_recycle': 1800,
+    'pool_pre_ping': True,
 }
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
@@ -141,6 +144,8 @@ def shutdown_session(exception=None):
 # Middleware для обновления last_seen при каждом запросе
 @app.before_request
 def update_last_seen():
+    if request.path.startswith('/socket.io') or request.path.startswith('/static'):
+        return
     if 'user_id' in session and request.endpoint not in ['static', None]:
         try:
             user_id = session['user_id']
@@ -1268,6 +1273,9 @@ def _has_role(user, min_role):
 # Middleware для обновления активности сессии
 @app.before_request
 def update_session_activity():
+    # Пропускаем socket.io и статику
+    if request.path.startswith('/socket.io') or request.path.startswith('/static'):
+        return
     # Обновляем активность только если есть токен сессии, раз в 60 секунд
     if 'user_id' in session and 'session_token' in session:
         try:
@@ -1294,6 +1302,9 @@ _banned_ip_cache_time = 0
 @app.before_request
 def check_ip_ban():
     """Блокируем запросы с забаненных IP."""
+    # Пропускаем socket.io и статику
+    if request.path.startswith('/socket.io') or request.path.startswith('/static'):
+        return
     global _banned_ip_cache, _banned_ip_cache_time
     ip = request.remote_addr
     if not ip:

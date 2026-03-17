@@ -6,7 +6,6 @@ gunicorn
 werkzeug
 flask-limiter
 pg8000
-psycopg[binary]
 python-telegram-bot[all]
 aiohttp
 firebase-admin
