@@ -1330,6 +1330,8 @@ async function openChat(userId, username) {
     // Скрываем кнопку группового звонка в личном чате
     const gcBtnHide = document.getElementById('group-call-btn');
     if (gcBtnHide) gcBtnHide.style.display = 'none';
+    const streamBtnHide = document.getElementById('_stream-live-btn');
+    if (streamBtnHide) streamBtnHide.style.display = 'none';
 
     // Сразу показываем форму ввода (личный чат — не канал)
     updateMessageInputVisibility(false, true);
@@ -1649,15 +1651,18 @@ function createMessageHTML(msg) {
     else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
         const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : msg.media_url;
         const packId = msg.sticker_pack_id || '';
-        content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
-            <img data-src="${encodeURIComponent(stickerUrl)}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
-        </div>`;
+        const isAnimated = stickerUrl && stickerUrl.startsWith('data:application/json');
+        if (isAnimated) {
+            const uid = 'lottie_' + msg.id + '_' + Date.now();
+            content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
+                <div id="${uid}" style="width:120px;height:120px;cursor:pointer;" title="Нажмите, чтобы посмотреть пак" data-lottie-src="${encodeURIComponent(stickerUrl)}"></div>
+            </div>`;
+        } else {
+            content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
+                <img data-src="${encodeURIComponent(stickerUrl)}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
+            </div>`;
+        }
     }
-    // Видео кружочек
-    else if (msg.message_type === 'video_note' && msg.media_url) {
-        content = `
-            <div class="video-message" onclick="playVideoMessage('${msg.media_url}')">
-                <video src="${msg.media_url}" preload="metadata"></video>
                 <div class="video-play-btn">
                     <i class="fas fa-play"></i>
                 </div>
@@ -3479,6 +3484,29 @@ async function openGroup(groupId, groupName) {
         }
         gcBtn.style.display = (!data.group.is_channel && data.group.is_admin) ? 'flex' : 'none';
 
+        // Кнопка трансляции — только для каналов и только для админов
+        let streamBtn = document.getElementById('_stream-live-btn');
+        if (!streamBtn) {
+            streamBtn = document.createElement('button');
+            streamBtn.id = '_stream-live-btn';
+            streamBtn.className = 'icon-btn';
+            streamBtn.title = 'Начать трансляцию';
+            streamBtn.innerHTML = '<i class="fas fa-broadcast-tower"></i>';
+            streamBtn.onclick = () => showStartStreamModal();
+            const callBtn = document.getElementById('call-btn');
+            if (callBtn) callBtn.parentNode.insertBefore(streamBtn, callBtn);
+        }
+        // Проверяем есть ли активная трансляция
+        if (data.group.is_channel && data.group.is_admin) {
+            streamBtn.style.display = 'flex';
+            fetch(`/groups/${groupId}/stream/status`).then(r => r.json()).then(s => {
+                if (s.active) { streamBtn.style.color = '#e53e3e'; streamBtn.title = '🔴 Трансляция идёт'; }
+                else { streamBtn.style.color = ''; streamBtn.title = 'Начать трансляцию'; }
+            }).catch(() => {});
+        } else {
+            streamBtn.style.display = 'none';
+        }
+
         // Скрываем кнопки не нужные в группах/каналах
         const addContactBtn = document.querySelector('.chat-header .icon-btn[onclick="addContactFromChat()"]');
         if (addContactBtn) addContactBtn.style.display = 'none';
@@ -3649,9 +3677,17 @@ function createGroupMessageHTML(msg) {
     else if (msg.message_type === 'sticker' || (msg.content && msg.content.startsWith('[sticker]'))) {
         const stickerUrl = msg.content ? msg.content.replace('[sticker]', '') : '';
         const packId = msg.sticker_pack_id || '';
-        content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
-            <img data-src="${encodeURIComponent(stickerUrl)}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
-        </div>`;
+        const isAnimated = stickerUrl && stickerUrl.startsWith('data:application/json');
+        if (isAnimated) {
+            const uid = 'lottie_g' + msg.id + '_' + Date.now();
+            content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
+                <div id="${uid}" style="width:120px;height:120px;cursor:pointer;" title="Нажмите, чтобы посмотреть пак" data-lottie-src="${encodeURIComponent(stickerUrl)}"></div>
+            </div>`;
+        } else {
+            content = `<div class="sticker-message" data-sticker-url="${encodeURIComponent(stickerUrl)}" data-pack-id="${packId}" onclick="_onStickerClick(this)">
+                <img data-src="${encodeURIComponent(stickerUrl)}" alt="Стикер" style="width:120px;height:120px;object-fit:contain;cursor:pointer;border-radius:8px;" title="Нажмите, чтобы посмотреть пак">
+            </div>`;
+        }
     }
     // Обычное текстовое сообщение
     else {
@@ -6507,14 +6543,31 @@ async function _loadStickerPanel() {
             grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
 
             pack.stickers.forEach(s => {
-                const img = document.createElement('img');
-                img.src = s.image_url;
-                img.style.cssText = 'width:60px;height:60px;object-fit:contain;cursor:pointer;border-radius:8px;padding:2px;transition:background .15s;';
-                img.title = 'Нажмите чтобы отправить';
-                img.addEventListener('mouseover', () => img.style.background = 'var(--hover-color)');
-                img.addEventListener('mouseout', () => img.style.background = '');
-                img.addEventListener('click', () => sendStickerFromPanel(s.id));
-                grid.appendChild(img);
+                const cell = document.createElement('div');
+                cell.style.cssText = 'width:60px;height:60px;cursor:pointer;border-radius:8px;padding:2px;transition:background .15s;flex-shrink:0;';
+                cell.title = 'Нажмите чтобы отправить';
+                cell.addEventListener('mouseover', () => cell.style.background = 'var(--hover-color)');
+                cell.addEventListener('mouseout', () => cell.style.background = '');
+                cell.addEventListener('click', () => sendStickerFromPanel(s.id));
+
+                if (s.is_animated && window.lottie) {
+                    try {
+                        const jsonStr = atob(s.image_url.replace('data:application/json;base64,', ''));
+                        lottie.loadAnimation({
+                            container: cell,
+                            renderer: 'svg',
+                            loop: true,
+                            autoplay: true,
+                            animationData: JSON.parse(jsonStr),
+                        });
+                    } catch(e) { cell.textContent = '🎭'; }
+                } else {
+                    const img = document.createElement('img');
+                    img.src = s.image_url;
+                    img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                    cell.appendChild(img);
+                }
+                grid.appendChild(cell);
             });
 
             section.appendChild(grid);
@@ -6567,10 +6620,20 @@ async function viewStickerPack(packId) {
         // Вставляем стикеры через DOM чтобы base64 не ломался
         const grid = document.getElementById(`vsp-grid-${packId}`);
         d.stickers.forEach(s => {
-            const img = document.createElement('img');
-            img.src = s.image_url;
-            img.style.cssText = 'width:72px;height:72px;object-fit:contain;border-radius:8px;';
-            grid.appendChild(img);
+            const cell = document.createElement('div');
+            cell.style.cssText = 'width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;';
+            if (s.is_animated && window.lottie) {
+                try {
+                    const jsonStr = atob(s.image_url.replace('data:application/json;base64,', ''));
+                    lottie.loadAnimation({ container: cell, renderer: 'svg', loop: true, autoplay: true, animationData: JSON.parse(jsonStr) });
+                } catch(e) { cell.textContent = '🎭'; }
+            } else {
+                const img = document.createElement('img');
+                img.src = s.image_url;
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                cell.appendChild(img);
+            }
+            grid.appendChild(cell);
         });
     } catch(e) { showError('Ошибка загрузки пака'); }
 }
@@ -6595,10 +6658,28 @@ function _fixStickerImages(container) {
         img.src = decodeURIComponent(img.getAttribute('data-src'));
         img.removeAttribute('data-src');
     });
-    // Fix voice audio src (data URLs break when placed in HTML attributes)
+    // Fix voice audio src
     container.querySelectorAll('audio[data-src]').forEach(audio => {
         audio.src = decodeURIComponent(audio.getAttribute('data-src'));
         audio.removeAttribute('data-src');
+    });
+    // Инициализируем Lottie анимированные стикеры
+    container.querySelectorAll('[data-lottie-src]').forEach(el => {
+        if (el.dataset.lottieLoaded) return;
+        el.dataset.lottieLoaded = '1';
+        try {
+            const jsonStr = atob(decodeURIComponent(el.dataset.lottieSrc).replace('data:application/json;base64,', ''));
+            const animData = JSON.parse(jsonStr);
+            if (window.lottie) {
+                lottie.loadAnimation({
+                    container: el,
+                    renderer: 'svg',
+                    loop: true,
+                    autoplay: true,
+                    animationData: animData,
+                });
+            }
+        } catch(e) { console.warn('Lottie load error:', e); }
     });
 }
 window._fixStickerImages = _fixStickerImages;
@@ -8282,4 +8363,236 @@ function _showGroupCallBanner(groupId, initiatorName) {
         <button onclick="this.closest('#_gc-banner').remove();" style="background:#e53e3e;border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;">✕</button>`;
     document.body.appendChild(banner);
     setTimeout(() => banner.remove(), 30000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LIVE-ТРАНСЛЯЦИИ В КАНАЛАХ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _streamLocalStream = null;
+let _streamPeers = {}; // {viewer_sid: RTCPeerConnection}
+let _streamGroupId = null;
+let _streamIsBroadcaster = false;
+let _streamViewerPc = null;
+
+// ── Broadcaster ───────────────────────────────────────────────────────────────
+
+async function showStartStreamModal() {
+    if (!currentGroupId || !_currentGroupData?.is_channel || !_currentGroupData?.is_admin) {
+        showError('Трансляции доступны только администраторам каналов');
+        return;
+    }
+    // Проверяем нет ли уже активной трансляции
+    const r = await fetch(`/groups/${currentGroupId}/stream/status`);
+    const d = await r.json();
+    if (d.active) {
+        _joinStreamAsViewer(currentGroupId, d.stream.title);
+        return;
+    }
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>🔴 Начать трансляцию</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+            </div>
+            <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+                <input id="_stream-title" type="text" maxlength="100" placeholder="Название трансляции..."
+                    style="padding:10px;border:1.5px solid var(--border-color);border-radius:10px;font-size:14px;background:var(--bg-secondary);color:var(--text-primary);">
+                <div id="_stream-preview" style="width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#666;">
+                    <span>Предпросмотр камеры...</span>
+                </div>
+                <button class="btn btn-primary" onclick="_startBroadcast()">🔴 Начать эфир</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    // Предпросмотр камеры
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        _streamLocalStream = stream;
+        const v = document.createElement('video');
+        v.srcObject = stream; v.autoplay = true; v.muted = true;
+        v.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        document.getElementById('_stream-preview').innerHTML = '';
+        document.getElementById('_stream-preview').appendChild(v);
+    } catch(e) { document.getElementById('_stream-preview').innerHTML = '<span style="color:#e53e3e;">Нет доступа к камере</span>'; }
+}
+window.showStartStreamModal = showStartStreamModal;
+
+async function _startBroadcast() {
+    const title = document.getElementById('_stream-title')?.value.trim() || 'Прямой эфир';
+    if (!_streamLocalStream) { showError('Нет доступа к камере'); return; }
+    document.querySelector('.modal.active')?.remove();
+
+    const r = await fetch(`/groups/${currentGroupId}/stream/start`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ title })
+    });
+    const d = await r.json();
+    if (!d.success) { showError(d.error || 'Ошибка'); return; }
+
+    _streamGroupId = currentGroupId;
+    _streamIsBroadcaster = true;
+    _showBroadcastUI(title);
+}
+
+function _showBroadcastUI(title) {
+    document.getElementById('_stream-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = '_stream-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
+    modal.innerHTML = `
+        <div style="color:#e53e3e;font-size:14px;font-weight:700;letter-spacing:1px;">🔴 В ЭФИРЕ — ${escapeHtml(title)}</div>
+        <video id="_stream-local-video" autoplay muted style="width:min(640px,90vw);aspect-ratio:16/9;background:#000;border-radius:12px;object-fit:cover;"></video>
+        <div id="_stream-viewers" style="color:#a0aec0;font-size:13px;">Зрителей: 0</div>
+        <div style="display:flex;gap:10px;">
+            <button onclick="_streamToggleMute(this)" style="width:48px;height:48px;border-radius:50%;background:#4a5568;border:none;color:#fff;font-size:16px;cursor:pointer;"><i class="fas fa-microphone"></i></button>
+            <button onclick="_streamToggleVideo(this)" style="width:48px;height:48px;border-radius:50%;background:#4a5568;border:none;color:#fff;font-size:16px;cursor:pointer;"><i class="fas fa-video"></i></button>
+            <button onclick="_stopBroadcast()" style="width:48px;height:48px;border-radius:50%;background:#e53e3e;border:none;color:#fff;font-size:16px;cursor:pointer;"><i class="fas fa-stop"></i></button>
+        </div>`;
+    document.body.appendChild(modal);
+    const v = document.getElementById('_stream-local-video');
+    if (v && _streamLocalStream) v.srcObject = _streamLocalStream;
+}
+
+async function _stopBroadcast() {
+    if (_streamGroupId) await fetch(`/groups/${_streamGroupId}/stream/stop`, { method: 'POST' });
+    Object.values(_streamPeers).forEach(pc => pc.close());
+    _streamPeers = {};
+    if (_streamLocalStream) { _streamLocalStream.getTracks().forEach(t => t.stop()); _streamLocalStream = null; }
+    document.getElementById('_stream-modal')?.remove();
+    _streamGroupId = null; _streamIsBroadcaster = false;
+}
+window._stopBroadcast = _stopBroadcast;
+
+function _streamToggleMute(btn) {
+    const t = _streamLocalStream?.getAudioTracks()[0];
+    if (!t) return;
+    t.enabled = !t.enabled;
+    btn.style.background = t.enabled ? '#4a5568' : '#e53e3e';
+    btn.querySelector('i').className = t.enabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
+}
+function _streamToggleVideo(btn) {
+    const t = _streamLocalStream?.getVideoTracks()[0];
+    if (!t) return;
+    t.enabled = !t.enabled;
+    btn.style.background = t.enabled ? '#4a5568' : '#e53e3e';
+    btn.querySelector('i').className = t.enabled ? 'fas fa-video' : 'fas fa-video-slash';
+}
+
+// ── Viewer ────────────────────────────────────────────────────────────────────
+
+async function _joinStreamAsViewer(groupId, title) {
+    _streamGroupId = groupId;
+    _streamIsBroadcaster = false;
+    socket.emit('stream_viewer_join', { group_id: groupId });
+
+    document.getElementById('_stream-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = '_stream-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;';
+    modal.innerHTML = `
+        <div style="color:#fff;font-size:16px;font-weight:600;">📺 ${escapeHtml(title || 'Прямой эфир')}</div>
+        <video id="_stream-remote-video" autoplay playsinline style="width:min(640px,90vw);aspect-ratio:16/9;background:#111;border-radius:12px;object-fit:cover;"></video>
+        <div style="color:#a0aec0;font-size:13px;" id="_stream-status">Подключение...</div>
+        <button onclick="_leaveStream()" style="padding:10px 24px;border-radius:10px;background:#e53e3e;border:none;color:#fff;font-size:14px;cursor:pointer;">Выйти</button>`;
+    document.body.appendChild(modal);
+}
+
+function _leaveStream() {
+    if (_streamGroupId) socket.emit('stream_viewer_leave', { group_id: _streamGroupId });
+    if (_streamViewerPc) { _streamViewerPc.close(); _streamViewerPc = null; }
+    document.getElementById('_stream-modal')?.remove();
+    _streamGroupId = null;
+}
+window._leaveStream = _leaveStream;
+
+// ── Socket.IO обработчики трансляций ─────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window.socket) return;
+
+    // Broadcaster получает нового зрителя — создаёт offer
+    socket.on('stream_new_viewer', async (data) => {
+        if (!_streamIsBroadcaster || !_streamLocalStream) return;
+        const { viewer_sid } = data;
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        _streamPeers[viewer_sid] = pc;
+        _streamLocalStream.getTracks().forEach(t => pc.addTrack(t, _streamLocalStream));
+        pc.onicecandidate = e => {
+            if (e.candidate) socket.emit('stream_signal', { target_sid: viewer_sid, signal: e.candidate, signal_type: 'ice' });
+        };
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('stream_signal', { target_sid: viewer_sid, signal: offer, signal_type: 'offer' });
+        // Обновляем счётчик
+        const cnt = document.getElementById('_stream-viewers');
+        if (cnt) cnt.textContent = `Зрителей: ${Object.keys(_streamPeers).length}`;
+    });
+
+    // Viewer получает offer от broadcaster
+    socket.on('stream_signal', async (data) => {
+        const { from_sid, signal, signal_type } = data;
+        if (_streamIsBroadcaster) {
+            // Broadcaster получает answer/ice от viewer
+            const pc = _streamPeers[from_sid];
+            if (!pc) return;
+            if (signal_type === 'answer') await pc.setRemoteDescription(new RTCSessionDescription(signal));
+            else if (signal_type === 'ice') { try { await pc.addIceCandidate(new RTCIceCandidate(signal)); } catch(e) {} }
+        } else {
+            // Viewer получает offer/ice от broadcaster
+            if (signal_type === 'offer') {
+                const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                _streamViewerPc = pc;
+                pc.ontrack = e => {
+                    const v = document.getElementById('_stream-remote-video');
+                    if (v) { v.srcObject = e.streams[0]; }
+                    const st = document.getElementById('_stream-status');
+                    if (st) st.textContent = '🔴 Прямой эфир';
+                };
+                pc.onicecandidate = e => {
+                    if (e.candidate) socket.emit('stream_signal', { target_sid: from_sid, signal: e.candidate, signal_type: 'ice' });
+                };
+                await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('stream_signal', { target_sid: from_sid, signal: answer, signal_type: 'answer' });
+            } else if (signal_type === 'ice' && _streamViewerPc) {
+                try { await _streamViewerPc.addIceCandidate(new RTCIceCandidate(signal)); } catch(e) {}
+            }
+        }
+    });
+
+    // Уведомление о начале трансляции
+    socket.on('stream_started', (data) => {
+        if (currentGroupId !== data.group_id) return;
+        _showStreamBanner(data.group_id, data.title, data.broadcaster_name);
+        // Показываем кнопку трансляции в шапке
+        const btn = document.getElementById('_stream-live-btn');
+        if (btn) { btn.style.display = 'flex'; btn.style.color = '#e53e3e'; }
+    });
+
+    socket.on('stream_stopped', (data) => {
+        if (currentGroupId !== data.group_id) return;
+        document.getElementById('_stream-banner')?.remove();
+        if (!_streamIsBroadcaster) _leaveStream();
+        const btn = document.getElementById('_stream-live-btn');
+        if (btn) btn.style.display = 'none';
+    });
+});
+
+function _showStreamBanner(groupId, title, broadcasterName) {
+    document.getElementById('_stream-banner')?.remove();
+    const banner = document.createElement('div');
+    banner.id = '_stream-banner';
+    banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a202c;color:#fff;border-radius:14px;padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:99998;box-shadow:0 4px 20px rgba(0,0,0,0.5);font-size:14px;border:1px solid #e53e3e;';
+    banner.innerHTML = `
+        <span style="color:#e53e3e;font-weight:700;font-size:12px;letter-spacing:1px;">🔴 LIVE</span>
+        <span>${escapeHtml(broadcasterName)} — ${escapeHtml(title)}</span>
+        <button onclick="_joinStreamAsViewer(${groupId},'${escapeHtml(title)}');document.getElementById('_stream-banner')?.remove();"
+            style="background:#e53e3e;border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;font-weight:600;">Смотреть</button>
+        <button onclick="this.closest('#_stream-banner').remove();" style="background:none;border:none;color:#a0aec0;font-size:16px;cursor:pointer;">✕</button>`;
+    document.body.appendChild(banner);
 }

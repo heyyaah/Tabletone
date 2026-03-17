@@ -8561,7 +8561,7 @@ def search_messages():
             results.append({'id': m.id, 'content': m.decrypted_content, 'timestamp': m.timestamp.strftime('%d.%m %H:%M'), 'sender': m.sender.display_name or m.sender.username, 'type': 'private'})
     return jsonify({'results': results})
 
-ALLOWED_STICKER_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_STICKER_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'json'}
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAYMENT API (для Telegram-бота оплаты)
@@ -8704,7 +8704,7 @@ def stickers_my():
             'name': p.name,
             'cover_url': p.cover_url or (p.stickers[0].image_url if p.stickers else ''),
             'is_owner': is_owner,
-            'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji_hint': s.emoji_hint} for s in p.stickers]
+            'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji_hint': s.emoji_hint, 'is_animated': s.image_url.startswith('data:application/json')} for s in p.stickers]
         }
 
     owned_list = [pack_dict(p, True) for p in owned]
@@ -8730,7 +8730,7 @@ def sticker_pack_info(pack_id):
         'cover_url': p.cover_url or (p.stickers[0].image_url if p.stickers else ''),
         'is_owner': p.creator_id == uid,
         'is_added': is_added,
-        'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji_hint': s.emoji_hint} for s in p.stickers]
+        'stickers': [{'id': s.id, 'image_url': s.image_url, 'emoji_hint': s.emoji_hint, 'is_animated': s.image_url.startswith('data:application/json')} for s in p.stickers]
     })
 
 
@@ -8750,15 +8750,19 @@ def sticker_pack_create():
     db.session.add(pack)
     db.session.flush()
 
+    import base64 as _b64stk
     for i, f in enumerate(files[:20]):
-        if not allowed_file(f.filename, ALLOWED_IMAGES):
+        ext = f.filename.rsplit('.', 1)[1].lower() if '.' in f.filename else ''
+        is_animated = ext == 'json'
+        if not is_animated and not allowed_file(f.filename, ALLOWED_IMAGES):
             continue
-        ext = f.filename.rsplit('.', 1)[1].lower()
-        mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
-        import base64
-        data = base64.b64encode(f.read()).decode('utf-8')
-        url = f"data:{mime};base64,{data}"
+        if is_animated:
+            raw = f.read()
+            url = 'data:application/json;base64,' + _b64stk.b64encode(raw).decode('utf-8')
+        else:
+            mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                    'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
+            url = f"data:{mime};base64," + _b64stk.b64encode(f.read()).decode('utf-8')
         sticker = Sticker(pack_id=pack.id, image_url=url, order_index=i)
         db.session.add(sticker)
         if i == 0:
@@ -9752,6 +9756,8 @@ with app.app_context():
             ('group_message', 'reply_to_id',   'INTEGER'),
             ('message',       'is_deleted',    'BOOLEAN DEFAULT FALSE'),
             ('message',       'is_edited',     'BOOLEAN DEFAULT FALSE'),
+            ('sticker',        'is_animated',   'BOOLEAN DEFAULT FALSE'),
+            ('sticker',        'is_animated',   'BOOLEAN DEFAULT FALSE'),
         ]
         for _tbl, _col, _def in _auto_migrations:
             try:
@@ -9766,6 +9772,95 @@ with app.app_context():
         print(f'[auto-migration] Error: {_e}')
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LIVE-ТРАНСЛЯЦИИ В КАНАЛАХ
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Активные трансляции: {group_id: {broadcaster_sid, broadcaster_user_id, title, viewers_count}}
+_active_streams = {}
+
+@app.route('/groups/<int:group_id>/stream/start', methods=['POST'])
+def stream_start(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership or not membership.is_admin:
+        return jsonify({'error': 'Только администраторы могут начинать трансляцию'}), 403
+    group = Group.query.get(group_id)
+    if not group or not group.is_channel:
+        return jsonify({'error': 'Трансляции доступны только в каналах'}), 400
+    data = request.get_json() or {}
+    title = data.get('title', 'Прямой эфир')[:100]
+    _active_streams[group_id] = {
+        'broadcaster_user_id': session['user_id'],
+        'title': title,
+        'viewers_count': 0,
+        'started_at': datetime.utcnow().isoformat(),
+    }
+    user = User.query.get(session['user_id'])
+    socketio.emit('stream_started', {
+        'group_id': group_id,
+        'title': title,
+        'broadcaster_name': user.display_name or user.username,
+    }, room=f'group_{group_id}', namespace='/')
+    return jsonify({'success': True})
+
+@app.route('/groups/<int:group_id>/stream/stop', methods=['POST'])
+def stream_stop(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership or not membership.is_admin:
+        return jsonify({'error': 'Нет прав'}), 403
+    _active_streams.pop(group_id, None)
+    socketio.emit('stream_stopped', {'group_id': group_id}, room=f'group_{group_id}', namespace='/')
+    return jsonify({'success': True})
+
+@app.route('/groups/<int:group_id>/stream/status')
+def stream_status(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    s = _active_streams.get(group_id)
+    return jsonify({'active': bool(s), 'stream': s})
+
+@socketio.on('stream_signal')
+def on_stream_signal(data):
+    """Пересылает WebRTC сигнал между broadcaster и viewer."""
+    if 'user_id' not in session:
+        return
+    target_sid = data.get('target_sid')
+    if target_sid:
+        emit('stream_signal', {
+            'from_sid': request.sid,
+            'from_user_id': session['user_id'],
+            'signal': data.get('signal'),
+            'signal_type': data.get('signal_type'),
+        }, room=target_sid, namespace='/')
+
+@socketio.on('stream_viewer_join')
+def on_stream_viewer_join(data):
+    """Зритель присоединяется — уведомляем broadcaster."""
+    if 'user_id' not in session:
+        return
+    group_id = data.get('group_id')
+    s = _active_streams.get(group_id)
+    if s:
+        s['viewers_count'] = s.get('viewers_count', 0) + 1
+        # Уведомляем broadcaster чтобы он создал offer для нового зрителя
+        emit('stream_new_viewer', {
+            'viewer_sid': request.sid,
+            'viewer_user_id': session['user_id'],
+            'group_id': group_id,
+        }, room=f'group_{group_id}', namespace='/')
+
+@socketio.on('stream_viewer_leave')
+def on_stream_viewer_leave(data):
+    group_id = data.get('group_id')
+    s = _active_streams.get(group_id)
+    if s:
+        s['viewers_count'] = max(0, s.get('viewers_count', 1) - 1)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ГРУППОВЫЕ ЗВОНКИ (WebRTC mesh через Socket.IO)
