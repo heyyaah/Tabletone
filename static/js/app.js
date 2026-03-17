@@ -2494,74 +2494,61 @@ let videoStream = null;
 
 // Инициализация видео кружочков
 document.addEventListener('DOMContentLoaded', function() {
-    const videoBtn = document.getElementById('video-circle-btn');
-    if (videoBtn) {
-        videoBtn.addEventListener('click', openVideoRecorder);
-    }
 
-    // ── Логика кнопки отправки / кружок / голосовой ──────────────────────────
-    // Режимы: 0=send, 1=video, 2=voice
-    // Если поле пустое — короткий тап переключает режим
-    // Если поле не пустое — кнопка всегда отправляет
-    // Зажатие в режиме video/voice — запись, свайп влево — отмена, свайп вверх — закрепление
+    // Пустое поле: кружок (video) или гс (voice), ПКМ переключает между ними
+    // Есть текст — только кнопка отправки; зажатие — запись
 
     const _sendBtn = document.getElementById('send-btn');
     const _videoBtnCycle = document.getElementById('video-circle-btn');
     const _voiceBtn = document.getElementById('voice-btn');
     const _msgInput = document.getElementById('message-input');
 
-    let _mediaMode = 0; // 0=send,1=video,2=voice
+    let _mediaMode = 'video'; // 'video' | 'voice'
     let _recording = false;
-    let _locked = false; // закреплённая запись
+    let _locked = false;
     let _pressTimer = null;
     let _pressStartY = 0;
     let _pressStartX = 0;
-    let _pressMoved = false;
 
-    function _setMediaMode(m) {
-        _mediaMode = m;
-        if (_sendBtn) _sendBtn.style.display = m === 0 ? '' : 'none';
-        if (_videoBtnCycle) _videoBtnCycle.style.display = m === 1 ? '' : 'none';
-        if (_voiceBtn) _voiceBtn.style.display = m === 2 ? '' : 'none';
+    function _updateBtns() {
+        const hasText = _msgInput && _msgInput.value.trim();
+        if (hasText) {
+            if (_sendBtn) _sendBtn.style.display = '';
+            if (_videoBtnCycle) _videoBtnCycle.style.display = 'none';
+            if (_voiceBtn) _voiceBtn.style.display = 'none';
+        } else {
+            if (_sendBtn) _sendBtn.style.display = 'none';
+            if (_videoBtnCycle) _videoBtnCycle.style.display = _mediaMode === 'video' ? '' : 'none';
+            if (_voiceBtn) _voiceBtn.style.display = _mediaMode === 'voice' ? '' : 'none';
+        }
     }
 
-    // Обновляем кнопку когда пользователь печатает
-    if (_msgInput) {
-        _msgInput.addEventListener('input', () => {
-            if (_msgInput.value.trim() && _mediaMode !== 0) {
-                // Если есть текст — показываем send
-                if (_sendBtn) _sendBtn.style.display = '';
-                if (_videoBtnCycle) _videoBtnCycle.style.display = 'none';
-                if (_voiceBtn) _voiceBtn.style.display = 'none';
-            } else if (!_msgInput.value.trim()) {
-                _setMediaMode(_mediaMode);
-            }
+    [_videoBtnCycle, _voiceBtn].forEach(btn => {
+        if (!btn) return;
+        btn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            _mediaMode = _mediaMode === 'video' ? 'voice' : 'video';
+            _updateBtns();
         });
-    }
+    });
 
-    function _getActiveBtn() {
-        if (_mediaMode === 0) return _sendBtn;
-        if (_mediaMode === 1) return _videoBtnCycle;
-        return _voiceBtn;
-    }
+    if (_msgInput) _msgInput.addEventListener('input', _updateBtns);
 
     function _cancelRecording() {
         if (!_recording) return;
-        _recording = false;
-        _locked = false;
+        _recording = false; _locked = false;
         cancelVoiceRecord();
         _hideLockHint();
-        _setMediaMode(_mediaMode);
+        _updateBtns();
     }
 
     function _finishRecording() {
         if (!_recording) return;
-        _recording = false;
-        _locked = false;
-        if (_mediaMode === 2) stopVoiceRecord();
-        else if (_mediaMode === 1) stopVideoCircleRecord();
+        _recording = false; _locked = false;
+        if (_mediaMode === 'voice') stopVoiceRecord();
+        else stopVideoCircleRecord();
         _hideLockHint();
-        _setMediaMode(_mediaMode);
+        _updateBtns();
     }
 
     function _showLockHint() {
@@ -2570,9 +2557,9 @@ document.addEventListener('DOMContentLoaded', function() {
             hint = document.createElement('div');
             hint.id = '_rec-hint';
             hint.style.cssText = 'position:absolute;right:56px;bottom:8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:20px;padding:6px 12px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;pointer-events:none;z-index:10;white-space:nowrap;';
-            hint.innerHTML = '<span>← Отмена</span><span style="margin:0 4px;">|</span><span>↑ Закрепить</span>';
+            hint.innerHTML = '<span>\u2190 \u041e\u0442\u043c\u0435\u043d\u0430</span><span style="margin:0 4px;">|</span><span>\u2191 \u0417\u0430\u043a\u0440\u0435\u043f\u0438\u0442\u044c</span>';
             const form = document.getElementById('message-form');
-            if (form) form.style.position = 'relative', form.appendChild(hint);
+            if (form) { form.style.position = 'relative'; form.appendChild(hint); }
         }
         hint.style.display = 'flex';
     }
@@ -2580,20 +2567,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function _hideLockHint() {
         const hint = document.getElementById('_rec-hint');
         if (hint) hint.style.display = 'none';
-        // Убираем кнопку отправки закреплённой записи
         const lockSend = document.getElementById('_lock-send-btn');
         if (lockSend) lockSend.remove();
     }
 
     function _showLockedUI() {
-        _hideLockHint();
-        _locked = true;
-        // Показываем кнопку отправки поверх send-btn
+        _hideLockHint(); _locked = true;
         let lockSend = document.getElementById('_lock-send-btn');
         if (!lockSend) {
             lockSend = document.createElement('button');
-            lockSend.id = '_lock-send-btn';
-            lockSend.type = 'button';
+            lockSend.id = '_lock-send-btn'; lockSend.type = 'button';
             lockSend.className = 'send-btn';
             lockSend.style.cssText = 'background:#38a169;';
             lockSend.innerHTML = '<i class="fas fa-paper-plane"></i>';
@@ -2602,33 +2585,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('message-form');
             if (form) form.appendChild(lockSend);
         }
-        // Скрываем активную кнопку записи
-        const activeBtn = _getActiveBtn();
+        const activeBtn = _mediaMode === 'video' ? _videoBtnCycle : _voiceBtn;
         if (activeBtn) activeBtn.style.display = 'none';
     }
 
     function _onPressStart(e) {
         if (_locked) return;
-        const isEmpty = !_msgInput || !_msgInput.value.trim();
-        if (!isEmpty && _mediaMode === 0) return; // поле не пустое — не перехватываем
-
         const touch = e.touches ? e.touches[0] : e;
-        _pressStartY = touch.clientY;
-        _pressStartX = touch.clientX;
-        _pressMoved = false;
-
-        if (_mediaMode === 0 && isEmpty) {
-            // Короткий тап на send при пустом поле — переключаем режим в pressEnd
-            return;
-        }
-
-        // Режим video или voice — начинаем запись только после зажатия (300мс)
+        _pressStartY = touch.clientY; _pressStartX = touch.clientX;
         _pressTimer = setTimeout(() => {
-            _pressTimer = null;
-            _recording = true;
+            _pressTimer = null; _recording = true;
             _showLockHint();
-            if (_mediaMode === 2) startVoiceRecord();
-            else if (_mediaMode === 1) openVideoRecorder();
+            if (_mediaMode === 'voice') startVoiceRecord();
+            else openVideoRecorder();
         }, 300);
     }
 
@@ -2637,46 +2606,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const touch = e.touches ? e.touches[0] : e;
         const dx = touch.clientX - _pressStartX;
         const dy = touch.clientY - _pressStartY;
-
-        if (dx < -60) {
-            // Свайп влево — отмена
-            _cancelRecording();
-        } else if (dy < -60) {
-            // Свайп вверх — закрепление
-            _showLockedUI();
-        }
+        if (dx < -60) _cancelRecording();
+        else if (dy < -60) _showLockedUI();
     }
 
     function _onPressEnd(e) {
-        if (_pressTimer) {
-            // Таймер не сработал — это короткий тап, только переключаем режим
-            clearTimeout(_pressTimer);
-            _pressTimer = null;
-            const isEmpty = !_msgInput || !_msgInput.value.trim();
-            if (isEmpty && !_locked) {
-                _setMediaMode((_mediaMode + 1) % 3);
-            }
-            return;
-        }
-
-        if (_locked) return;
-
-        if (!_recording) return;
-
-        // Отпустили во время записи — завершаем
+        if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; return; }
+        if (_locked || !_recording) return;
         _finishRecording();
     }
 
-    // Навешиваем на все три кнопки
-    [_sendBtn, _videoBtnCycle, _voiceBtn].forEach(btn => {
+    [_videoBtnCycle, _voiceBtn].forEach(btn => {
         if (!btn) return;
         btn.addEventListener('mousedown', _onPressStart);
         btn.addEventListener('mousemove', _onPressMove);
         btn.addEventListener('mouseup', _onPressEnd);
         btn.addEventListener('mouseleave', (e) => {
             if (_recording && !_locked) {
-                const dx = e.clientX - _pressStartX;
-                if (dx < -40) _cancelRecording();
+                if (e.clientX - _pressStartX < -40) _cancelRecording();
                 else _finishRecording();
             }
         });
@@ -2685,19 +2632,8 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('touchend', _onPressEnd);
     });
 
-    // send-btn при непустом поле — не перехватываем (форма сабмитится)
-    // При пустом поле — предотвращаем сабмит (переключение режима в _onPressEnd)
-    if (_sendBtn) {
-        _sendBtn.addEventListener('click', (e) => {
-            const isEmpty = !_msgInput || !_msgInput.value.trim();
-            if (isEmpty && _mediaMode === 0) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-            }
-        }, true);
-    }
+    _updateBtns();
 });
-
 // Открыть рекордер видео
 async function openVideoRecorder() {
     if (!currentChatUserId) {
