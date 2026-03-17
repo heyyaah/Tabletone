@@ -1052,6 +1052,24 @@ body[data-theme="liquid"] .messages-container[data-wallpaper="default"] {
     box-shadow: 0 4px 16px rgba(79,110,247,0.4);
 }
 
+/* Кружок — синий оттенок */
+#video-circle-btn.send-btn {
+    background: #3182ce;
+}
+#video-circle-btn.send-btn:hover {
+    background: #2b6cb0;
+    box-shadow: 0 4px 16px rgba(49,130,206,0.4);
+}
+
+/* Голосовой — красный */
+#voice-btn.send-btn {
+    background: #e53e3e;
+}
+#voice-btn.send-btn:hover {
+    background: #c53030;
+    box-shadow: 0 4px 16px rgba(229,62,62,0.4);
+}
+
 .media-btn {
     width: 38px;
     height: 38px;

@@ -2476,6 +2476,59 @@ document.addEventListener('DOMContentLoaded', function() {
     if (videoBtn) {
         videoBtn.addEventListener('click', openVideoRecorder);
     }
+
+    // ── Цикличное переключение кнопки отправки: send → video → voice → send ──
+    const _sendBtn = document.getElementById('send-btn');
+    const _videoBtnCycle = document.getElementById('video-circle-btn');
+    const _voiceBtn = document.getElementById('voice-btn');
+
+    // Состояния: 0=send, 1=video, 2=voice
+    let _sendBtnState = 0;
+    let _holdTimer = null;
+
+    function _setSendState(state) {
+        _sendBtnState = state;
+        if (_sendBtn) _sendBtn.style.display = state === 0 ? '' : 'none';
+        if (_videoBtnCycle) _videoBtnCycle.style.display = state === 1 ? '' : 'none';
+        if (_voiceBtn) _voiceBtn.style.display = state === 2 ? '' : 'none';
+    }
+
+    function _onSendBtnHoldStart(e) {
+        _holdTimer = setTimeout(() => {
+            _holdTimer = null;
+            _setSendState((_sendBtnState + 1) % 3);
+        }, 500);
+    }
+
+    function _onSendBtnHoldEnd(e) {
+        if (_holdTimer) {
+            clearTimeout(_holdTimer);
+            _holdTimer = null;
+            // короткое нажатие — не переключаем, форма сабмитится сама (только для send-btn)
+        }
+    }
+
+    if (_sendBtn) {
+        _sendBtn.addEventListener('mousedown', _onSendBtnHoldStart);
+        _sendBtn.addEventListener('mouseup', _onSendBtnHoldEnd);
+        _sendBtn.addEventListener('mouseleave', () => { if (_holdTimer) { clearTimeout(_holdTimer); _holdTimer = null; } });
+        _sendBtn.addEventListener('touchstart', _onSendBtnHoldStart, {passive: true});
+        _sendBtn.addEventListener('touchend', _onSendBtnHoldEnd);
+    }
+    if (_videoBtnCycle) {
+        _videoBtnCycle.addEventListener('mousedown', _onSendBtnHoldStart);
+        _videoBtnCycle.addEventListener('mouseup', _onSendBtnHoldEnd);
+        _videoBtnCycle.addEventListener('mouseleave', () => { if (_holdTimer) { clearTimeout(_holdTimer); _holdTimer = null; } });
+        _videoBtnCycle.addEventListener('touchstart', _onSendBtnHoldStart, {passive: true});
+        _videoBtnCycle.addEventListener('touchend', _onSendBtnHoldEnd);
+    }
+    if (_voiceBtn) {
+        _voiceBtn.addEventListener('mousedown', (e) => { _onSendBtnHoldStart(e); startVoiceRecord(); });
+        _voiceBtn.addEventListener('mouseup', (e) => { _onSendBtnHoldEnd(e); stopVoiceRecord(); });
+        _voiceBtn.addEventListener('mouseleave', () => { if (_holdTimer) { clearTimeout(_holdTimer); _holdTimer = null; } });
+        _voiceBtn.addEventListener('touchstart', (e) => { _onSendBtnHoldStart(e); startVoiceRecord(); }, {passive: true});
+        _voiceBtn.addEventListener('touchend', (e) => { _onSendBtnHoldEnd(e); stopVoiceRecord(); });
+    }
 });
 
 // Открыть рекордер видео
@@ -5117,6 +5170,44 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================
 // ОПРОСЫ
 // ============================================
+
+function showAttachMenu() {
+    // Удаляем старое меню если есть
+    const old = document.getElementById('attach-menu-popup');
+    if (old) { old.remove(); return; }
+
+    const menu = document.createElement('div');
+    menu.id = 'attach-menu-popup';
+    menu.style.cssText = 'position:absolute;bottom:70px;left:12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:200;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:180px;';
+    menu.innerHTML = `
+        <button onclick="document.getElementById('image-input').click();document.getElementById('attach-menu-popup')?.remove();"
+            style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
+            onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
+            <i class="fas fa-image" style="color:#667eea;width:18px;"></i> Фото / Видео / Файл
+        </button>
+        <button onclick="showPollModal();document.getElementById('attach-menu-popup')?.remove();"
+            style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
+            onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
+            <i class="fas fa-poll" style="color:#38a169;width:18px;"></i> Опрос
+        </button>
+    `;
+
+    // Закрыть по клику вне
+    setTimeout(() => {
+        document.addEventListener('click', function _close(e) {
+            if (!menu.contains(e.target) && e.target.id !== 'image-btn') {
+                menu.remove();
+                document.removeEventListener('click', _close);
+            }
+        });
+    }, 10);
+
+    const container = document.querySelector('.message-input-container');
+    if (container) container.style.position = 'relative';
+    const form = document.getElementById('message-form');
+    form.parentNode.insertBefore(menu, form);
+}
+window.showAttachMenu = showAttachMenu;
 
 function showPollModal() {
     if (!currentChatUserId && !currentGroupId) { showError('Сначала откройте чат'); return; }

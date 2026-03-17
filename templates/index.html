@@ -228,21 +228,15 @@
             <div class="message-input-container">
                 <form id="message-form">
                     <input type="file" id="image-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple style="display: none;" onchange="handleMultipleFilesSelect(event)">
-                    <button type="button" class="media-btn" id="image-btn" title="Отправить файлы" onclick="document.getElementById('image-input').click()">
+                    <!-- Файлы — всегда видны -->
+                    <button type="button" class="media-btn" id="image-btn" title="Отправить файлы" onclick="showAttachMenu()">
                         <i class="fas fa-paperclip"></i>
                     </button>
-                    <button type="button" class="media-btn" id="video-circle-btn" title="Видео кружочек">
-                        <i class="fas fa-video"></i>
-                    </button>
-                    <button type="button" class="media-btn" id="poll-btn" title="Создать опрос" onclick="showPollModal()">
-                        <i class="fas fa-poll"></i>
-                    </button>
+                    <!-- Стикеры — всегда видны -->
                     <button type="button" class="media-btn" id="sticker-btn" title="Стикеры" onclick="toggleStickerPanel()">
                         <i class="fas fa-sticky-note"></i>
                     </button>
-                    <button type="button" class="media-btn" id="voice-btn" title="Голосовое сообщение" onmousedown="startVoiceRecord()" onmouseup="stopVoiceRecord()" ontouchstart="startVoiceRecord()" ontouchend="stopVoiceRecord()">
-                        <i class="fas fa-microphone"></i>
-                    </button>
+                    <!-- Подарки — всегда видны -->
                     <button type="button" class="media-btn" id="gift-btn" title="Подарок" onclick="showGiftShop()">
                         <i class="fas fa-gift"></i>
                     </button>
@@ -250,8 +244,15 @@
                            placeholder="Введите сообщение..." autocomplete="off">
                     <!-- @mention dropdown -->
                     <div id="mention-dropdown" style="display:none;position:absolute;bottom:60px;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.15);"></div>
-                    <button type="submit" class="send-btn">
+                    <!-- Кнопка отправки / кружок / голосовой — циклически по зажатию -->
+                    <button type="submit" class="send-btn" id="send-btn" title="Отправить">
                         <i class="fas fa-paper-plane"></i>
+                    </button>
+                    <button type="button" class="send-btn" id="video-circle-btn" title="Видео кружочек" style="display:none;">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button type="button" class="send-btn" id="voice-btn" title="Голосовое сообщение" style="display:none;" onmousedown="startVoiceRecord()" onmouseup="stopVoiceRecord()" ontouchstart="startVoiceRecord()" ontouchend="stopVoiceRecord()">
+                        <i class="fas fa-microphone"></i>
                     </button>
                 </form>
                 
