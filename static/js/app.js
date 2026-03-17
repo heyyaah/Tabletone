@@ -383,20 +383,21 @@ function setupEventListeners() {
     // Автофокус на поле ввода сообщения
     const messageInput = document.getElementById('message-input');
     if (messageInput) {
-        messageInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                messageForm.dispatchEvent(new Event('submit'));
-            }
-        });
         messageInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.shiftKey) {
-                e.preventDefault();
-                const start = this.selectionStart;
-                const end = this.selectionEnd;
-                this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
-                this.selectionStart = this.selectionEnd = start + 1;
-                this.dispatchEvent(new Event('input'));
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    // Shift+Enter — новая строка
+                    e.preventDefault();
+                    const start = this.selectionStart;
+                    const end = this.selectionEnd;
+                    this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
+                    this.selectionStart = this.selectionEnd = start + 1;
+                    this.dispatchEvent(new Event('input'));
+                } else {
+                    // Enter — отправить
+                    e.preventDefault();
+                    messageForm.dispatchEvent(new Event('submit'));
+                }
             }
         });
         // Авто-ресайз textarea при переносах строк
