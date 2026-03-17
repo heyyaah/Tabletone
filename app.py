@@ -23,11 +23,18 @@ if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
 elif _db_url.startswith('postgresql://') and 'pg8000' not in _db_url and 'psycopg2' not in _db_url:
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+
+# pg8000 + eventlet SSL fix: use stdlib ssl context directly, bypass eventlet SSL monkey-patch
+import ssl as _ssl
+_pg_ssl_ctx = _ssl.create_default_context()
+_pg_ssl_ctx.check_hostname = False
+_pg_ssl_ctx.verify_mode = _ssl.CERT_NONE
+
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'poolclass': __import__('sqlalchemy.pool', fromlist=['NullPool']).NullPool,
-    'connect_args': {'timeout': 10},
+    'connect_args': {'ssl_context': _pg_ssl_ctx, 'timeout': 10},
 }
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
