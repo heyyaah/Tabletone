@@ -7738,9 +7738,12 @@ def _send_email_register_verify(to_email, code, username):
     """
     msg.attach(MIMEText(html, 'html'))
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.ehlo()
+            server.starttls()
             server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_user, to_email, msg.as_string())
+        print(f"[EMAIL VERIFY] Отправлено на {to_email}")
     except Exception as e:
         print(f"[EMAIL VERIFY] Ошибка отправки: {e}")
 
@@ -7773,7 +7776,9 @@ def _send_email_2fa(to_email, code):
     """
     msg.attach(MIMEText(html, 'html'))
 
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+    with smtplib.SMTP('smtp.gmail.com', 587) as server:
+        server.ehlo()
+        server.starttls()
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_user, to_email, msg.as_string())
 
