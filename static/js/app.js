@@ -2596,19 +2596,18 @@ document.addEventListener('DOMContentLoaded', function() {
         _pressMoved = false;
 
         if (_mediaMode === 0 && isEmpty) {
-            // Короткий тап на send при пустом поле — переключаем режим
-            // Ничего не делаем при pressStart, обработаем в pressEnd
+            // Короткий тап на send при пустом поле — переключаем режим в pressEnd
             return;
         }
 
-        // Режим video или voice — начинаем запись
+        // Режим video или voice — начинаем запись только после зажатия (300мс)
         _pressTimer = setTimeout(() => {
             _pressTimer = null;
             _recording = true;
             _showLockHint();
             if (_mediaMode === 2) startVoiceRecord();
             else if (_mediaMode === 1) openVideoRecorder();
-        }, 0); // сразу начинаем
+        }, 300);
     }
 
     function _onPressMove(e) {
@@ -2628,21 +2627,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function _onPressEnd(e) {
         if (_pressTimer) {
+            // Таймер не сработал — это короткий тап, только переключаем режим
             clearTimeout(_pressTimer);
             _pressTimer = null;
-        }
-
-        const isEmpty = !_msgInput || !_msgInput.value.trim();
-
-        if (_locked) return;
-
-        if (!_recording) {
-            // Короткий тап — переключаем режим (только если поле пустое)
-            if (isEmpty) {
+            const isEmpty = !_msgInput || !_msgInput.value.trim();
+            if (isEmpty && !_locked) {
                 _setMediaMode((_mediaMode + 1) % 3);
             }
             return;
         }
+
+        if (_locked) return;
+
+        if (!_recording) return;
 
         // Отпустили во время записи — завершаем
         _finishRecording();
