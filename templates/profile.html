@@ -428,6 +428,69 @@
             </div>
             {% endif %}
 
+            <!-- Настройки приватности -->
+            <div class="profile-section">
+                <h3><i class="fas fa-user-shield" style="color:#667eea;"></i> Приватность</h3>
+                <p style="color:#718096;font-size:13px;margin-bottom:16px;">Управляйте тем, кто может взаимодействовать с вами.</p>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div>
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+                            <i class="fas fa-comment" style="color:#667eea;margin-right:6px;"></i>Кто может писать тебе
+                        </label>
+                        <select id="priv-message" class="priv-select">
+                            <option value="everyone" {% if user.privacy_who_can_message == 'everyone' %}selected{% endif %}>Все</option>
+                            <option value="contacts" {% if user.privacy_who_can_message == 'contacts' %}selected{% endif %}>Только контакты</option>
+                            <option value="premium" {% if user.privacy_who_can_message == 'premium' %}selected{% endif %}>Только Premium пользователи</option>
+                            <option value="nobody" {% if user.privacy_who_can_message == 'nobody' %}selected{% endif %}>Никто</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+                            <i class="fas fa-phone" style="color:#38a169;margin-right:6px;"></i>Кто может звонить тебе
+                        </label>
+                        <select id="priv-call" class="priv-select">
+                            <option value="everyone" {% if user.privacy_who_can_call == 'everyone' %}selected{% endif %}>Все</option>
+                            <option value="contacts" {% if user.privacy_who_can_call == 'contacts' %}selected{% endif %}>Только контакты</option>
+                            <option value="nobody" {% if user.privacy_who_can_call == 'nobody' %}selected{% endif %}>Никто</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+                            <i class="fas fa-users" style="color:#d69e2e;margin-right:6px;"></i>Кто может добавлять в группы
+                        </label>
+                        <select id="priv-groups" class="priv-select">
+                            <option value="everyone" {% if user.privacy_who_can_add_to_groups == 'everyone' %}selected{% endif %}>Все</option>
+                            <option value="contacts" {% if user.privacy_who_can_add_to_groups == 'contacts' %}selected{% endif %}>Только контакты</option>
+                            <option value="nobody" {% if user.privacy_who_can_add_to_groups == 'nobody' %}selected{% endif %}>Никто</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+                            <i class="fas fa-clock" style="color:#718096;margin-right:6px;"></i>Кто видит время последнего визита
+                        </label>
+                        <select id="priv-last-seen" class="priv-select">
+                            <option value="everyone" {% if user.privacy_show_last_seen == 'everyone' %}selected{% endif %}>Все</option>
+                            <option value="contacts" {% if user.privacy_show_last_seen == 'contacts' %}selected{% endif %}>Только контакты</option>
+                            <option value="nobody" {% if user.privacy_show_last_seen == 'nobody' %}selected{% endif %}>Никто</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+                            <i class="fas fa-phone-alt" style="color:#e53e3e;margin-right:6px;"></i>Кто видит номер телефона
+                        </label>
+                        <select id="priv-phone" class="priv-select">
+                            <option value="nobody" {% if user.privacy_show_phone == 'nobody' %}selected{% endif %}>Никто</option>
+                            <option value="contacts" {% if user.privacy_show_phone == 'contacts' %}selected{% endif %}>Только контакты</option>
+                            <option value="everyone" {% if user.privacy_show_phone == 'everyone' %}selected{% endif %}>Все</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="savePrivacySettings()" style="margin-top:16px;padding:10px 20px;font-size:14px;">
+                    <i class="fas fa-save"></i> Сохранить настройки приватности
+                </button>
+                <div id="priv-save-status" style="margin-top:8px;font-size:13px;"></div>
+            </div>
+
             <!-- Сменить аккаунт -->
             <div class="profile-section">
                 <h3><i class="fas fa-exchange-alt"></i> Сменить аккаунт</h3>
@@ -524,6 +587,21 @@
 
 {% block scripts %}
 <style>
+.priv-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    font-size: 14px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23718096' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+    cursor: pointer;
+}
 @keyframes nftSlideUp {
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }
@@ -1120,6 +1198,33 @@ async function saveAutoReply() {
         showToast(text ? 'Автоответ сохранён' : 'Автоответ отключён');
     } else {
         alert(d.error || 'Ошибка');
+    }
+}
+
+async function savePrivacySettings() {
+    const payload = {
+        privacy_who_can_message:       document.getElementById('priv-message').value,
+        privacy_who_can_call:          document.getElementById('priv-call').value,
+        privacy_who_can_add_to_groups: document.getElementById('priv-groups').value,
+        privacy_show_last_seen:        document.getElementById('priv-last-seen').value,
+        privacy_show_phone:            document.getElementById('priv-phone').value,
+    };
+    const status = document.getElementById('priv-save-status');
+    try {
+        const r = await fetch('/profile/privacy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        if (d.success) {
+            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Сохранено';
+            setTimeout(() => { status.innerHTML = ''; }, 3000);
+        } else {
+            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
+        }
+    } catch(e) {
+        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
     }
 }
 </script>

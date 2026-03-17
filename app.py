@@ -211,6 +211,15 @@ class User(db.Model):
     auto_reply_text = db.Column(db.String(200), nullable=True)  # Автоответ
     msg_price = db.Column(db.Integer, nullable=True, default=None)  # Цена сообщения в искрах (None = бесплатно)
 
+    # ── Настройки приватности ─────────────────────────────────────────────────
+    # Значения: 'everyone' | 'contacts' | 'nobody' | 'premium' (только для who_can_message)
+    privacy_who_can_message = db.Column(db.String(20), default='everyone')
+    privacy_who_can_call    = db.Column(db.String(20), default='everyone')
+    privacy_who_can_add_to_groups = db.Column(db.String(20), default='everyone')
+    privacy_show_last_seen  = db.Column(db.String(20), default='everyone')
+    privacy_show_phone      = db.Column(db.String(20), default='nobody')
+    privacy_show_profile    = db.Column(db.String(20), default='everyone')
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     
@@ -892,6 +901,12 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS auto_reply_text VARCHAR(500)",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS premium_emoji VARCHAR(10)",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS msg_price INTEGER",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_who_can_message VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_who_can_call VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_who_can_add_to_groups VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
@@ -942,7 +957,12 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN auto_reply_text VARCHAR(500)",
                 f"ALTER TABLE {user_table} ADD COLUMN premium_emoji VARCHAR(10)",
                 f"ALTER TABLE {user_table} ADD COLUMN msg_price INTEGER",
-                f"ALTER TABLE {user_table} ADD COLUMN premium_until DATETIME",
+                f"ALTER TABLE {user_table} ADD COLUMN privacy_who_can_message VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN privacy_who_can_call VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN privacy_who_can_add_to_groups VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
+                f"ALTER TABLE {user_table} ADD COLUMN privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
                 "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN expires_at DATETIME",
@@ -2992,6 +3012,18 @@ def send_message():
             if not (i_added and they_added) and not they_wrote_first:
                 return jsonify({'error': 'spam_blocked', 'until': until_str}), 403
 
+    # Проверяем настройки приватности получателя (кто может писать)
+    if not receiver.is_bot and receiver.id != session['user_id']:
+        _sender_is_staff2 = sender.is_admin or bool(sender.admin_role)
+        if not _sender_is_staff2 and not _privacy_allows(receiver, sender.id, 'privacy_who_can_message'):
+            priv_val = receiver.privacy_who_can_message or 'everyone'
+            if priv_val == 'nobody':
+                return jsonify({'error': 'privacy', 'message': 'Этот пользователь не принимает сообщения'}), 403
+            elif priv_val == 'contacts':
+                return jsonify({'error': 'privacy', 'message': 'Этот пользователь принимает сообщения только от контактов'}), 403
+            elif priv_val == 'premium':
+                return jsonify({'error': 'privacy', 'message': 'Этот пользователь принимает сообщения только от Premium пользователей'}), 403
+
     # Premium Support доступен только для Premium пользователей
     _sender_is_staff = sender.is_admin or bool(sender.admin_role)
     if receiver.username == 'premium_support' and not sender.is_premium and not _sender_is_staff:
@@ -3850,7 +3882,8 @@ def get_user_info(user_id):
         'reputation': user.reputation if user.reputation is not None else 100,
         'premium_emoji': user.premium_emoji,
         'status_text': user.status_text,
-        'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+        'last_seen': (user.last_seen.isoformat() if user.last_seen else None)
+                     if _privacy_allows(user, user_id, 'privacy_show_last_seen') else None,
         'is_online': user.id in online_users,
         'created_at': user.created_at.strftime('%d.%m.%Y'),
         'msg_price': getattr(user, 'msg_price', None) or 0
@@ -3929,7 +3962,55 @@ def update_profile():
         'user': user_info
     })
 
-# Загрузка аватарки пользователя
+
+def _privacy_allows(target_user, viewer_id, setting):
+    """Проверяет, разрешает ли настройка приватности target_user доступ viewer_id."""
+    val = getattr(target_user, setting, 'everyone')
+    if not val or val == 'everyone':
+        return True
+    if val == 'nobody':
+        return False
+    if val == 'premium':
+        viewer = User.query.get(viewer_id)
+        return bool(viewer and (viewer.is_premium or viewer.is_admin or viewer.admin_role))
+    if val == 'contacts':
+        # Взаимные контакты
+        i_added = Contact.query.filter_by(user_id=target_user.id, contact_id=viewer_id).first() is not None
+        they_added = Contact.query.filter_by(user_id=viewer_id, contact_id=target_user.id).first() is not None
+        return i_added and they_added
+    return True
+
+
+@app.route('/profile/privacy', methods=['GET', 'POST'])
+def profile_privacy():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    if request.method == 'GET':
+        return jsonify({
+            'privacy_who_can_message':       user.privacy_who_can_message or 'everyone',
+            'privacy_who_can_call':          user.privacy_who_can_call or 'everyone',
+            'privacy_who_can_add_to_groups': user.privacy_who_can_add_to_groups or 'everyone',
+            'privacy_show_last_seen':        user.privacy_show_last_seen or 'everyone',
+            'privacy_show_phone':            user.privacy_show_phone or 'nobody',
+            'privacy_show_profile':          user.privacy_show_profile or 'everyone',
+        })
+    data = request.get_json() or {}
+    allowed_vals = {'everyone', 'contacts', 'nobody'}
+    allowed_msg_vals = allowed_vals | {'premium'}
+    fields = {
+        'privacy_who_can_message':       allowed_msg_vals,
+        'privacy_who_can_call':          allowed_vals,
+        'privacy_who_can_add_to_groups': allowed_vals,
+        'privacy_show_last_seen':        allowed_vals,
+        'privacy_show_phone':            allowed_vals,
+        'privacy_show_profile':          allowed_vals,
+    }
+    for field, valid in fields.items():
+        if field in data and data[field] in valid:
+            setattr(user, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
 @app.route('/profile/upload_avatar', methods=['POST'])
 def upload_avatar():
     if 'user_id' not in session:
@@ -5937,7 +6018,13 @@ def add_group_member(group_id):
     existing = GroupMember.query.filter_by(group_id=group_id, user_id=user_id).first()
     if existing:
         return jsonify({'error': 'Пользователь уже в группе'}), 400
-    
+
+    # Проверяем настройки приватности (кто может добавлять в группы)
+    adder = User.query.get(session['user_id'])
+    if adder and not (adder.is_admin or adder.admin_role):
+        if not _privacy_allows(user, adder.id, 'privacy_who_can_add_to_groups'):
+            return jsonify({'error': 'privacy', 'message': 'Этот пользователь ограничил добавление в группы'}), 403
+
     # Добавляем участника
     member = GroupMember(
         group_id=group_id,
@@ -6417,6 +6504,15 @@ def public_profile(username):
     user = User.query.filter_by(username=username).first_or_404()
     if user.is_bot:
         return redirect(url_for('index'))
+    viewer = None
+    if 'user_id' in session:
+        viewer = User.query.get(session['user_id'])
+    # Проверяем приватность профиля
+    if viewer and viewer.id != user.id and not (viewer.is_admin or viewer.admin_role):
+        if not _privacy_allows(user, viewer.id, 'privacy_show_profile'):
+            return render_template('public_profile.html',
+                user=user, stories=[], rep=100, rep_level='—', rep_color='#718096',
+                viewer=viewer, profile_hidden=True)
     # Активные истории
     stories = Story.query.filter(
         Story.user_id == user.id,
@@ -6429,13 +6525,10 @@ def public_profile(username):
     elif rep >= 40: rep_level, rep_color = 'Средняя', '#d69e2e'
     elif rep >= 20: rep_level, rep_color = 'Плохая', '#e53e3e'
     else: rep_level, rep_color = 'Критическая', '#742a2a'
-    viewer = None
-    if 'user_id' in session:
-        viewer = User.query.get(session['user_id'])
     return render_template('public_profile.html',
         user=user, stories=stories,
         rep=rep, rep_level=rep_level, rep_color=rep_color,
-        viewer=viewer)
+        viewer=viewer, profile_hidden=False)
 
 def _delete_group_cascade(group_id):
     """Удаляет все зависимые данные группы перед удалением самой группы."""
@@ -9301,6 +9394,13 @@ def handle_call_offer(data):
     caller = User.query.get(session['user_id'])
     if not caller or not to_user_id:
         return
+    # Проверяем приватность звонков
+    callee = User.query.get(to_user_id)
+    if callee and not (caller.is_admin or caller.admin_role):
+        if not _privacy_allows(callee, caller.id, 'privacy_who_can_call'):
+            socketio.emit('call_rejected', {'from_user_id': to_user_id, 'reason': 'privacy'},
+                          room=f'user_{caller.id}', namespace='/')
+            return
     socketio.emit('call_incoming', {
         'from_user_id': session['user_id'],
         'from_name': caller.display_name or caller.username,
@@ -9309,7 +9409,6 @@ def handle_call_offer(data):
         'sdp': data.get('sdp'),
         'is_video': data.get('is_video', False)
     }, room=f'user_{to_user_id}', namespace='/')
-    # Push-уведомление если получатель оффлайн
     call_type = 'Видеозвонок' if data.get('is_video') else 'Звонок'
     _send_fcm(to_user_id, f'{call_type} от {caller.display_name or caller.username}', 'Нажмите чтобы ответить', 'call')
 

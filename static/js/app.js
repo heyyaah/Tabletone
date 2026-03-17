@@ -2190,6 +2190,8 @@ async function handleSendMessage(e) {
             showPremiumModal(data.message || 'Эта функция доступна только для Premium пользователей.');
         } else if (data.error === 'not_enough_sparks') {
             _showNotEnoughSparksModal(data.required || 0);
+        } else if (data.error === 'privacy') {
+            showError(data.message || 'Этот пользователь ограничил входящие сообщения');
         } else if (data.success) {
             messageInput.value = '';
             _cancelReply();

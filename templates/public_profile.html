@@ -19,6 +19,13 @@
 
     <!-- Карточка профиля -->
     <div class="pub-card">
+        {% if profile_hidden %}
+        <div style="text-align:center;padding:32px 16px;">
+            <div style="font-size:56px;margin-bottom:16px;">🔒</div>
+            <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;color:var(--text-primary);">Профиль скрыт</h2>
+            <p style="color:var(--text-secondary);font-size:14px;margin:0;">Этот пользователь скрыл свой профиль.</p>
+        </div>
+        {% else %}
         <!-- Аватар -->
         <div class="pub-avatar-wrap">
             {% if user.avatar_url %}
@@ -98,6 +105,7 @@
                 <i class="fas fa-sign-in-alt"></i> Войти чтобы написать
             </a>
         </div>
+        {% endif %}
         {% endif %}
     </div>
 
