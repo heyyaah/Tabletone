@@ -10137,6 +10137,22 @@ def auto_reply_settings():
         return jsonify({'success': True, 'text': user.auto_reply_text})
     return jsonify({'text': getattr(user, 'auto_reply_text', None) or ''})
 
+@app.route('/user/msg-price', methods=['GET', 'POST'])
+def msg_price_settings():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        price = data.get('price')
+        if price is None or price == '' or int(price) <= 0:
+            user.msg_price = None
+        else:
+            user.msg_price = max(1, min(int(price), 100000))
+        db.session.commit()
+        return jsonify({'success': True, 'price': user.msg_price})
+    return jsonify({'price': getattr(user, 'msg_price', None)})
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # ПЕРЕВОД ЧЕРЕЗ GEMINI
 # ═══════════════════════════════════════════════════════════════════════════════

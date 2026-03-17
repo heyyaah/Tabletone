@@ -255,6 +255,15 @@
                 </div>
             </div>
 
+            <!-- Автоответ -->
+            <div class="profile-section">
+                <h3><i class="fas fa-robot"></i> Автоответ</h3>
+                <p style="font-size:13px;color:#718096;margin-bottom:12px;">Автоматически отвечает на входящие сообщения когда вы недоступны.</p>
+                <button class="btn btn-primary" onclick="showAutoReplySettings()" style="padding:10px 20px;font-size:14px;">
+                    <i class="fas fa-cog"></i> Настроить автоответ
+                </button>
+            </div>
+
             <!-- PIN скрытых чатов -->
             <div class="profile-section">
                 <h3><i class="fas fa-lock"></i> Скрытые чаты</h3>
@@ -351,6 +360,25 @@
                 </div>
                 <button type="button" class="btn btn-danger btn-block" onclick="terminateAllSessions()" style="margin-top: 10px;">
                     <i class="fas fa-sign-out-alt"></i> Завершить все сессии кроме текущей
+                </button>
+            </div>
+
+            <!-- Платные сообщения -->
+            <div class="profile-section">
+                <h3><i class="fas fa-bolt" style="color:#d69e2e;"></i> Платные сообщения</h3>
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">
+                    Установите цену в искрах за первое сообщение от незнакомцев. Повторные сообщения бесплатны.
+                </p>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <input type="number" id="msg-price-input" min="0" max="100000" placeholder="0 = бесплатно"
+                        style="flex:1;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
+                    <span style="color:#d69e2e;font-size:18px;">✨</span>
+                </div>
+                <small style="color:#a0aec0;font-size:12px;display:block;margin-bottom:10px;">
+                    Текущая цена: <span id="msg-price-current">загрузка...</span>
+                </small>
+                <button type="button" class="btn btn-primary" onclick="saveMsgPrice()" style="padding:8px 20px;font-size:14px;">
+                    <i class="fas fa-save"></i> Сохранить
                 </button>
             </div>
 
@@ -785,6 +813,35 @@ function _createModal(title, content) {
     </div>`;
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
     return m;
+}
+
+// ── Платные сообщения ─────────────────────────────────────────────────────────
+(async function loadMsgPrice() {
+    try {
+        const r = await fetch('/user/msg-price');
+        const d = await r.json();
+        const el = document.getElementById('msg-price-current');
+        const inp = document.getElementById('msg-price-input');
+        if (el) el.textContent = d.price ? `${d.price} ✨` : 'бесплатно';
+        if (inp && d.price) inp.value = d.price;
+    } catch(e) {}
+})();
+
+async function saveMsgPrice() {
+    const inp = document.getElementById('msg-price-input');
+    const price = inp ? parseInt(inp.value) || 0 : 0;
+    const r = await fetch('/user/msg-price', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({price})
+    });
+    const d = await r.json();
+    if (d.success) {
+        const el = document.getElementById('msg-price-current');
+        if (el) el.textContent = d.price ? `${d.price} ✨` : 'бесплатно';
+        if (inp) inp.value = d.price || '';
+        alert(d.price ? `Цена установлена: ${d.price} ✨` : 'Платные сообщения отключены');
+    }
 }
 </script>
 {% endblock %}

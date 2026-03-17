@@ -2288,6 +2288,8 @@ async function handleSendMessage(e) {
             showContactsRequiredModal();
         } else if (data.error === 'premium_required') {
             showPremiumModal(data.message || 'Эта функция доступна только для Premium пользователей.');
+        } else if (data.error === 'not_enough_sparks') {
+            _showNotEnoughSparksModal(data.required || 0);
         } else if (data.success) {
             messageInput.value = '';
             _cancelReply();
@@ -2588,7 +2590,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!_recording) return;
         _recording = false; _locked = false;
         if (_mediaMode === 'voice') stopVoiceRecord();
-        else stopVideoCircleRecord();
+        else {
+            // Для видео-кружка: просто закрываем модалку без отправки
+            // Пользователь сам нажимает "отправить" внутри модалки
+            closeVideoRecorder();
+        }
         _hideLockHint();
         _updateBtns();
     }
@@ -5105,6 +5111,28 @@ let _spamblockUntil = '';
 function showSpamblockModal(until) {
     _spamblockUntil = until || '';
     document.getElementById('spamblock-modal').classList.add('active');
+}
+
+function _showNotEnoughSparksModal(required) {
+    let m = document.getElementById('_sparks-required-modal');
+    if (!m) {
+        m = document.createElement('div');
+        m.id = '_sparks-required-modal';
+        m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;';
+        m.innerHTML = `<div style="background:var(--bg-primary);color:var(--text-primary);border-radius:16px;padding:28px 24px;max-width:340px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="font-size:40px;margin-bottom:12px;">✨</div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px;">Недостаточно искр</h3>
+            <p id="_sparks-req-text" style="color:#718096;font-size:14px;margin-bottom:20px;"></p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button onclick="document.getElementById('_sparks-required-modal').style.display='none';" style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:10px;padding:10px 20px;font-size:14px;cursor:pointer;">Закрыть</button>
+                <a href="/profile" style="background:linear-gradient(135deg,#d69e2e,#f6ad55);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;">Купить искры</a>
+            </div>
+        </div>`;
+        m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+        document.body.appendChild(m);
+    }
+    document.getElementById('_sparks-req-text').textContent = `Для первого сообщения этому пользователю нужно ${required} ✨ искр. Пополните баланс.`;
+    m.style.display = 'flex';
 }
 
 function showSpamblockDetails() {
