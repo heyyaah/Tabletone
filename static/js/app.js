@@ -1313,6 +1313,7 @@ async function openChat(userId, username) {
     _saveDraft();
 
     _cancelReply();
+    if (window._abortRecordingOnChatSwitch) window._abortRecordingOnChatSwitch();
     currentChatUserId = userId;
     _favoritesOpen = false;
     openedChats.add(userId);
@@ -1986,6 +1987,7 @@ function showChatList() {
 // Обновленная функция открытия чата для мобильных
 window.openChat = async function(userId, displayName, avatarColor, avatarLetter) {
     _cancelReply();
+    if (window._abortRecordingOnChatSwitch) window._abortRecordingOnChatSwitch();
     currentChatUserId = userId;
     currentGroupId = null; // Сбрасываем текущую группу
     openedChats.add(userId); // Помечаем чат как открытый — бейдж не показываем
@@ -2569,6 +2571,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!btn) return;
         btn.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            // Отменяем таймер записи — ПКМ не должен стартовать запись
+            if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+            if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
             // Только реальный ПКМ (button === 2), не тач-долгое нажатие
             if (e.button !== 2) return;
             _mediaMode = _mediaMode === 'video' ? 'voice' : 'video';
@@ -2585,6 +2590,12 @@ document.addEventListener('DOMContentLoaded', function() {
         _hideLockHint();
         _updateBtns();
     }
+    // Глобальный хук — вызывается при смене чата
+    window._abortRecordingOnChatSwitch = function() {
+        if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+        if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
+        if (_recording) _cancelRecording();
+    };
 
     function _finishRecording() {
         if (!_recording) return;
