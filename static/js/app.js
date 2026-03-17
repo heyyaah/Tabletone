@@ -2534,15 +2534,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Клик на кружок → переключиться в гс (голосовое)
-    if (_videoBtnCycle) {
-        _videoBtnCycle.addEventListener('click', (e) => {
-            if (_recording) return; // не переключать во время записи
-            _mediaMode = 'voice';
-            _updateBtns();
-        });
-    }
-
     if (_msgInput) _msgInput.addEventListener('input', _updateBtns);
 
     function _cancelRecording() {
