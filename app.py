@@ -26,10 +26,7 @@ elif _db_url.startswith('postgresql://') and 'pg8000' not in _db_url and 'psycop
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 3,
-    'max_overflow': 7,
-    'pool_timeout': 10,
-    'pool_recycle': 1800,
+    'poolclass': __import__('sqlalchemy.pool', fromlist=['NullPool']).NullPool,
     'pool_pre_ping': True,
 }
 app.config['UPLOAD_FOLDER'] = 'static/media'
