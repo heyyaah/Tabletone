@@ -138,6 +138,15 @@
                 <button class="icon-btn" onclick="showSearchModal()" title="Поиск по сообщениям">
                     <i class="fas fa-search"></i>
                 </button>
+                <button class="icon-btn" id="group-search-btn" onclick="showGroupSearch()" title="Поиск в группе" style="display:none;">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button class="icon-btn" onclick="showScheduleModal()" title="Запланировать сообщение">
+                    <i class="fas fa-clock"></i>
+                </button>
+                <button class="icon-btn" onclick="exportCurrentChat()" title="Экспорт чата">
+                    <i class="fas fa-download"></i>
+                </button>
                 <button class="icon-btn" onclick="viewChatInfo()" title="Информация">
                     <i class="fas fa-info-circle"></i>
                 </button>
@@ -520,7 +529,7 @@
         modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
         const demoted = w.demoted;
         modal.innerHTML = `
-            <div style="background:#fff;border-radius:16px;width:90%;max-width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.35);position:relative;">
+            <div style="background:var(--bg-secondary);border-radius:16px;width:90%;max-width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.35);position:relative;border:1px solid var(--border-color);">
                 <div style="text-align:center;margin-bottom:18px;">
                     <div style="font-size:40px;margin-bottom:8px;">${demoted ? '🚫' : '⚠️'}</div>
                     <h2 style="margin:0;font-size:20px;color:${demoted ? '#e53e3e' : '#d97706'};">

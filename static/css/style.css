@@ -3429,3 +3429,200 @@ body:not(.messenger-page) .container {
     justify-content: center;
     margin: 8px 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK THEME — глобальные переопределения захардкоженных цветов
+   Все #1a202c / #2d3748 / #4a5568 → var(--text-primary)
+   Все #718096 / #a0aec0 / #cbd5e0 → var(--text-secondary)
+   Все white / #fff / #ffffff фоны → var(--bg-primary/secondary)
+   ═══════════════════════════════════════════════════════════════ */
+
+body[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+/* Любой элемент с захардкоженным белым фоном */
+body[data-theme="dark"] [style*="background:white"],
+body[data-theme="dark"] [style*="background: white"],
+body[data-theme="dark"] [style*="background:#fff"],
+body[data-theme="dark"] [style*="background: #fff"],
+body[data-theme="dark"] [style*="background:#ffffff"],
+body[data-theme="dark"] [style*="background: #ffffff"],
+body[data-theme="dark"] [style*="background:rgba(255,255,255,0.95)"],
+body[data-theme="dark"] [style*="background:rgba(255,255,255,0.9)"],
+body[data-theme="dark"] [style*="background:rgba(255,255,255,0.85)"] {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Модалки и попапы с белым фоном */
+body[data-theme="dark"] [style*="background:#fff;border-radius"],
+body[data-theme="dark"] [style*="background: #fff;border-radius"],
+body[data-theme="dark"] [style*="background:white;border-radius"],
+body[data-theme="dark"] [style*="background: white;border-radius"] {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+}
+
+/* Тёмный текст на тёмном фоне */
+body[data-theme="dark"] [style*="color:#1a202c"],
+body[data-theme="dark"] [style*="color: #1a202c"],
+body[data-theme="dark"] [style*="color:#2d3748"],
+body[data-theme="dark"] [style*="color: #2d3748"],
+body[data-theme="dark"] [style*="color:#1e293b"],
+body[data-theme="dark"] [style*="color: #1e293b"],
+body[data-theme="dark"] [style*="color:#374151"],
+body[data-theme="dark"] [style*="color: #374151"],
+body[data-theme="dark"] [style*="color:#111827"],
+body[data-theme="dark"] [style*="color: #111827"],
+body[data-theme="dark"] [style*="color:#000"],
+body[data-theme="dark"] [style*="color: #000"],
+body[data-theme="dark"] [style*="color:black"],
+body[data-theme="dark"] [style*="color: black"] {
+    color: var(--text-primary) !important;
+}
+
+/* Серый текст — вторичный */
+body[data-theme="dark"] [style*="color:#4a5568"],
+body[data-theme="dark"] [style*="color: #4a5568"],
+body[data-theme="dark"] [style*="color:#718096"],
+body[data-theme="dark"] [style*="color: #718096"],
+body[data-theme="dark"] [style*="color:#64748b"],
+body[data-theme="dark"] [style*="color: #64748b"] {
+    color: var(--text-secondary) !important;
+}
+
+/* Очень светлый серый текст */
+body[data-theme="dark"] [style*="color:#a0aec0"],
+body[data-theme="dark"] [style*="color: #a0aec0"],
+body[data-theme="dark"] [style*="color:#cbd5e0"],
+body[data-theme="dark"] [style*="color: #cbd5e0"],
+body[data-theme="dark"] [style*="color:#94a3b8"],
+body[data-theme="dark"] [style*="color: #94a3b8"] {
+    color: var(--text-muted) !important;
+}
+
+/* Белый текст на белом фоне (светлая тема) — не трогаем, он уже белый */
+
+/* Светлые border */
+body[data-theme="dark"] [style*="border:1px solid #e2e8f0"],
+body[data-theme="dark"] [style*="border: 1px solid #e2e8f0"],
+body[data-theme="dark"] [style*="border:2px solid #e2e8f0"],
+body[data-theme="dark"] [style*="border: 2px solid #e2e8f0"],
+body[data-theme="dark"] [style*="border-top:1px solid #e2e8f0"],
+body[data-theme="dark"] [style*="border-bottom:1px solid #e2e8f0"],
+body[data-theme="dark"] [style*="border-color:#e2e8f0"] {
+    border-color: var(--border-color) !important;
+}
+
+/* Светлые фоны секций */
+body[data-theme="dark"] [style*="background:#f8fafc"],
+body[data-theme="dark"] [style*="background: #f8fafc"],
+body[data-theme="dark"] [style*="background:#f1f5f9"],
+body[data-theme="dark"] [style*="background: #f1f5f9"],
+body[data-theme="dark"] [style*="background:#f7fafc"],
+body[data-theme="dark"] [style*="background: #f7fafc"],
+body[data-theme="dark"] [style*="background:#edf2f7"],
+body[data-theme="dark"] [style*="background: #edf2f7"],
+body[data-theme="dark"] [style*="background:#e2e8f0"],
+body[data-theme="dark"] [style*="background: #e2e8f0"] {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Инпуты с захардкоженным белым фоном */
+body[data-theme="dark"] input[style*="background:#fff"],
+body[data-theme="dark"] input[style*="background: #fff"],
+body[data-theme="dark"] input[style*="background:white"],
+body[data-theme="dark"] textarea[style*="background:#fff"],
+body[data-theme="dark"] textarea[style*="background:white"],
+body[data-theme="dark"] select[style*="background:#fff"],
+body[data-theme="dark"] select[style*="background:white"] {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+/* Белый текст на белом фоне (светлая тема) */
+body[data-theme="light"] [style*="color:white"],
+body[data-theme="light"] [style*="color: white"],
+body[data-theme="light"] [style*="color:#fff"],
+body[data-theme="light"] [style*="color: #fff"],
+body[data-theme="light"] [style*="color:#ffffff"],
+body[data-theme="light"] [style*="color: #ffffff"] {
+    /* Только если фон тоже белый — CSS не может это проверить,
+       поэтому оставляем как есть (белый текст на цветных кнопках нормален) */
+}
+
+/* Специфичные компоненты */
+
+/* Модалки admin.html */
+body[data-theme="dark"] #edit-profile-modal > div,
+body[data-theme="dark"] .nft-modal-sheet,
+body[data-theme="dark"] .modal-content {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Заголовки в модалках */
+body[data-theme="dark"] h3[style*="color:#2d3748"],
+body[data-theme="dark"] h3[style*="color:#1a202c"],
+body[data-theme="dark"] h2[style*="color:#2d3748"],
+body[data-theme="dark"] h2[style*="color:#1a202c"] {
+    color: var(--text-primary) !important;
+}
+
+/* Блок предупреждения (blocked) */
+body[data-theme="dark"] .blocked-indicator {
+    background: rgba(239,68,68,0.15) !important;
+    color: #fc8181 !important;
+}
+
+/* Alert error */
+body[data-theme="dark"] .alert-error {
+    background: rgba(239,68,68,0.12) !important;
+    color: #fc8181 !important;
+    border-color: rgba(239,68,68,0.3) !important;
+}
+
+/* dbeafe / 1e40af — синий бейдж 2FA */
+body[data-theme="dark"] [style*="background:#dbeafe"] {
+    background: rgba(59,130,246,0.2) !important;
+    color: #93c5fd !important;
+}
+
+/* fee2e2 / 991b1b — красный бейдж */
+body[data-theme="dark"] [style*="background:#fee2e2"] {
+    background: rgba(239,68,68,0.15) !important;
+    color: #fc8181 !important;
+}
+
+/* Светлые фоны в public_profile */
+body[data-theme="dark"] .pub-card {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+body[data-theme="dark"] .pub-owner-note {
+    background: rgba(102,126,234,0.12) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* NFT атрибуты */
+body[data-theme="dark"] .nft-attr-rarity {
+    background: rgba(66,153,225,0.2) !important;
+    color: #90cdf4 !important;
+}
+
+/* Кнопка "Отключить" расписание и прочие серые кнопки */
+body[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger):not(.btn-secondary):not(.tab-btn):not(.theme-btn):not(.send-btn):not(.media-btn):not(.icon-btn) {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+/* Spark history / gift modal внутренности */
+body[data-theme="dark"] .profile-modal > div {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}

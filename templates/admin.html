@@ -153,8 +153,8 @@
 
 <!-- Модалка редактирования профиля пользователя -->
 <div id="edit-profile-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-    <div style="background:white;border-radius:16px;padding:28px;width:90%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <h3 style="margin-bottom:20px;color:#2d3748;"><i class="fas fa-user-edit" style="color:#667eea;"></i> Редактировать профиль</h3>
+    <div style="background:var(--bg-secondary);border-radius:16px;padding:28px;width:90%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.3);border:1px solid var(--border-color);">
+        <h3 style="margin-bottom:20px;color:var(--text-primary);"><i class="fas fa-user-edit" style="color:#667eea;"></i> Редактировать профиль</h3>
         <input type="hidden" id="edit-user-id">
         <div style="margin-bottom:14px;">
             <label style="font-size:13px;color:#718096;font-weight:500;">Отображаемое имя</label>
@@ -822,9 +822,9 @@ function showBanModal(userId) {
     modal.id = 'ban-modal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
-        <div style="background:#fff;border-radius:14px;padding:28px 24px;min-width:280px;max-width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
-            <h3 style="margin:0 0 8px;font-size:18px;color:#1a202c;">Дать наказание</h3>
-            <p style="margin:0 0 20px;color:#718096;font-size:14px;">Выберите тип наказания для пользователя</p>
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:28px 24px;min-width:280px;max-width:340px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18);border:1px solid var(--border-color);">
+            <h3 style="margin:0 0 8px;font-size:18px;color:var(--text-primary);">Дать наказание</h3>
+            <p style="margin:0 0 20px;color:var(--text-secondary);font-size:14px;">Выберите тип наказания для пользователя</p>
             <div style="display:flex;gap:10px;justify-content:center;">
                 <button onclick="doBanUser(${userId})" style="background:#e53e3e;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:15px;font-weight:600;cursor:pointer;">Бан</button>
                 <button onclick="doSpamBlock(${userId})" style="background:#ed8936;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:15px;font-weight:600;cursor:pointer;">Спам-блок</button>

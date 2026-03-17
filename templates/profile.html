@@ -688,8 +688,8 @@ function linkTelegram() {
         if (data.code) {
             const botUrl = data.bot_username ? `https://t.me/${data.bot_username}?start=${data.code}` : '';
             statusEl.innerHTML = `
-                <p style="color:#2d3748;margin:8px 0 4px;">Твой код привязки: <b style="font-size:18px;letter-spacing:2px;">${data.code}</b></p>
-                <p style="color:#718096;font-size:12px;margin-bottom:8px;">Код действителен 10 минут</p>
+                <p style="color:var(--text-primary);margin:8px 0 4px;">Твой код привязки: <b style="font-size:18px;letter-spacing:2px;">${data.code}</b></p>
+                <p style="color:var(--text-secondary);font-size:12px;margin-bottom:8px;">Код действителен 10 минут</p>
                 ${botUrl ? `<a href="${botUrl}" target="_blank" class="btn btn-primary" style="font-size:13px;padding:8px 16px;display:inline-block;text-decoration:none;">
                     <i class="fab fa-telegram"></i> Открыть бота и привязать
                 </a>` : `<p style="color:#718096;font-size:12px;">Напиши боту: <b>/start ${data.code}</b></p>`}
