@@ -26,12 +26,11 @@ elif _db_url.startswith('postgresql://'):
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# NullPool — без пула соединений, каждый запрос открывает/закрывает соединение.
+# Это необходимо для eventlet+PostgreSQL на Render (ограничение 5 соединений).
+from sqlalchemy.pool import NullPool
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 3,          # макс активных соединений
-    'max_overflow': 2,       # доп. соединений сверх pool_size
-    'pool_timeout': 20,      # сек ожидания свободного соединения
-    'pool_recycle': 300,     # переиспользовать соединение каждые 5 мин
-    'pool_pre_ping': True,   # проверять соединение перед использованием
+    'poolclass': NullPool,
 }
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
