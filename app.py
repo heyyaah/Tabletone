@@ -9761,15 +9761,26 @@ with app.app_context():
         from sqlalchemy import text, inspect as sa_inspect
         _insp = sa_inspect(db.engine)
         _auto_migrations = [
-            ('group_message', 'is_deleted',   'BOOLEAN DEFAULT FALSE'),
-            ('group_message', 'is_paid',       'BOOLEAN DEFAULT FALSE'),
-            ('group_message', 'paid_price',    'INTEGER DEFAULT 0'),
-            ('group_message', 'message_type',  "VARCHAR(50) DEFAULT 'text'"),
-            ('group_message', 'reply_to_id',   'INTEGER'),
-            ('message',       'is_deleted',    'BOOLEAN DEFAULT FALSE'),
-            ('message',       'is_edited',     'BOOLEAN DEFAULT FALSE'),
-            ('sticker',        'is_animated',   'BOOLEAN DEFAULT FALSE'),
-            ('sticker',        'is_animated',   'BOOLEAN DEFAULT FALSE'),
+            ('group_message', 'is_deleted',    'BOOLEAN DEFAULT FALSE'),
+            ('group_message', 'is_paid',        'BOOLEAN DEFAULT FALSE'),
+            ('group_message', 'paid_price',     'INTEGER DEFAULT 0'),
+            ('group_message', 'message_type',   "VARCHAR(50) DEFAULT 'text'"),
+            ('group_message', 'reply_to_id',    'INTEGER'),
+            ('message',       'is_deleted',     'BOOLEAN DEFAULT FALSE'),
+            ('message',       'is_edited',      'BOOLEAN DEFAULT FALSE'),
+            ('sticker',       'is_animated',    'BOOLEAN DEFAULT FALSE'),
+            # user table
+            ('user', 'auto_reply_text',         'VARCHAR(500)'),
+            ('user', 'status_text',             'VARCHAR(200)'),
+            ('user', 'theme_schedule',          'VARCHAR(200)'),
+            ('user', 'hidden_chat_pin',         'VARCHAR(10)'),
+            ('user', 'chat_folders',            'TEXT'),
+            ('user', 'admin_apply_blocked_until', 'TIMESTAMP'),
+            ('user', 'reputation',              'INTEGER DEFAULT 50'),
+            ('user', 'premium_emoji',           'VARCHAR(10)'),
+            ('user', 'timezone',                "VARCHAR(100) DEFAULT 'Europe/Moscow'"),
+            ('user', 'telegram_chat_id',        'BIGINT'),
+            ('user', 'telegram_link_code',      'VARCHAR(32)'),
         ]
         for _tbl, _col, _def in _auto_migrations:
             try:
