@@ -26,9 +26,9 @@ elif _db_url.startswith('postgresql://') and 'pg8000' not in _db_url and 'psycop
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 1,
-    'max_overflow': 4,
-    'pool_timeout': 30,
+    'pool_size': 3,
+    'max_overflow': 7,
+    'pool_timeout': 10,
     'pool_recycle': 1800,
     'pool_pre_ping': True,
 }
@@ -6807,29 +6807,30 @@ def _notify_new_login(user_id, device_name, ip_address):
 
 def _notify_admin_support(admin_user_id):
     """Отправляет администратору уведомление об открытых обращениях при логине."""
-    open_count = SupportTicket.query.filter_by(status='open').count()
-    if open_count == 0:
-        return
-    bot_user = User.query.filter_by(username='tabletone_supportbot').first()
-    if not bot_user:
-        return
-    buttons = json.dumps([
-        {"label": "📋 Просмотреть сообщения", "reply": "/view_support"}
-    ])
-    n = open_count
-    if 11 <= n % 100 <= 19:
-        word = 'сообщений'
-    elif n % 10 == 1:
-        word = 'сообщение'
-    elif 2 <= n % 10 <= 4:
-        word = 'сообщения'
-    else:
-        word = 'сообщений'
-    text = (
-        f"👋 Приветствую!\n\n"
-        f"У вас {open_count} {word} в поддержке."
-    )
-    _bot_send_message(bot_user.id, admin_user_id, text, buttons=json.loads(buttons))
+    with app.app_context():
+        open_count = SupportTicket.query.filter_by(status='open').count()
+        if open_count == 0:
+            return
+        bot_user = User.query.filter_by(username='tabletone_supportbot').first()
+        if not bot_user:
+            return
+        buttons = json.dumps([
+            {"label": "📋 Просмотреть сообщения", "reply": "/view_support"}
+        ])
+        n = open_count
+        if 11 <= n % 100 <= 19:
+            word = 'сообщений'
+        elif n % 10 == 1:
+            word = 'сообщение'
+        elif 2 <= n % 10 <= 4:
+            word = 'сообщения'
+        else:
+            word = 'сообщений'
+        text = (
+            f"👋 Приветствую!\n\n"
+            f"У вас {open_count} {word} в поддержке."
+        )
+        _bot_send_message(bot_user.id, admin_user_id, text, buttons=json.loads(buttons))
 
 
 def _handle_support_message(bot, sender_id, text):
