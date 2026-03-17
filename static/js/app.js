@@ -1580,10 +1580,10 @@ function createMessageHTML(msg) {
         const s = String(dur % 60).padStart(2, '0');
         const uid = 'voice_' + msg.id;
         content = `<div class="voice-message">
-            <button class="voice-play-btn" onclick="playVoiceMsg('${msg.media_url}','${uid}',this)"><i class="fas fa-play"></i></button>
+            <button class="voice-play-btn" onclick="playVoiceMsg(null,'${uid}',this)"><i class="fas fa-play"></i></button>
             <div class="voice-waveform" id="${uid}_bar"></div>
             <span class="voice-duration" id="${uid}_dur">${m}:${s}</span>
-            <audio id="${uid}" src="${msg.media_url}" onended="resetVoiceBtn('${uid}')"></audio>
+            <audio id="${uid}" data-src="${encodeURIComponent(msg.media_url)}" onended="resetVoiceBtn('${uid}')"></audio>
         </div>`;
     }
     // Стикер
@@ -6249,6 +6249,11 @@ function _fixStickerImages(container) {
     container.querySelectorAll('img[data-src]').forEach(img => {
         img.src = decodeURIComponent(img.getAttribute('data-src'));
         img.removeAttribute('data-src');
+    });
+    // Fix voice audio src (data URLs break when placed in HTML attributes)
+    container.querySelectorAll('audio[data-src]').forEach(audio => {
+        audio.src = decodeURIComponent(audio.getAttribute('data-src'));
+        audio.removeAttribute('data-src');
     });
 }
 window._fixStickerImages = _fixStickerImages;

@@ -2758,19 +2758,19 @@ def send_voice_message():
     if receiver.is_banned:
         return jsonify({'error': 'Получатель заблокирован'}), 404
     
-    # Сохраняем файл
-    filename = secure_filename(f"voice_{session['user_id']}_{int(time.time())}.webm")
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'voice', filename)
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    audio_file.save(filepath)
-    
+    # Сохраняем как base64 data URL (Render ephemeral FS — файлы не переживают рестарт)
+    import base64 as _b64v
+    audio_bytes = audio_file.read()
+    audio_b64 = _b64v.b64encode(audio_bytes).decode('ascii')
+    media_url = f'data:audio/webm;base64,{audio_b64}'
+
     # Создаем сообщение
     message = Message(
         sender_id=session['user_id'],
         receiver_id=int(receiver_id),
         content='[Голосовое сообщение]',
         message_type='voice',
-        media_url=f'/static/media/voice/{filename}',
+        media_url=media_url,
         duration=int(duration)
     )
     
