@@ -1334,7 +1334,7 @@ async function openChat(userId, username) {
     const gcBtnHide = document.getElementById('group-call-btn');
     if (gcBtnHide) gcBtnHide.style.display = 'none';
     const streamBtnHide = document.getElementById('_stream-live-btn');
-    if (streamBtnHide) streamBtnHide.style.display = 'none';
+    if (streamBtnHide) { streamBtnHide.style.display = 'none'; streamBtnHide.style.setProperty('display', 'none', 'important'); }
 
     // Сразу показываем форму ввода (личный чат — не канал)
     updateMessageInputVisibility(false, true);
@@ -8475,6 +8475,16 @@ let _streamViewerPc = null;
 
 // ── Broadcaster ───────────────────────────────────────────────────────────────
 
+function _cancelStreamPreview(btn) {
+    if (_streamLocalStream) {
+        _streamLocalStream.getTracks().forEach(t => t.stop());
+        _streamLocalStream = null;
+    }
+    const modal = btn ? btn.closest('.modal') : document.querySelector('.modal.active');
+    if (modal) modal.remove();
+}
+window._cancelStreamPreview = _cancelStreamPreview;
+
 async function showStartStreamModal() {
     if (!currentGroupId || !_currentGroupData?.is_channel || !_currentGroupData?.is_admin) {
         showError('Трансляции доступны только администраторам каналов');
@@ -8493,7 +8503,7 @@ async function showStartStreamModal() {
         <div class="modal-content" style="max-width:400px;">
             <div class="modal-header">
                 <h3>🔴 Начать трансляцию</h3>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+                <button class="modal-close" onclick="_cancelStreamPreview(this)">✕</button>
             </div>
             <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
                 <input id="_stream-title" type="text" maxlength="100" placeholder="Название трансляции..."
@@ -8505,7 +8515,7 @@ async function showStartStreamModal() {
             </div>
         </div>`;
     document.body.appendChild(modal);
-    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    modal.addEventListener('click', e => { if (e.target === modal) { _cancelStreamPreview(); modal.remove(); } });
     // Предпросмотр камеры
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });

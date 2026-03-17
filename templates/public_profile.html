@@ -87,7 +87,7 @@
                 Первое сообщение стоит <strong>{{ user.msg_price }} ✨</strong>
             </div>
             {% endif %}
-            <a href="/" onclick="sessionStorage.setItem('openChatUserId','{{ user.id }}');sessionStorage.setItem('openChatUsername','{{ (user.display_name or user.username)|e }}');"
+            <a href="/" onclick="localStorage.setItem('open_chat_on_load', JSON.stringify({id: {{ user.id }}, name: '{{ (user.display_name or user.username)|e }}'}))"
                class="btn btn-primary pub-action-btn">
                 <i class="fas fa-comment"></i> Написать
             </a>
