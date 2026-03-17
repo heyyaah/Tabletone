@@ -34,26 +34,34 @@
                 </div>
             </div>
             <div class="header-actions">
-                <a href="/bots" class="icon-btn" title="Мои боты">
-                    <i class="fas fa-robot"></i>
-                </a>
-                <button class="icon-btn" onclick="showContactsModal()" title="Контакты">
-                    <i class="fas fa-address-book"></i>
-                </button>
-                <button class="icon-btn" onclick="showFoldersModal()" title="Папки чатов">
-                    <i class="fas fa-folder"></i>
-                </button>
-                <button class="icon-btn" onclick="showHiddenChatsModal()" title="Скрытые чаты">
-                    <i class="fas fa-eye-slash"></i>
-                </button>
-                {% if user.is_admin %}
-                <a href="/admin" class="icon-btn" title="Админ панель">
-                    <i class="fas fa-shield-alt"></i>
-                </a>
-                {% endif %}
-                <a href="/logout" class="icon-btn logout-btn" title="Выйти">
-                    <i class="fas fa-sign-out-alt"></i>
-                </a>
+                <!-- Меню боковой панели -->
+                <div style="position:relative;">
+                    <button class="icon-btn" id="sidebar-more-btn" onclick="toggleSidebarMenu()" title="Меню">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div id="sidebar-more-menu" style="display:none;position:absolute;right:0;top:38px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:1000;min-width:190px;overflow:hidden;">
+                        <a href="/bots" onclick="toggleSidebarMenu()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;color:var(--text-primary);font-size:14px;text-decoration:none;">
+                            <i class="fas fa-robot" style="width:16px;color:var(--text-secondary);"></i> Мои боты
+                        </a>
+                        <button onclick="showContactsModal();toggleSidebarMenu()" style="width:100%;padding:11px 16px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text-primary);font-size:14px;display:flex;align-items:center;gap:10px;">
+                            <i class="fas fa-address-book" style="width:16px;color:var(--text-secondary);"></i> Контакты
+                        </button>
+                        <button onclick="showFoldersModal();toggleSidebarMenu()" style="width:100%;padding:11px 16px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text-primary);font-size:14px;display:flex;align-items:center;gap:10px;">
+                            <i class="fas fa-folder" style="width:16px;color:var(--text-secondary);"></i> Папки чатов
+                        </button>
+                        <button onclick="showHiddenChatsModal();toggleSidebarMenu()" style="width:100%;padding:11px 16px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text-primary);font-size:14px;display:flex;align-items:center;gap:10px;">
+                            <i class="fas fa-eye-slash" style="width:16px;color:var(--text-secondary);"></i> Скрытые чаты
+                        </button>
+                        {% if user.is_admin %}
+                        <a href="/admin" onclick="toggleSidebarMenu()" style="display:flex;align-items:center;gap:10px;padding:11px 16px;color:var(--text-primary);font-size:14px;text-decoration:none;">
+                            <i class="fas fa-shield-alt" style="width:16px;color:var(--text-secondary);"></i> Админ панель
+                        </a>
+                        {% endif %}
+                        <a href="/logout" style="display:flex;align-items:center;gap:10px;padding:11px 16px;color:#e53e3e;font-size:14px;text-decoration:none;">
+                            <i class="fas fa-sign-out-alt" style="width:16px;"></i> Выйти
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -245,17 +253,9 @@
             <div class="message-input-container">
                 <form id="message-form">
                     <input type="file" id="image-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt" multiple style="display: none;" onchange="handleMultipleFilesSelect(event)">
-                    <!-- Файлы — всегда видны -->
-                    <button type="button" class="media-btn" id="image-btn" title="Отправить файлы" onclick="showAttachMenu()">
-                        <i class="fas fa-paperclip"></i>
-                    </button>
-                    <!-- Стикеры — всегда видны -->
-                    <button type="button" class="media-btn" id="sticker-btn" title="Стикеры" onclick="toggleStickerPanel()">
-                        <i class="fas fa-sticky-note"></i>
-                    </button>
-                    <!-- Подарки — всегда видны -->
-                    <button type="button" class="media-btn" id="gift-btn" title="Подарок" onclick="showGiftShop()">
-                        <i class="fas fa-gift"></i>
+                    <!-- Кнопка + открывает меню вложений -->
+                    <button type="button" class="media-btn" id="image-btn" title="Прикрепить" onclick="showAttachMenu()">
+                        <i class="fas fa-plus"></i>
                     </button>
                     <textarea id="message-input" rows="1"
                            placeholder="Введите сообщение..." autocomplete="off" style="resize:none;overflow:hidden;"></textarea>

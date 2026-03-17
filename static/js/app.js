@@ -3882,6 +3882,26 @@ window.openGroup = openGroup;
 window.loadGroups = loadGroups;
 
 
+// Меню боковой панели
+function toggleSidebarMenu() {
+    const menu = document.getElementById('sidebar-more-menu');
+    if (!menu) return;
+    const isOpen = menu.style.display !== 'none';
+    menu.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        setTimeout(() => {
+            const close = (e) => {
+                if (!menu.contains(e.target) && e.target.id !== 'sidebar-more-btn') {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', close);
+                }
+            };
+            document.addEventListener('click', close);
+        }, 0);
+    }
+}
+window.toggleSidebarMenu = toggleSidebarMenu;
+
 // Меню "ещё" в шапке чата
 function toggleChatMoreMenu() {
     const menu = document.getElementById('chat-more-menu');
@@ -5511,6 +5531,16 @@ function showAttachMenu() {
             style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
             onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
             <i class="fas fa-image" style="color:#667eea;width:18px;"></i> Фото / Видео / Файл
+        </button>
+        <button onclick="toggleStickerPanel();document.getElementById('attach-menu-popup')?.remove();"
+            style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
+            onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
+            <i class="fas fa-sticky-note" style="color:#ed8936;width:18px;"></i> Стикеры
+        </button>
+        <button onclick="showGiftShop();document.getElementById('attach-menu-popup')?.remove();"
+            style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
+            onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
+            <i class="fas fa-gift" style="color:#e53e3e;width:18px;"></i> Подарок
         </button>
         <button onclick="showPollModal();document.getElementById('attach-menu-popup')?.remove();"
             style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
