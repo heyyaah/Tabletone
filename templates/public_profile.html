@@ -51,6 +51,13 @@
         <div class="pub-status">💬 {{ user.status_text }}</div>
         {% endif %}
 
+        {% if user.username == 'romancev228' %}
+        <div class="pub-owner-note">
+            <i class="fas fa-code" style="color:#667eea;margin-right:6px;"></i>
+            Разработчик и по совместительству владелец данного проекта. Для связи необходимо 15000 искр, ну или <a href="/" onclick="sessionStorage.setItem('openChatUserId','tabletone_support');return true;" style="color:#667eea;">@tabletone_support</a>
+        </div>
+        {% endif %}
+
         {% if user.bio %}
         <p class="pub-bio">{{ user.bio }}</p>
         {% endif %}
@@ -74,6 +81,12 @@
         <!-- Кнопки -->
         {% if viewer and viewer.id != user.id %}
         <div class="pub-actions">
+            {% if user.msg_price and user.msg_price > 0 and not viewer.is_admin %}
+            <div class="pub-msg-price">
+                <i class="fas fa-bolt" style="color:#d69e2e;"></i>
+                Первое сообщение стоит <strong>{{ user.msg_price }} ✨</strong>
+            </div>
+            {% endif %}
             <a href="/" onclick="sessionStorage.setItem('openChatUserId','{{ user.id }}');sessionStorage.setItem('openChatUsername','{{ (user.display_name or user.username)|e }}');"
                class="btn btn-primary pub-action-btn">
                 <i class="fas fa-comment"></i> Написать
@@ -306,6 +319,29 @@
     .pub-card { margin: 10px 8px 0; padding: 16px 12px; }
     .pub-name { font-size: 18px; }
     .pub-avatar { width: 76px; height: 76px; font-size: 30px; }
+}
+.pub-owner-note {
+    background: linear-gradient(135deg, #667eea18, #764ba218);
+    border: 1px solid #667eea44;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.5;
+    text-align: left;
+}
+.pub-msg-price {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    width: 100%;
+    max-width: 280px;
+    text-align: center;
 }
 </style>
 {% endblock %}

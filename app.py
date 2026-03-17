@@ -209,6 +209,7 @@ class User(db.Model):
     admin_apply_blocked_until = db.Column(db.DateTime, nullable=True)  # Блок подачи заявки в адм.
     reputation = db.Column(db.Integer, default=100)  # Репутация 0-100
     auto_reply_text = db.Column(db.String(200), nullable=True)  # Автоответ
+    msg_price = db.Column(db.Integer, nullable=True, default=None)  # Цена сообщения в искрах (None = бесплатно)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -851,6 +852,7 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS premium_until TIMESTAMP",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS auto_reply_text VARCHAR(500)",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS premium_emoji VARCHAR(10)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS msg_price INTEGER",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
@@ -900,6 +902,7 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN chat_folders TEXT DEFAULT '[]'",
                 f"ALTER TABLE {user_table} ADD COLUMN auto_reply_text VARCHAR(500)",
                 f"ALTER TABLE {user_table} ADD COLUMN premium_emoji VARCHAR(10)",
+                f"ALTER TABLE {user_table} ADD COLUMN msg_price INTEGER",
                 f"ALTER TABLE {user_table} ADD COLUMN premium_until DATETIME",
                 "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
@@ -2778,6 +2781,23 @@ def send_message():
     # Обычная поддержка недоступна для Premium пользователей (кроме стаффа)
     if receiver.username == 'tabletone_supportbot' and sender.is_premium and not _sender_is_staff:
         return jsonify({'error': 'premium_required', 'message': 'У вас Premium — используйте Premium Support (@premium_support)'}), 403
+
+    # Платные сообщения: если у получателя установлена цена — списываем искры
+    _msg_price = getattr(receiver, 'msg_price', None)
+    if _msg_price and _msg_price > 0 and not _sender_is_staff and sender.id != receiver.id:
+        # Первое сообщение в диалоге — проверяем, было ли уже общение
+        _already_talked = Message.query.filter(
+            ((Message.sender_id == sender.id) & (Message.receiver_id == receiver.id)) |
+            ((Message.sender_id == receiver.id) & (Message.receiver_id == sender.id))
+        ).first()
+        if not _already_talked:
+            if not _spend_sparks(sender.id, _msg_price, 'msg_price', receiver.id):
+                return jsonify({
+                    'error': 'not_enough_sparks',
+                    'message': f'Для первого сообщения этому пользователю нужно {_msg_price} ✨ искр',
+                    'required': _msg_price
+                }), 402
+
     message = Message(
         sender_id=session['user_id'],
         receiver_id=receiver_id,
@@ -9758,6 +9778,81 @@ def test_cf_image():
         return jsonify({'status': 'error', 'msg': str(e)})
 
 
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAYMENT BOT API
+# ═══════════════════════════════════════════════════════════════════════════════
+_PAYMENT_SECRET = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
+
+def _check_payment_secret():
+    data = request.get_json() or {}
+    return data.get('secret') == _PAYMENT_SECRET, data
+
+@app.route('/api/payment/activate-premium', methods=['POST'])
+def api_activate_premium():
+    ok, data = _check_payment_secret()
+    if not ok:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').lstrip('@')
+    days = int(data.get('days', 0))
+    if not username or days <= 0:
+        return jsonify({'error': 'Bad params'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    now = datetime.utcnow()
+    base = user.premium_until if user.premium_until and user.premium_until > now else now
+    user.is_premium = True
+    user.premium_until = base + timedelta(days=days)
+    db.session.commit()
+    return jsonify({'success': True, 'premium_until': user.premium_until.isoformat()})
+
+@app.route('/api/payment/add-sparks', methods=['POST'])
+def api_add_sparks():
+    ok, data = _check_payment_secret()
+    if not ok:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').lstrip('@')
+    sparks = int(data.get('sparks', 0))
+    if not username or sparks == 0:
+        return jsonify({'error': 'Bad params'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    _add_sparks(user.id, sparks, 'payment_bot')
+    sb = _get_spark_balance(user.id)
+    return jsonify({'success': True, 'balance': sb.balance})
+
+@app.route('/api/payment/give-gift', methods=['POST'])
+def api_give_gift():
+    ok, data = _check_payment_secret()
+    if not ok:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').lstrip('@')
+    gift_type_id = data.get('gift_type_id')
+    if not username or not gift_type_id:
+        return jsonify({'error': 'Bad params'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    gift_type = GiftType.query.get(gift_type_id)
+    if not gift_type:
+        return jsonify({'error': 'Gift type not found'}), 404
+    gift = UserGift(owner_id=user.id, gift_type_id=gift_type.id, sender_id=None, is_displayed=True)
+    db.session.add(gift)
+    db.session.commit()
+    return jsonify({'success': True, 'gift': gift_type.name, 'emoji': gift_type.emoji})
+
+@app.route('/api/payment/gift-types', methods=['GET'])
+def api_gift_types():
+    """Список доступных типов подарков (для бота)."""
+    secret = request.args.get('secret', '')
+    if secret != _PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    gifts = GiftType.query.filter_by(is_active=True).all()
+    return jsonify({'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'rarity': g.rarity} for g in gifts]})
 
 # Автозапуск миграций при старте
 with app.app_context():
