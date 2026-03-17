@@ -357,6 +357,7 @@ class GroupMessage(db.Model):
     is_paid = db.Column(db.Boolean, default=False)    # Платный пост
     paid_price = db.Column(db.Integer, default=0)     # Цена в искрах
     message_type = db.Column(db.String(50), default='text')  # text, sticker, poll, etc.
+    topic_id = db.Column(db.Integer, db.ForeignKey('group_topic.id'), nullable=True)
     
     group = db.relationship('Group', foreign_keys=[group_id])
     sender = db.relationship('User', foreign_keys=[sender_id])
@@ -851,6 +852,20 @@ class GroupMemberRole(db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('group_role.id'), nullable=False)
     __table_args__ = (db.UniqueConstraint('group_id', 'user_id', name='_gmember_role_uc'),)
 
+# ── Темы (Topics) в группах ──────────────────────────────────────────────────
+class GroupTopic(db.Model):
+    """Тема (раздел) внутри группы."""
+    __tablename__ = 'group_topic'
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    icon = db.Column(db.String(10), default='💬')
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_closed = db.Column(db.Boolean, default=False)
+    group = db.relationship('Group', foreign_keys=[group_id])
+    creator = db.relationship('User', foreign_keys=[created_by])
+
 # ── Секретные чаты ────────────────────────────────────────────────────────────
 class SecretChat(db.Model):
     """Секретный чат между двумя пользователями."""
@@ -952,6 +967,7 @@ def _init_db():
                 'ALTER TABLE message ADD COLUMN IF NOT EXISTS secret_chat_id INTEGER',
                 'ALTER TABLE message ALTER COLUMN media_url TYPE TEXT',
                 'ALTER TABLE message_media ALTER COLUMN media_url TYPE TEXT',
+                'ALTER TABLE group_message ADD COLUMN IF NOT EXISTS topic_id INTEGER REFERENCES group_topic(id)',
             ]
         else:
             migrations = [
@@ -1006,6 +1022,7 @@ def _init_db():
                 "ALTER TABLE group_member ADD COLUMN slow_mode_until DATETIME",
                 "ALTER TABLE message ADD COLUMN is_secret BOOLEAN DEFAULT 0",
                 "ALTER TABLE message ADD COLUMN secret_chat_id INTEGER",
+                "ALTER TABLE group_message ADD COLUMN topic_id INTEGER REFERENCES group_topic(id)",
             ]
 
         with db.engine.connect() as conn:
@@ -3279,6 +3296,183 @@ def send_message():
         'timestamp': message.timestamp.strftime('%H:%M %d.%m')
     })
 
+# ── Пересылка сообщений ───────────────────────────────────────────────────────
+@app.route('/message/forward', methods=['POST'])
+def forward_message():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    sender = User.query.get(session['user_id'])
+    data = request.get_json() or {}
+    msg_id = data.get('message_id')
+    group_msg_id = data.get('group_message_id')
+    to_user_id = data.get('to_user_id')
+    to_group_id = data.get('to_group_id')
+
+    # Получаем оригинальный контент
+    if msg_id:
+        orig = Message.query.get(msg_id)
+        if not orig or orig.is_deleted:
+            return jsonify({'error': 'Сообщение не найдено'}), 404
+        content = orig.decrypted_content
+        msg_type = orig.message_type or 'text'
+        media_url = orig.media_url
+        orig_sender = orig.sender.display_name or orig.sender.username
+    elif group_msg_id:
+        orig = GroupMessage.query.get(group_msg_id)
+        if not orig or orig.is_deleted:
+            return jsonify({'error': 'Сообщение не найдено'}), 404
+        content = orig.decrypted_content
+        msg_type = orig.message_type or 'text'
+        media_url = None
+        orig_sender = orig.sender.display_name or orig.sender.username
+    else:
+        return jsonify({'error': 'Не указано сообщение'}), 400
+
+    fwd_prefix = f'[fwd:{orig_sender}] '
+    fwd_content = encrypt_msg(fwd_prefix + content)
+
+    if to_user_id:
+        new_msg = Message(
+            sender_id=sender.id,
+            receiver_id=to_user_id,
+            content=fwd_content,
+            message_type=msg_type,
+            media_url=media_url
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+        socketio.emit('new_message', {
+            'message': {
+                'id': new_msg.id,
+                'sender_id': sender.id,
+                'content': new_msg.decrypted_content,
+                'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'),
+                'timestamp_iso': new_msg.timestamp.isoformat() + 'Z',
+                'is_mine': False,
+                'message_type': msg_type,
+                'media_url': media_url
+            },
+            'other_user_id': sender.id,
+            'sender_info': {'id': sender.id, 'username': sender.username,
+                            'display_name': sender.display_name or sender.username,
+                            'avatar_color': sender.avatar_color,
+                            'avatar_letter': sender.get_avatar_letter()}
+        }, room=f'user_{to_user_id}', namespace='/')
+    elif to_group_id:
+        membership = GroupMember.query.filter_by(group_id=to_group_id, user_id=sender.id).first()
+        if not membership:
+            return jsonify({'error': 'Вы не состоите в этой группе'}), 403
+        new_msg = GroupMessage(
+            group_id=to_group_id,
+            sender_id=sender.id,
+            content=fwd_content,
+            message_type=msg_type
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+        socketio.emit('new_group_message', {
+            'group_id': to_group_id,
+            'message': {
+                'id': new_msg.id,
+                'sender_id': sender.id,
+                'sender_name': sender.display_name or sender.username,
+                'sender_avatar_color': sender.avatar_color,
+                'sender_avatar_letter': sender.get_avatar_letter(),
+                'content': new_msg.decrypted_content,
+                'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'),
+                'timestamp_iso': new_msg.timestamp.isoformat() + 'Z',
+                'message_type': msg_type
+            }
+        }, room=f'group_{to_group_id}', include_self=True)
+    else:
+        return jsonify({'error': 'Не указан получатель'}), 400
+
+    return jsonify({'success': True})
+
+# ── Ссылка на сообщение ───────────────────────────────────────────────────────
+@app.route('/api/message-link/<string:msg_type>/<int:msg_id>')
+def get_message_link(msg_type, msg_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    base = request.host_url.rstrip('/')
+    if msg_type == 'group':
+        msg = GroupMessage.query.get(msg_id)
+        if not msg:
+            return jsonify({'error': 'Не найдено'}), 404
+        link = f'{base}/?open_group={msg.group_id}&msg={msg_id}'
+    else:
+        link = f'{base}/?msg={msg_id}'
+    return jsonify({'link': link})
+
+# ── Поиск по хэштегам в канале ────────────────────────────────────────────────
+@app.route('/api/groups/<int:group_id>/hashtag-search')
+def hashtag_search(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership:
+        return jsonify({'error': 'Нет доступа'}), 403
+    tag = request.args.get('tag', '').strip().lstrip('#')
+    if not tag:
+        return jsonify({'messages': []})
+    import re as _re
+    msgs = GroupMessage.query.filter(
+        GroupMessage.group_id == group_id,
+        GroupMessage.is_deleted == False
+    ).order_by(GroupMessage.timestamp.desc()).limit(500).all()
+    results = []
+    pattern = _re.compile(r'#' + _re.escape(tag), _re.IGNORECASE)
+    for m in msgs:
+        text = m.decrypted_content or ''
+        if pattern.search(text):
+            results.append({
+                'id': m.id,
+                'content': text[:200],
+                'timestamp': m.timestamp.strftime('%d.%m.%Y %H:%M'),
+                'sender_name': m.sender.display_name or m.sender.username
+            })
+    return jsonify({'messages': results[:50]})
+
+# ── Темы (Topics) в группах ───────────────────────────────────────────────────
+@app.route('/api/groups/<int:group_id>/topics', methods=['GET'])
+def get_group_topics(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership:
+        return jsonify({'error': 'Нет доступа'}), 403
+    topics = GroupTopic.query.filter_by(group_id=group_id, is_closed=False).order_by(GroupTopic.created_at).all()
+    return jsonify({'topics': [{'id': t.id, 'name': t.name, 'icon': t.icon, 'created_at': t.created_at.isoformat()} for t in topics]})
+
+@app.route('/api/groups/<int:group_id>/topics', methods=['POST'])
+def create_group_topic(group_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership or not membership.is_admin:
+        return jsonify({'error': 'Только админы могут создавать темы'}), 403
+    data = request.get_json() or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Укажите название темы'}), 400
+    topic = GroupTopic(group_id=group_id, name=name, icon=data.get('icon', '💬'), created_by=session['user_id'])
+    db.session.add(topic)
+    db.session.commit()
+    return jsonify({'success': True, 'topic': {'id': topic.id, 'name': topic.name, 'icon': topic.icon}})
+
+@app.route('/api/groups/<int:group_id>/topics/<int:topic_id>', methods=['DELETE'])
+def delete_group_topic(group_id, topic_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership or not membership.is_admin:
+        return jsonify({'error': 'Только админы'}), 403
+    topic = GroupTopic.query.filter_by(id=topic_id, group_id=group_id).first()
+    if topic:
+        topic.is_closed = True
+        db.session.commit()
+    return jsonify({'success': True})
+
 # Отправка голосового сообщения
 @app.route('/send/voice', methods=['POST'])
 def send_voice_message():
@@ -3933,6 +4127,28 @@ def get_users():
     except Exception as e:
         print(f"Error in /users: {e}")
         return jsonify({'users': []})
+
+# Поиск пользователей группы для @упоминаний
+@app.route('/users/search_for_group')
+def search_users_for_group():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    q = request.args.get('q', '').strip().lower()
+    group_id = request.args.get('group_id', type=int)
+    if not group_id or not q:
+        return jsonify({'users': []})
+    membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
+    if not membership:
+        return jsonify({'error': 'Нет доступа'}), 403
+    members = GroupMember.query.filter_by(group_id=group_id).limit(200).all()
+    results = []
+    for m in members:
+        u = User.query.get(m.user_id)
+        if u and u.id != session['user_id']:
+            name = (u.display_name or u.username).lower()
+            if q in name or q in u.username.lower():
+                results.append({'id': u.id, 'username': u.username, 'display_name': u.display_name or u.username})
+    return jsonify({'users': results[:10]})
 
 # Регистрация FCM токена для push-уведомлений
 @app.route('/fcm/register', methods=['POST'])
@@ -5620,6 +5836,7 @@ def get_group(group_id):
             } if msg.reply_to_id and msg.reply_to else None,
             'sticker_pack_id': _get_sticker_pack_id(msg.content) if (msg.content and msg.content.startswith('[sticker]')) else None,
             'message_type': msg.message_type if msg.message_type else ('sticker' if (msg.content and msg.content.startswith('[sticker]')) else 'text'),
+            'topic_id': msg.topic_id,
         })
     
     # Получаем участников
@@ -6045,9 +6262,20 @@ def join_by_invite(token):
     existing = GroupMember.query.filter_by(group_id=group.id, user_id=session['user_id']).first()
     if request.method == 'POST':
         if not existing:
+            joiner = User.query.get(session['user_id'])
+            # Антиспам: аккаунт моложе 1 дня
+            account_age = (datetime.utcnow() - joiner.created_at).total_seconds() if joiner.created_at else 999999
             member = GroupMember(group_id=group.id, user_id=session['user_id'], is_admin=False)
             db.session.add(member)
             db.session.commit()
+            if account_age < 86400:
+                warn_msg = GroupMessage(
+                    group_id=group.id,
+                    sender_id=session['user_id'],
+                    content=f'⚠️ Антиспам: пользователь @{joiner.username} зарегистрирован менее 24 часов назад.'
+                )
+                db.session.add(warn_msg)
+                db.session.commit()
         return redirect(url_for('index') + '?open_group=' + str(group.id))
     return render_template('join.html', group=group, member_count=member_count, already_member=bool(existing))
 

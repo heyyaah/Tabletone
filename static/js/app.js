@@ -528,6 +528,14 @@ function _showCtxMenu(msgEl, x, y) {
         items.push({ icon: 'fa-share', label: 'Переслать', _fn: () => showForwardModal(msgId, isGroup), color: '' });
     }
     if (!isDeleted && !isFav) {
+        items.push({ icon: 'fa-link', label: 'Скопировать ссылку', _fn: () => {
+            const type = isGroup ? 'group' : 'private';
+            fetch(`/api/message-link/${type}/${msgId}`).then(r=>r.json()).then(d=>{
+                if (d.link) navigator.clipboard.writeText(d.link).then(()=>showError('Ссылка скопирована','success'));
+            });
+        }, color: '' });
+    }
+    if (!isDeleted && !isFav) {
         items.push({ icon: 'fa-thumbtack', label: 'Закрепить', _fn: () => pinCurrentMessage(msgId, isGroup), color: '' });
     }
     if (!isDeleted && !isFav && isMine) {
@@ -983,6 +991,7 @@ function displayAllChats(chats) {
                             ${escapeHtml(chat.name)}
                         </div>
                         <div class="chat-last-message" style="color: #a0aec0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(lastMessageText)}</div>
+                        ${chat.members_count ? `<div style="color:#a0aec0;font-size:11px;">${chat.members_count} участников</div>` : ''}
                     </div>
                     ${unreadBadge}
                     <div class="chat-time" style="color: #a0aec0; font-size: 12px; white-space: nowrap;">${timeText}</div>
@@ -1477,6 +1486,11 @@ async function openChat(userId, username) {
     if (groupSettingsBtn) groupSettingsBtn.style.display = 'none';
     const groupSearchBtn = document.getElementById('group-search-btn');
     if (groupSearchBtn) groupSearchBtn.style.display = 'none';
+    const hashtagBtnH = document.getElementById('hashtag-search-btn');
+    if (hashtagBtnH) hashtagBtnH.style.display = 'none';
+    const topicsBtnH = document.getElementById('topics-panel-btn');
+    if (topicsBtnH) topicsBtnH.style.display = 'none';
+    document.getElementById('topics-panel')?.remove();
     _currentGroupData = null;
     if (typeof updateAddToChatButton === 'function') {
         updateAddToChatButton();
@@ -1703,8 +1717,26 @@ function createMessageHTML(msg) {
         }
     }
 
+    // Пересланное сообщение
+    let fwdHeader = '';
+    if (msg.content && msg.content.startsWith('[fwd:')) {
+        const fwdMatch = msg.content.match(/^\[fwd:([^\]]+)\]/);
+        if (fwdMatch) {
+            fwdHeader = `<div class="fwd-header"><i class="fas fa-share" style="font-size:11px;margin-right:4px;"></i>Переслано от <b>${escapeHtml(fwdMatch[1])}</b></div>`;
+            // убираем префикс из контента
+            if (typeof content === 'string') content = content.replace(/^\[fwd:[^\]]+\]\s*/, '');
+            const msgContentEl = content.match ? content : '';
+            // перестраиваем content без префикса
+            const cleanText = msg.content.replace(/^\[fwd:[^\]]+\]\s*/, '');
+            if (content.includes('message-content')) {
+                content = content.replace(escapeHtml(msg.content), escapeHtml(cleanText));
+            }
+        }
+    }
+
     return `
         <div class="message ${messageClass}" data-message-id="${msg.id}" data-is-mine="${msg.is_mine ? '1' : '0'}" data-is-deleted="${msg.is_deleted ? '1' : '0'}">
+            ${fwdHeader}
             ${msg.reply_to ? `<div class="reply-preview" onclick="scrollToMsg(${msg.reply_to.id})"><span class="reply-sender">${escapeHtml(msg.reply_to.sender_name)}</span><span class="reply-text">${escapeHtml((msg.reply_to.content||'').slice(0,80))}</span></div>` : ''}
             ${content}
             ${renderBotButtons(msg.bot_buttons)}
@@ -3413,6 +3445,12 @@ async function openGroup(groupId, groupName) {
         const groupSearchBtn = document.getElementById('group-search-btn');
         if (groupSearchBtn) groupSearchBtn.style.display = 'flex';
 
+        // Показываем кнопки хэштег-поиска и тем для групп
+        const hashtagBtn = document.getElementById('hashtag-search-btn');
+        if (hashtagBtn) hashtagBtn.style.display = 'flex';
+        const topicsBtn = document.getElementById('topics-panel-btn');
+        if (topicsBtn) topicsBtn.style.display = 'flex';
+
         // Кнопка группового звонка — только для групп (не каналов) и только для админов
         let gcBtn = document.getElementById('group-call-btn');
         if (!gcBtn) {
@@ -3645,9 +3683,19 @@ function createGroupMessageHTML(msg) {
         }
     }
 
+    // Пересланное сообщение (группа)
+    let fwdHeaderG = '';
+    if (msg.content && msg.content.startsWith('[fwd:')) {
+        const fwdMatch = msg.content.match(/^\[fwd:([^\]]+)\]/);
+        if (fwdMatch) {
+            fwdHeaderG = `<div class="fwd-header"><i class="fas fa-share" style="font-size:11px;margin-right:4px;"></i>Переслано от <b>${escapeHtml(fwdMatch[1])}</b></div>`;
+        }
+    }
+
     return `
-        <div class="message ${messageClass}" data-message-id="${msg.id}" data-is-mine="${msg.is_mine ? '1' : '0'}" data-is-deleted="${msg.is_deleted ? '1' : '0'}" data-is-group="1">
+        <div class="message ${messageClass}" data-message-id="${msg.id}" data-is-mine="${msg.is_mine ? '1' : '0'}" data-is-deleted="${msg.is_deleted ? '1' : '0'}" data-is-group="1" data-topic-id="${msg.topic_id || ''}">
             ${senderInfo}
+            ${fwdHeaderG}
             ${msg.reply_to ? `<div class="reply-preview" onclick="scrollToMsg(${msg.reply_to.id})"><span class="reply-sender">${escapeHtml(msg.reply_to.sender_name)}</span><span class="reply-text">${escapeHtml((msg.reply_to.content||'').slice(0,80))}</span></div>` : ''}
             ${msg.is_paid && !msg.is_purchased ? `
                 <div class="paid-post-blur">
@@ -5634,6 +5682,202 @@ async function doForward(type, targetId, msgId, isGroup) {
 window.showForwardModal = showForwardModal;
 window.filterForwardList = filterForwardList;
 window.doForward = doForward;
+
+// ============================================
+// @MENTION AUTOCOMPLETE
+// ============================================
+(function() {
+    let _mentionDropdown = null;
+    let _mentionResults = [];
+    let _mentionQuery = '';
+
+    function _getMsgInput() {
+        return document.getElementById('group-message-input') || document.getElementById('message-input');
+    }
+
+    function _closeMentionDropdown() {
+        if (_mentionDropdown) { _mentionDropdown.remove(); _mentionDropdown = null; }
+    }
+
+    function _showMentionDropdown(users, input) {
+        _closeMentionDropdown();
+        if (!users.length) return;
+        _mentionDropdown = document.createElement('div');
+        _mentionDropdown.style.cssText = 'position:absolute;bottom:60px;left:0;right:0;background:var(--bg-secondary,#1a1a2e);border:1px solid #333;border-radius:10px;z-index:500;max-height:200px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
+        users.forEach(u => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:14px;';
+            item.innerHTML = `<div style="width:28px;height:28px;border-radius:50%;background:#667eea;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">${escapeHtml((u.display_name||u.username)[0].toUpperCase())}</div><div><div style="font-weight:600;">${escapeHtml(u.display_name||u.username)}</div><div style="color:#a0aec0;font-size:12px;">@${escapeHtml(u.username)}</div></div>`;
+            item.addEventListener('mouseenter', () => item.style.background = 'rgba(102,126,234,0.15)');
+            item.addEventListener('mouseleave', () => item.style.background = '');
+            item.addEventListener('mousedown', e => {
+                e.preventDefault();
+                const val = input.value;
+                const atIdx = val.lastIndexOf('@');
+                input.value = val.slice(0, atIdx) + '@' + u.username + ' ';
+                _closeMentionDropdown();
+                input.focus();
+            });
+            _mentionDropdown.appendChild(item);
+        });
+        const wrap = input.closest('.message-input-wrapper') || input.parentElement;
+        if (wrap) { wrap.style.position = 'relative'; wrap.appendChild(_mentionDropdown); }
+    }
+
+    async function _onMentionInput(e) {
+        const input = e.target;
+        const val = input.value;
+        const atIdx = val.lastIndexOf('@');
+        if (atIdx === -1) { _closeMentionDropdown(); return; }
+        const query = val.slice(atIdx + 1);
+        if (query.includes(' ') || query.length < 1) { _closeMentionDropdown(); return; }
+        if (!currentGroupId) { _closeMentionDropdown(); return; }
+        try {
+            const r = await fetch(`/users/search_for_group?q=${encodeURIComponent(query)}&group_id=${currentGroupId}`);
+            const d = await r.json();
+            _showMentionDropdown(d.users || [], input);
+        } catch(e) { _closeMentionDropdown(); }
+    }
+
+    document.addEventListener('input', e => {
+        if (e.target.id === 'group-message-input') _onMentionInput(e);
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') _closeMentionDropdown();
+    });
+})();
+
+// ============================================
+// HASHTAG SEARCH
+// ============================================
+function showHashtagSearch() {
+    if (!currentGroupId) return;
+    const modal = document.createElement('div');
+    modal.id = 'hashtag-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+        <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:420px;width:100%;max-height:75vh;display:flex;flex-direction:column;">
+            <h3 style="margin-bottom:14px;"><i class="fas fa-hashtag"></i> Поиск по хэштегу</h3>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <input id="hashtag-input" type="text" placeholder="#тег" style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;" />
+                <button onclick="_doHashtagSearch()" style="padding:10px 16px;background:#667eea;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Найти</button>
+            </div>
+            <div id="hashtag-results" style="flex:1;overflow-y:auto;"></div>
+            <button onclick="document.getElementById('hashtag-modal').remove()" style="margin-top:12px;width:100%;padding:10px;background:#e2e8f0;border:none;border-radius:8px;cursor:pointer;">Закрыть</button>
+        </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    document.getElementById('hashtag-input').addEventListener('keydown', e => { if (e.key === 'Enter') _doHashtagSearch(); });
+}
+
+async function _doHashtagSearch() {
+    const input = document.getElementById('hashtag-input');
+    const tag = (input?.value || '').trim().replace(/^#/, '');
+    if (!tag || !currentGroupId) return;
+    const resultsEl = document.getElementById('hashtag-results');
+    resultsEl.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i></div>';
+    try {
+        const r = await fetch(`/api/groups/${currentGroupId}/hashtag-search?tag=${encodeURIComponent(tag)}`);
+        const d = await r.json();
+        if (!d.messages || !d.messages.length) {
+            resultsEl.innerHTML = '<p style="text-align:center;color:#a0aec0;padding:20px;">Ничего не найдено</p>';
+            return;
+        }
+        resultsEl.innerHTML = d.messages.map(m => `
+            <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;" onclick="document.getElementById('hashtag-modal').remove();scrollToMsg(${m.id})">
+                <div style="font-size:12px;color:#a0aec0;margin-bottom:4px;">${escapeHtml(m.sender_name)} · ${m.timestamp}</div>
+                <div style="font-size:14px;">${escapeHtml(m.content)}</div>
+            </div>`).join('');
+    } catch(e) { resultsEl.innerHTML = '<p style="color:#e53e3e;padding:10px;">Ошибка поиска</p>'; }
+}
+
+window.showHashtagSearch = showHashtagSearch;
+window._doHashtagSearch = _doHashtagSearch;
+
+// ============================================
+// TOPICS (ТЕМЫ) ПАНЕЛЬ
+// ============================================
+let _activeTopicId = null;
+
+async function showTopicsPanel() {
+    if (!currentGroupId) return;
+    let panel = document.getElementById('topics-panel');
+    if (panel) { panel.remove(); _activeTopicId = null; return; }
+
+    panel = document.createElement('div');
+    panel.id = 'topics-panel';
+    panel.style.cssText = 'position:absolute;top:60px;right:0;width:240px;background:var(--bg-secondary,#1a1a2e);border-left:1px solid rgba(255,255,255,0.08);z-index:200;height:calc(100% - 60px);overflow-y:auto;display:flex;flex-direction:column;';
+    panel.innerHTML = `
+        <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:14px;">Темы</span>
+            <button onclick="showTopicsPanel()" style="background:none;border:none;color:#a0aec0;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+        <div id="topics-list" style="flex:1;overflow-y:auto;padding:8px;"></div>
+        <div style="padding:10px;border-top:1px solid rgba(255,255,255,0.08);" id="topics-admin-area"></div>`;
+
+    const chatArea = document.getElementById('chat-area') || document.querySelector('.chat-main');
+    if (chatArea) { chatArea.style.position = 'relative'; chatArea.appendChild(panel); }
+    else document.body.appendChild(panel);
+
+    await _loadTopicsList();
+}
+
+async function _loadTopicsList() {
+    const listEl = document.getElementById('topics-list');
+    const adminEl = document.getElementById('topics-admin-area');
+    if (!listEl) return;
+    try {
+        const r = await fetch(`/api/groups/${currentGroupId}/topics`);
+        const d = await r.json();
+        const topics = d.topics || [];
+
+        const allItem = `<div onclick="_filterByTopic(null)" style="padding:10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:14px;${!_activeTopicId ? 'background:rgba(102,126,234,0.2);' : ''}" onmouseover="this.style.background='rgba(102,126,234,0.1)'" onmouseout="this.style.background='${!_activeTopicId ? 'rgba(102,126,234,0.2)' : ''}'">
+            <span>💬</span><span>Все сообщения</span></div>`;
+
+        listEl.innerHTML = allItem + topics.map(t => `
+            <div onclick="_filterByTopic(${t.id})" style="padding:10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:14px;${_activeTopicId===t.id ? 'background:rgba(102,126,234,0.2);' : ''}" onmouseover="this.style.background='rgba(102,126,234,0.1)'" onmouseout="this.style.background='${_activeTopicId===t.id ? 'rgba(102,126,234,0.2)' : ''}'">
+                <span>${t.icon}</span><span>${escapeHtml(t.name)}</span>
+            </div>`).join('');
+
+        // Показываем форму создания темы для админов
+        if (_currentGroupData && _currentGroupData.is_admin && adminEl) {
+            adminEl.innerHTML = `
+                <input id="new-topic-name" type="text" placeholder="Новая тема..." style="width:100%;padding:8px;border:1px solid #333;border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:13px;box-sizing:border-box;margin-bottom:6px;">
+                <button onclick="_createTopic()" style="width:100%;padding:8px;background:#667eea;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">+ Создать тему</button>`;
+        }
+    } catch(e) { listEl.innerHTML = '<p style="color:#e53e3e;padding:10px;font-size:13px;">Ошибка загрузки</p>'; }
+}
+
+function _filterByTopic(topicId) {
+    _activeTopicId = topicId;
+    _loadTopicsList(); // обновляем выделение
+    // Фильтруем сообщения в контейнере
+    const container = document.getElementById('messages-container');
+    if (!container) return;
+    container.querySelectorAll('.message').forEach(el => {
+        if (!topicId) { el.style.display = ''; return; }
+        el.style.display = el.dataset.topicId == topicId ? '' : 'none';
+    });
+}
+
+async function _createTopic() {
+    const input = document.getElementById('new-topic-name');
+    const name = input?.value.trim();
+    if (!name || !currentGroupId) return;
+    try {
+        const r = await fetch(`/api/groups/${currentGroupId}/topics`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({name})
+        });
+        const d = await r.json();
+        if (d.success) { input.value = ''; _loadTopicsList(); showError('Тема создана', 'success'); }
+        else showError(d.error || 'Ошибка');
+    } catch(e) { showError('Ошибка создания темы'); }
+}
+
+window.showTopicsPanel = showTopicsPanel;
+window._filterByTopic = _filterByTopic;
+window._createTopic = _createTopic;
 
 // ============================================
 // ЗАКРЕПЛЁННЫЕ СООБЩЕНИЯ
