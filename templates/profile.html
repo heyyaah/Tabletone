@@ -382,7 +382,7 @@
                     Установите цену в искрах за первое сообщение от незнакомцев. Повторные сообщения бесплатны.
                 </p>
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                    <input type="number" id="msg-price-input" min="0" max="100000" placeholder="0 = бесплатно"
+                    <input type="number" id="msg-price-input" min="0" max="15000" placeholder="0 = бесплатно"
                         style="flex:1;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
                     <span style="color:#d69e2e;font-size:18px;">✨</span>
                 </div>
@@ -1015,6 +1015,11 @@ async function buyNFT(collectionId, btn) {
 async function saveMsgPrice() {
     const inp = document.getElementById('msg-price-input');
     const price = inp ? parseInt(inp.value) || 0 : 0;
+    if (price > 15000) {
+        alert('Максимальная цена — 15 000 ✨');
+        inp.value = 15000;
+        return;
+    }
     const r = await fetch('/user/msg-price', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
