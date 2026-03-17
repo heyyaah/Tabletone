@@ -4119,6 +4119,63 @@ def profile_privacy():
             setattr(user, field, data[field])
     db.session.commit()
     return jsonify({'success': True})
+
+@app.route('/profile/email', methods=['POST'])
+def profile_email_update():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    import random as _r
+    user = User.query.get(session['user_id'])
+    data = request.get_json() or {}
+    new_email = data.get('email', '').strip().lower()
+    if not new_email:
+        # Удаление email
+        user.email = None
+        user.email_verified = False
+        db.session.commit()
+        return jsonify({'success': True})
+    if '@' not in new_email or '.' not in new_email.split('@')[-1]:
+        return jsonify({'error': 'Некорректный email'}), 400
+    existing = User.query.filter_by(email=new_email).first()
+    if existing and existing.id != user.id:
+        return jsonify({'error': 'Этот email уже используется'}), 400
+    # Сохраняем новый email как неподтверждённый и отправляем код
+    code = str(_r.randint(100000, 999999))
+    user.email = new_email
+    user.email_verified = False
+    user.two_fa_code = code
+    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
+    db.session.commit()
+    session['email_verify_user_id'] = user.id
+    import threading
+    threading.Thread(target=_send_email_register_verify, args=(new_email, code, user.username), daemon=True).start()
+    return jsonify({'success': True, 'need_verify': True})
+
+@app.route('/profile/email/verify', methods=['POST'])
+def profile_email_verify():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    data = request.get_json() or {}
+    code = data.get('code', '').strip()
+    if (user.two_fa_code and user.two_fa_code == code and
+            user.two_fa_code_expires and user.two_fa_code_expires > datetime.utcnow()):
+        user.email_verified = True
+        user.two_fa_code = None
+        user.two_fa_code_expires = None
+        db.session.commit()
+        return jsonify({'success': True})
+    return jsonify({'error': 'Неверный или просроченный код'}), 400
+
+@app.route('/api/me/email-status')
+def api_me_email_status():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'Не найден'}), 404
+    return jsonify({'has_email': bool(user.email), 'email_verified': bool(user.email_verified)})
+
 @app.route('/profile/upload_avatar', methods=['POST'])
 def upload_avatar():
     if 'user_id' not in session:

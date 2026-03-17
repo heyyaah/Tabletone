@@ -342,6 +342,26 @@
                     {% endif %}
                 </div>
 
+                <!-- Email -->
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
+                    <strong>Email адрес</strong>
+                    <p style="color:#718096; font-size:13px; margin:6px 0 10px;">Используется для восстановления доступа и уведомлений.</p>
+                    {% if user.email %}
+                    <p style="color:#38a169; font-size:13px; margin-bottom:8px;">
+                        <i class="fas fa-check-circle"></i> {{ user.email }}
+                    </p>
+                    {% endif %}
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <input type="email" id="email-input" value="{{ user.email or '' }}"
+                               placeholder="your@email.com"
+                               style="flex:1; min-width:180px; padding:10px; border:2px solid #e2e8f0; border-radius:10px; font-size:14px;">
+                        <button type="button" class="btn btn-primary" onclick="saveEmail()" style="padding:10px 16px; font-size:13px; white-space:nowrap; flex-shrink:0;">
+                            <i class="fas fa-save"></i> Сохранить
+                        </button>
+                    </div>
+                    <div id="email-save-status" style="margin-top:6px; font-size:13px;"></div>
+                </div>
+
                 <!-- Привязка Telegram для 2FA -->
                 <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
                     <strong>Telegram для 2FA кодов</strong>
@@ -1198,6 +1218,66 @@ async function saveAutoReply() {
         showToast(text ? 'Автоответ сохранён' : 'Автоответ отключён');
     } else {
         alert(d.error || 'Ошибка');
+    }
+}
+
+async function saveEmail() {
+    const input = document.getElementById('email-input');
+    const status = document.getElementById('email-save-status');
+    const email = input.value.trim();
+    try {
+        const r = await fetch('/profile/email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const d = await r.json();
+        if (d.success && d.need_verify) {
+            status.innerHTML = `
+                <div style="margin-top:10px;">
+                    <p style="color:#667eea;font-size:13px;margin-bottom:8px;"><i class="fas fa-envelope"></i> Код отправлен на <strong>${email}</strong></p>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" id="email-code-input" placeholder="000000" maxlength="6"
+                               style="width:110px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;text-align:center;letter-spacing:4px;">
+                        <button type="button" class="btn btn-primary" onclick="verifyEmailCode()" style="padding:8px 14px;font-size:13px;">
+                            <i class="fas fa-check"></i> Подтвердить
+                        </button>
+                    </div>
+                    <div id="email-verify-status" style="margin-top:6px;font-size:13px;"></div>
+                </div>`;
+        } else if (d.success) {
+            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Email сохранён';
+            const banner = document.getElementById('email-warning-banner');
+            if (banner && email) banner.style.display = 'none';
+            setTimeout(() => { status.innerHTML = ''; }, 3000);
+        } else {
+            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
+        }
+    } catch(e) {
+        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
+    }
+}
+
+async function verifyEmailCode() {
+    const code = document.getElementById('email-code-input').value.trim();
+    const vstatus = document.getElementById('email-verify-status');
+    try {
+        const r = await fetch('/profile/email/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code })
+        });
+        const d = await r.json();
+        if (d.success) {
+            document.getElementById('email-save-status').innerHTML =
+                '<i class="fas fa-check-circle" style="color:#38a169;"></i> Email подтверждён';
+            const banner = document.getElementById('email-warning-banner');
+            if (banner) banner.style.display = 'none';
+        } else {
+            vstatus.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Неверный код'}</span>`;
+        }
+    } catch(e) {
+        vstatus.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
     }
 }
 
