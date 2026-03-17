@@ -26,10 +26,14 @@ elif _db_url.startswith('postgresql://'):
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# NullPool — без пула, каждый запрос открывает/закрывает соединение.
-# Необходимо для eventlet+PostgreSQL на Render (лимит 5 соединений).
-from sqlalchemy.pool import NullPool
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
+# Небольшой пул для Render (лимит 5 соединений на бесплатном плане)
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 3,
+    'max_overflow': 1,
+    'pool_timeout': 10,
+    'pool_recycle': 180,
+    'pool_pre_ping': True,
+}
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -132,6 +136,12 @@ def handle_exception(e):
         return '', 200
     # Для других ошибок возвращаем JSON
     return jsonify({'error': str(e)}), 500
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    if exception:
+        db.session.rollback()
+    db.session.remove()
 
 # Middleware для обновления last_seen при каждом запросе
 @app.before_request
