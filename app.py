@@ -57,6 +57,14 @@ limiter = Limiter(
 )
 
 
+def get_client_ip():
+    """Возвращает реальный IP клиента с учётом прокси/Heroku."""
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.remote_addr or '0.0.0.0'
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # AES-256-GCM MESSAGE ENCRYPTION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -197,6 +205,7 @@ class User(db.Model):
     two_fa_code = db.Column(db.String(8))           # Текущий код 2FA
     two_fa_code_expires = db.Column(db.DateTime)    # Срок действия кода
     email = db.Column(db.String(200), nullable=True)  # Email для 2FA
+    email_verified = db.Column(db.Boolean, default=False)  # Email подтверждён
     telegram_chat_id = db.Column(db.String(50), nullable=True)  # Telegram chat_id для 2FA
     telegram_link_code = db.Column(db.String(20), nullable=True)  # Код привязки Telegram
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -907,6 +916,7 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
@@ -963,6 +973,7 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN email_verified BOOLEAN DEFAULT 0",
                 "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN expires_at DATETIME",
@@ -2530,6 +2541,7 @@ def register():
         username = request.form['username'].strip().lower()
         password = request.form['password']
         display_name = request.form.get('display_name', '').strip()
+        email = request.form.get('email', '').strip().lower()
 
         # Проверка капчи
         captcha_answer = request.form.get('captcha_answer', '').strip()
@@ -2543,20 +2555,32 @@ def register():
 
         # Проверка на существование пользователя
         if len(username) < 4:
-            return render_template('register.html', error='Username должен содержать минимум 4 символа')
+            a, b = _random.randint(1, 9), _random.randint(1, 9)
+            session['captcha_answer'] = a + b
+            return render_template('register.html', error='Username должен содержать минимум 4 символа', captcha_q=f'{a} + {b}')
         if User.query.filter_by(username=username).first():
-            return render_template('register.html', error='Пользователь с таким именем уже существует')
-        
+            a, b = _random.randint(1, 9), _random.randint(1, 9)
+            session['captcha_answer'] = a + b
+            return render_template('register.html', error='Пользователь с таким именем уже существует', captcha_q=f'{a} + {b}')
+        if not email or '@' not in email or '.' not in email.split('@')[-1]:
+            a, b = _random.randint(1, 9), _random.randint(1, 9)
+            session['captcha_answer'] = a + b
+            return render_template('register.html', error='Введите корректный email адрес', captcha_q=f'{a} + {b}')
+        if User.query.filter_by(email=email).first():
+            a, b = _random.randint(1, 9), _random.randint(1, 9)
+            session['captcha_answer'] = a + b
+            return render_template('register.html', error='Этот email уже используется', captcha_q=f'{a} + {b}')
+
         # Генерация случайного цвета для аватара
-        import random
         colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0']
-        
+
         user = User(
             username=username,
             display_name=display_name or username,
-            avatar_color=random.choice(colors),
+            avatar_color=_random.choice(colors),
             timezone=request.form.get('timezone', 'Europe/Moscow'),
-            email=request.form.get('email', '').strip() or None
+            email=email,
+            email_verified=False
         )
         user.set_password(password)
         db.session.add(user)
@@ -2567,18 +2591,70 @@ def register():
             user.is_admin = True
             user.admin_role = 'owner'
             db.session.commit()
-        
-        session['user_id'] = user.id
 
-        # Приветственное сообщение от официального бота Tabletone
+        # Отправляем код подтверждения email
+        verify_code = str(_random.randint(100000, 999999))
+        user.two_fa_code = verify_code
+        user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
+        db.session.commit()
+
         import threading
-        threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
+        threading.Thread(target=_send_email_register_verify, args=(email, verify_code, username), daemon=True).start()
 
-        return redirect(url_for('index'))
-    
+        session['verify_email_user_id'] = user.id
+        return redirect(url_for('register_verify_email'))
+
     a, b = _random.randint(1, 9), _random.randint(1, 9)
     session['captcha_answer'] = a + b
     return render_template('register.html', captcha_q=f'{a} + {b}')
+
+
+@app.route('/register/verify-email', methods=['GET', 'POST'])
+@limiter.limit("20 per minute")
+def register_verify_email():
+    user_id = session.get('verify_email_user_id')
+    if not user_id:
+        return redirect(url_for('register'))
+    user = User.query.get(user_id)
+    if not user:
+        return redirect(url_for('register'))
+
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip()
+        if (user.two_fa_code == code and
+                user.two_fa_code_expires and
+                user.two_fa_code_expires > datetime.utcnow()):
+            user.email_verified = True
+            user.two_fa_code = None
+            user.two_fa_code_expires = None
+            db.session.commit()
+            session.pop('verify_email_user_id', None)
+            session['user_id'] = user.id
+            import threading
+            threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
+            return redirect(url_for('index'))
+        return render_template('register_verify_email.html', error='Неверный или просроченный код', email=user.email)
+
+    return render_template('register_verify_email.html', email=user.email)
+
+
+@app.route('/register/resend-verify', methods=['POST'])
+@limiter.limit("3 per minute")
+def register_resend_verify():
+    import random as _random
+    user_id = session.get('verify_email_user_id')
+    if not user_id:
+        return jsonify({'error': 'Сессия истекла'}), 400
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    code = str(_random.randint(100000, 999999))
+    user.two_fa_code = code
+    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
+    db.session.commit()
+    import threading
+    threading.Thread(target=_send_email_register_verify, args=(user.email, code, user.username), daemon=True).start()
+    return jsonify({'success': True})
 
 # Вход
 @app.route('/login', methods=['GET', 'POST'])
@@ -2602,7 +2678,8 @@ def login():
             import time as _time
             _trusted_ip = session.get('trusted_ip')
             _trusted_until = session.get('trusted_ip_until', 0)
-            _ip_trusted = (_trusted_ip == request.remote_addr and _time.time() < _trusted_until)
+            _current_ip = get_client_ip()
+            _ip_trusted = (_trusted_ip == _current_ip and _time.time() < _trusted_until)
 
             # 2FA check
             if user.two_fa_enabled and not _ip_trusted:
@@ -2621,6 +2698,22 @@ def login():
                 session['2fa_last_resend'] = __import__('time').time()
                 return redirect(url_for('login_2fa'))
 
+            # Проверка нового IP — если email подтверждён и IP ранее не использовался
+            if not _ip_trusted and user.email and user.email_verified:
+                _known_ips = {s.ip_address for s in UserSession.query.filter_by(user_id=user.id, is_active=True).all()}
+                if _current_ip not in _known_ips:
+                    import threading
+                    code = str(random.randint(100000, 999999))
+                    user.two_fa_code = code
+                    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=15)
+                    db.session.commit()
+                    threading.Thread(target=_send_email_2fa, args=(user.email, code), daemon=True).start()
+                    session['2fa_pending_user_id'] = user.id
+                    session['2fa_resend_count'] = 0
+                    session['2fa_last_resend'] = __import__('time').time()
+                    session['2fa_reason'] = 'new_ip'
+                    return redirect(url_for('login_2fa'))
+
             session['user_id'] = user.id
             user.last_seen = datetime.utcnow()
             
@@ -2629,7 +2722,7 @@ def login():
             
             # Получаем информацию об устройстве
             user_agent = request.headers.get('User-Agent', '')
-            ip_address = request.remote_addr
+            ip_address = get_client_ip()
             
             # Определяем название устройства из User-Agent
             device_name = 'Unknown Device'
@@ -7367,6 +7460,38 @@ def _send_2fa_code(user_id, code):
             print(f"[2FA] User {user_id} has no telegram_chat_id linked")
 
 
+def _send_email_register_verify(to_email, code, username):
+    """Отправляет код подтверждения email при регистрации."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    smtp_user = os.environ.get('SMTP_USER')
+    smtp_pass = os.environ.get('SMTP_PASS')
+    if not smtp_user or not smtp_pass:
+        print(f"[EMAIL VERIFY] SMTP не настроен — код: {code}")
+        return
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = f'Подтверждение email — Tabletone'
+    msg['From'] = f'Tabletone <{smtp_user}>'
+    msg['To'] = to_email
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;background:#f7f8fc;border-radius:12px;">
+      <h2 style="color:#667eea;margin-bottom:8px;">👋 Добро пожаловать в Tabletone, {username}!</h2>
+      <p style="color:#4a5568;">Для завершения регистрации введите этот код:</p>
+      <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#2d3748;background:#fff;padding:20px;border-radius:8px;text-align:center;margin:20px 0;">{code}</div>
+      <p style="color:#718096;font-size:13px;">⏱ Код действителен 30 минут.</p>
+      <p style="color:#e53e3e;font-size:13px;">⚠️ Если вы не регистрировались — просто проигнорируйте это письмо.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html, 'html'))
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, to_email, msg.as_string())
+    except Exception as e:
+        print(f"[EMAIL VERIFY] Ошибка отправки: {e}")
+
+
 def _send_email_2fa(to_email, code):
     """Отправляет код 2FA на email через Gmail SMTP."""
     import smtplib
@@ -7567,14 +7692,15 @@ def login_2fa():
             # Trusted IP: store in session for 5 minutes
             if request.form.get('trust_ip'):
                 import time as _time
-                session['trusted_ip'] = request.remote_addr
+                session['trusted_ip'] = get_client_ip()
                 session['trusted_ip_until'] = _time.time() + 300  # 5 minutes
             session.pop('2fa_pending_user_id', None)
+            session.pop('2fa_reason', None)
             session['user_id'] = user.id
             user.last_seen = datetime.utcnow()
             session_token = secrets.token_urlsafe(32)
             user_agent = request.headers.get('User-Agent', '')
-            ip_address = request.remote_addr
+            ip_address = get_client_ip()
             device_name = 'Unknown Device'
             if 'Windows' in user_agent: device_name = 'Windows PC'
             elif 'Mac' in user_agent: device_name = 'Mac'
@@ -7591,11 +7717,14 @@ def login_2fa():
             db.session.commit()
             return redirect(url_for('index'))
         else:
-            return render_template('login_2fa.html', error='Неверный или просроченный код')
+            reason = session.get('2fa_reason', '')
+            return render_template('login_2fa.html', error='Неверный или просроченный код',
+                                   reason=reason, has_telegram=bool(user and user.telegram_chat_id))
 
     user = User.query.get(pending_id)
     has_telegram = bool(user and user.telegram_chat_id)
-    return render_template('login_2fa.html', has_telegram=has_telegram)
+    reason = session.get('2fa_reason', '')
+    return render_template('login_2fa.html', has_telegram=has_telegram, reason=reason)
 
 
 @app.route('/login/2fa/resend', methods=['POST'])

@@ -14,7 +14,11 @@
 
         <div style="text-align:center; margin-bottom:20px; color:#718096; font-size:14px;">
             <i class="fas fa-robot" style="font-size:32px; color:#667eea; display:block; margin-bottom:10px;"></i>
-            {% if has_telegram %}
+            {% if reason == 'new_ip' %}
+                <i class="fas fa-map-marker-alt" style="font-size:32px; color:#e53e3e; display:block; margin-bottom:10px;"></i>
+                Обнаружен вход с <strong>нового IP-адреса</strong>.<br>
+                Код подтверждения отправлен на ваш <strong>email</strong>.
+            {% elif has_telegram %}
                 Код подтверждения отправлен в ваш <strong>Telegram</strong>.<br>
                 Также проверьте чат с <strong>@tabletonebot</strong> в мессенджере.
             {% else %}
