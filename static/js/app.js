@@ -1316,6 +1316,8 @@ async function openChat(userId, username) {
 
     _cancelReply();
     if (window._abortRecordingOnChatSwitch) window._abortRecordingOnChatSwitch();
+    const _moreMenu = document.getElementById('chat-more-menu');
+    if (_moreMenu) _moreMenu.style.display = 'none';
     currentChatUserId = userId;
     _favoritesOpen = false;
     openedChats.add(userId);
@@ -3879,6 +3881,27 @@ window.switchTab = switchTab;
 window.openGroup = openGroup;
 window.loadGroups = loadGroups;
 
+
+// Меню "ещё" в шапке чата
+function toggleChatMoreMenu() {
+    const menu = document.getElementById('chat-more-menu');
+    if (!menu) return;
+    const isOpen = menu.style.display !== 'none';
+    menu.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        // Закрываем по клику вне меню
+        setTimeout(() => {
+            const close = (e) => {
+                if (!menu.contains(e.target) && e.target.id !== 'chat-more-btn') {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', close);
+                }
+            };
+            document.addEventListener('click', close);
+        }, 0);
+    }
+}
+window.toggleChatMoreMenu = toggleChatMoreMenu;
 
 // Возврат к списку чатов (для мобильных)
 function backToChats() {
