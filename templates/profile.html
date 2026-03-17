@@ -765,12 +765,41 @@ async function showMyGifts() {
 }
 
 async function showGiftCatalog() {
-    const [catR, balR] = await Promise.all([fetch('/gifts/catalog'), fetch('/sparks/balance')]);
+    const [catR, balR, plansR] = await Promise.all([
+        fetch('/gifts/catalog'),
+        fetch('/sparks/balance'),
+        fetch('/gifts/premium-plans')
+    ]);
     const cat = await catR.json();
     const bal = await balR.json();
+    const plansData = await plansR.json();
     const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
-    const content = `
-        <p style="text-align:center;margin-bottom:16px;font-size:15px;">Ваш баланс: <b style="color:#f6ad55;">${bal.balance} ✨</b></p>
+
+    // Premium планы
+    const premiumPlans = plansData.plans || [];
+    const premiumHtml = premiumPlans.length ? `
+        <div style="margin-bottom:20px;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#f6ad55;">👑 Подарить Premium</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;">
+                ${premiumPlans.map(p => `
+                <div style="border:2px solid #f6ad55;border-radius:12px;padding:12px;text-align:center;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));">
+                    ${p.discount ? `<div style="font-size:10px;background:#e53e3e;color:#fff;border-radius:6px;padding:2px 6px;margin-bottom:4px;display:inline-block;">-${p.discount}%</div>` : ''}
+                    <div style="font-size:28px;margin-bottom:4px;">🎁</div>
+                    <div style="font-weight:700;font-size:12px;">${p.label}</div>
+                    <div style="font-size:13px;color:#f6ad55;font-weight:700;margin:4px 0;">${p.price_sparks} ✨</div>
+                    <div style="font-size:10px;color:#718096;margin-bottom:6px;">${p.price_rub} ₽</div>
+                    <button onclick="sendPremiumGift('${p.plan_key}')" style="font-size:11px;padding:5px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#f6ad55,#ed8936);color:#fff;cursor:pointer;width:100%;">
+                        Подарить
+                    </button>
+                </div>`).join('')}
+            </div>
+        </div>
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,0.1);margin:16px 0;">
+    ` : '';
+
+    // Обычные подарки
+    const giftsHtml = `
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">🎁 Подарки</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
             ${cat.gifts.map(g => `
             <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
@@ -783,8 +812,30 @@ async function showGiftCatalog() {
                 </button>
             </div>`).join('')}
         </div>`;
+
+    const content = `
+        <p style="text-align:center;margin-bottom:16px;font-size:15px;">Ваш баланс: <b style="color:#f6ad55;">${bal.balance} ✨</b></p>
+        ${premiumHtml}
+        ${giftsHtml}`;
     const modal = _createModal('Магазин подарков 🛍', content);
     document.body.appendChild(modal);
+}
+
+async function sendPremiumGift(planKey) {
+    const username = prompt('Введите @username получателя:');
+    if (!username) return;
+    const clean = username.replace('@','');
+    const r = await fetch(`/api/user-by-username/${clean}`);
+    if (!r.ok) { alert('Пользователь не найден'); return; }
+    const d = await r.json();
+    const res = await fetch('/gifts/send-premium', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({plan_key: planKey, recipient_id: d.id})
+    });
+    const rd = await res.json();
+    if (rd.success) { alert('Premium подарен! 👑'); document.querySelectorAll('.profile-modal').forEach(m=>m.remove()); }
+    else alert(rd.error || 'Ошибка');
 }
 
 async function sendGiftFromCatalog(giftTypeId) {

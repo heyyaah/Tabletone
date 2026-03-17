@@ -49,6 +49,9 @@
         <button class="tab-btn" onclick="switchTab('deletions')">
             <i class="fas fa-user-times"></i> Удаление акк.
         </button>
+        <button class="tab-btn" onclick="switchTab('nft')">
+            <i class="fas fa-gem"></i> NFT
+        </button>
         {% endif %}
     </div>
     
@@ -577,6 +580,8 @@ function switchTab(tabName) {
         loadChannels();
     } else if (tabName === 'deletions') {
         loadDeletionRequests();
+    } else if (tabName === 'nft') {
+        loadNFTAdmin();
     }
 }
 
@@ -1592,6 +1597,155 @@ function cancelWarning(warningId, userId, displayName) {
                 alert(d.error || 'Ошибка');
             }
         });
+}
+{% endif %}
+</script>
+
+{% if admin_role == 'owner' %}
+<!-- NFT вкладка -->
+<div id="nft-tab" class="admin-tab" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <h2 style="margin:0;">NFT Коллекции</h2>
+        <button onclick="showCreateNFTModal()" style="padding:10px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">
+            <i class="fas fa-plus"></i> Новая коллекция
+        </button>
+    </div>
+    <div id="nft-admin-list">
+        <div style="text-align:center;padding:40px;color:#a0aec0;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+{% if admin_role == 'owner' %}
+// ── NFT Admin ─────────────────────────────────────────────────────────────────
+async function loadNFTAdmin() {
+    const r = await fetch('/admin/nft/collections');
+    const d = await r.json();
+    const list = document.getElementById('nft-admin-list');
+    if (!d.collections || !d.collections.length) {
+        list.innerHTML = '<p style="color:#a0aec0;">Коллекций нет.</p>';
+        return;
+    }
+    list.innerHTML = d.collections.map(c => `
+        <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:14px;padding:16px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                <div style="width:48px;height:48px;border-radius:10px;background:${c.bg_color};display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">💎</div>
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:15px;">${c.name}</div>
+                    <div style="font-size:12px;color:#718096;">${c.description}</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button onclick="editNFTCollection(${c.id})" style="padding:6px 12px;background:#667eea;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">✏️</button>
+                    <button onclick="deleteNFTCollection(${c.id},'${c.name}')" style="padding:6px 12px;background:#e53e3e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;">🗑</button>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;">
+                <div style="background:var(--bg-primary);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="color:#718096;">Выпущено</div>
+                    <div style="font-weight:700;">${c.minted} / ${c.total_supply}</div>
+                </div>
+                <div style="background:var(--bg-primary);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="color:#718096;">Цена</div>
+                    <div style="font-weight:700;">${c.price_sparks} ✨</div>
+                </div>
+                <div style="background:var(--bg-primary);border-radius:8px;padding:8px;text-align:center;">
+                    <div style="color:#718096;">Статус</div>
+                    <div style="font-weight:700;color:${c.is_active ? '#38a169' : '#e53e3e'}">${c.is_active ? 'Активна' : 'Скрыта'}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateNFTModal() {
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML = `<div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;">
+        <h3 style="margin:0 0 16px;font-size:18px;">Новая NFT коллекция</h3>
+        <label style="font-size:13px;color:#718096;display:block;margin-bottom:4px;">Название</label>
+        <input id="nft-new-name" placeholder="Cosmic Cats" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;margin-bottom:10px;box-sizing:border-box;">
+        <label style="font-size:13px;color:#718096;display:block;margin-bottom:4px;">Описание</label>
+        <input id="nft-new-desc" placeholder="Описание коллекции" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;margin-bottom:10px;box-sizing:border-box;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+            <div>
+                <label style="font-size:13px;color:#718096;display:block;margin-bottom:4px;">Всего экземпляров</label>
+                <input id="nft-new-supply" type="number" value="1000" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+            </div>
+            <div>
+                <label style="font-size:13px;color:#718096;display:block;margin-bottom:4px;">Цена (искры)</label>
+                <input id="nft-new-price" type="number" value="100" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+            <div>
+                <label style="font-size:13px;color:#718096;display:block;margin-bottom:4px;">Цвет фона</label>
+                <input id="nft-new-bg" type="color" value="#2d3748" style="width:100%;height:38px;border:1px solid var(--border-color);border-radius:8px;cursor:pointer;">
+            </div>
+            <div>
+                <label style="font-size:13px;color:#718096;display:block;margin-bottom:4px;">Статус</label>
+                <select id="nft-new-active" style="width:100%;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+                    <option value="true">Активна</option>
+                    <option value="false">Скрыта</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button onclick="this.closest('div[style]').remove()" style="flex:1;padding:10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:10px;cursor:pointer;">Отмена</button>
+            <button onclick="createNFTCollection(this)" style="flex:2;padding:10px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;">Создать</button>
+        </div>
+    </div>`;
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    document.body.appendChild(m);
+}
+
+async function createNFTCollection(btn) {
+    const name = document.getElementById('nft-new-name').value.trim();
+    if (!name) { alert('Введите название'); return; }
+    btn.disabled = true; btn.textContent = '...';
+    const r = await fetch('/admin/nft/collections', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name,
+            description: document.getElementById('nft-new-desc').value,
+            total_supply: parseInt(document.getElementById('nft-new-supply').value) || 1000,
+            price_sparks: parseInt(document.getElementById('nft-new-price').value) || 100,
+            bg_color: document.getElementById('nft-new-bg').value,
+            is_active: document.getElementById('nft-new-active').value === 'true',
+        })
+    });
+    const d = await r.json();
+    if (d.success) {
+        document.querySelectorAll('div[style*="inset:0"]').forEach(m => m.remove());
+        loadNFTAdmin();
+    } else { alert(d.error || 'Ошибка'); btn.disabled = false; btn.textContent = 'Создать'; }
+}
+
+async function editNFTCollection(id) {
+    const r = await fetch('/admin/nft/collections');
+    const d = await r.json();
+    const c = d.collections.find(x => x.id === id);
+    if (!c) return;
+    const newName = prompt('Название:', c.name);
+    if (newName === null) return;
+    const newPrice = prompt('Цена (искры):', c.price_sparks);
+    if (newPrice === null) return;
+    const newActive = confirm('Коллекция активна?');
+    await fetch(`/admin/nft/collections/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: newName, price_sparks: parseInt(newPrice), is_active: newActive})
+    });
+    loadNFTAdmin();
+}
+
+async function deleteNFTCollection(id, name) {
+    if (!confirm(`Удалить коллекцию "${name}"? Все NFT пользователей будут удалены!`)) return;
+    const r = await fetch(`/admin/nft/collections/${id}`, {method: 'DELETE'});
+    const d = await r.json();
+    if (d.success) loadNFTAdmin();
+    else alert(d.error || 'Ошибка');
 }
 {% endif %}
 </script>
