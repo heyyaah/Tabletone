@@ -9781,6 +9781,8 @@ def start_group_call(group_id):
     membership = GroupMember.query.filter_by(group_id=group_id, user_id=session['user_id']).first()
     if not membership:
         return jsonify({'error': 'Нет доступа'}), 403
+    if not membership.is_admin:
+        return jsonify({'error': 'Только администраторы могут начинать групповые звонки'}), 403
     user = User.query.get(session['user_id'])
     if group_id not in _active_group_calls:
         _active_group_calls[group_id] = {}

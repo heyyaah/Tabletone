@@ -3465,7 +3465,7 @@ async function openGroup(groupId, groupName) {
         const groupSearchBtn = document.getElementById('group-search-btn');
         if (groupSearchBtn) groupSearchBtn.style.display = 'flex';
 
-        // Кнопка группового звонка — только для групп, не каналов
+        // Кнопка группового звонка — только для групп (не каналов) и только для админов
         let gcBtn = document.getElementById('group-call-btn');
         if (!gcBtn) {
             gcBtn = document.createElement('button');
@@ -3477,7 +3477,7 @@ async function openGroup(groupId, groupName) {
             const callBtn = document.getElementById('call-btn');
             if (callBtn) callBtn.parentNode.insertBefore(gcBtn, callBtn);
         }
-        gcBtn.style.display = data.group.is_channel ? 'none' : 'flex';
+        gcBtn.style.display = (!data.group.is_channel && data.group.is_admin) ? 'flex' : 'none';
 
         // Скрываем кнопки не нужные в группах/каналах
         const addContactBtn = document.querySelector('.chat-header .icon-btn[onclick="addContactFromChat()"]');
