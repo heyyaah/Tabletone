@@ -19,15 +19,19 @@ from flask_limiter.util import get_remote_address
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
-# Render даёт postgres://, SQLAlchemy требует postgresql://
 if _db_url.startswith('postgres://'):
-    _db_url = _db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
-elif _db_url.startswith('postgresql://') and 'psycopg2' not in _db_url and 'pg8000' not in _db_url:
-    _db_url = _db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
+elif _db_url.startswith('postgresql://') and 'pg8000' not in _db_url and 'psycopg2' not in _db_url:
+    _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-from sqlalchemy.pool import NullPool
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 1,
+    'max_overflow': 4,
+    'pool_timeout': 30,
+    'pool_recycle': 60,
+    'pool_pre_ping': True,
+}
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 app.config['PROPAGATE_EXCEPTIONS'] = True
