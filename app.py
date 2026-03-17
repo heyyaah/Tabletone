@@ -1322,7 +1322,8 @@ def check_ip_ban():
         return jsonify({'error': 'Ваш IP заблокирован.'}), 403
 
 
-eventlet.spawn(_init_db)
+_init_db()
+
 
 @app.route('/admin/reports', methods=['GET'])
 def get_reports():
