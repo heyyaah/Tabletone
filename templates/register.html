@@ -101,6 +101,19 @@
                 </label>
             </div>
 
+            <!-- Капча -->
+            <div class="form-group" style="background:var(--bg-secondary,#f7fafc);border:2px solid #e2e8f0;border-radius:12px;padding:14px 16px;">
+                <label style="font-size:13px;font-weight:600;color:#4a5568;display:block;margin-bottom:8px;">
+                    <i class="fas fa-robot" style="color:#667eea;margin-right:6px;"></i>Подтвердите, что вы не бот
+                </label>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:18px;font-weight:700;color:var(--text-primary,#2d3748);letter-spacing:2px;">{{ captcha_q }} = ?</span>
+                    <input type="number" id="captcha_answer" name="captcha_answer" placeholder="Ответ"
+                           required min="0" max="99"
+                           style="width:90px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;text-align:center;">
+                </div>
+            </div>
+
             <button type="submit" id="register-btn" class="btn btn-primary btn-block" disabled
                     style="opacity:0.5; cursor:not-allowed; transition:opacity 0.2s;">
                 <i class="fas fa-user-plus"></i> Зарегистрироваться

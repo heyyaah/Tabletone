@@ -2525,11 +2525,22 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 @limiter.limit("10 per minute; 3 per second")
 def register():
+    import random as _random
     if request.method == 'POST':
         username = request.form['username'].strip().lower()
         password = request.form['password']
         display_name = request.form.get('display_name', '').strip()
-        
+
+        # Проверка капчи
+        captcha_answer = request.form.get('captcha_answer', '').strip()
+        captcha_expected = session.get('captcha_answer')
+        if not captcha_answer or not captcha_expected or str(captcha_answer) != str(captcha_expected):
+            a, b = _random.randint(1, 9), _random.randint(1, 9)
+            session['captcha_answer'] = a + b
+            return render_template('register.html', error='Неверный ответ на проверку. Попробуйте ещё раз.',
+                                   captcha_q=f'{a} + {b}')
+        session.pop('captcha_answer', None)
+
         # Проверка на существование пользователя
         if len(username) < 4:
             return render_template('register.html', error='Username должен содержать минимум 4 символа')
@@ -2565,7 +2576,9 @@ def register():
 
         return redirect(url_for('index'))
     
-    return render_template('register.html')
+    a, b = _random.randint(1, 9), _random.randint(1, 9)
+    session['captcha_answer'] = a + b
+    return render_template('register.html', captcha_q=f'{a} + {b}')
 
 # Вход
 @app.route('/login', methods=['GET', 'POST'])
