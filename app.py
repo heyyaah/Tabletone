@@ -5238,6 +5238,7 @@ def delete_group_message(group_id, message_id):
         return jsonify({'error': 'Нет прав'}), 403
     msg.is_deleted = True
     db.session.commit()
+    socketio.emit('group_message_deleted', {'message_id': message_id, 'group_id': group_id}, room=f'group_{group_id}', namespace='/')
     return jsonify({'success': True})
 
 @app.route('/groups/<int:group_id>/join', methods=['POST'])

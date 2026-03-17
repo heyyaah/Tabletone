@@ -182,6 +182,11 @@ function connectSocketIO() {
             // Обновляем превью в списке чатов
             if (data.other_user_id) loadAllChats();
         });
+
+        socket.on('group_message_deleted', function(data) {
+            const el = document.querySelector(`[data-message-id="${data.message_id}"][data-is-group="1"]`);
+            if (el) el.remove();
+        });
         
         socket.on('message_edited', function(data) {
             console.log('Message edited:', data);
