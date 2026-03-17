@@ -2174,6 +2174,7 @@ def _pay_main_kb():
     return {"inline_keyboard": [
         [{"text": "👑 Купить Premium", "callback_data": "menu_premium"}],
         [{"text": "✨ Купить Искры",   "callback_data": "menu_sparks"}],
+        [{"text": "🖼 Купить NFT",     "callback_data": "menu_nft"}],
     ]}
 
 @app.route('/payment/webhook', methods=['POST'])
@@ -2206,41 +2207,89 @@ def payment_webhook():
                        for k, p in PAY_SPARKS_PLANS.items()]
             buttons.append([{"text": "◀️ Назад", "callback_data": "menu_main"}])
             _pay_tg_edit(token, chat_id, msg_id, "✨ *Выберите количество Искр:*", {"inline_keyboard": buttons})
+        elif cq_data == 'menu_nft':
+            import urllib.request as _ur_nft
+            try:
+                resp_nft = json.loads(_ur_nft.urlopen(
+                    f"{site_url_pay}/api/nft/collections", timeout=10
+                ).read())
+                cols = resp_nft.get("collections", [])
+            except Exception:
+                cols = []
+            if not cols:
+                _pay_tg_edit(token, chat_id, msg_id, "🖼 NFT коллекций пока нет.",
+                    {"inline_keyboard": [[{"text": "◀️ Назад", "callback_data": "menu_main"}]]})
+            else:
+                buttons = [[{"text": f"{c['name']} — {c.get('price','?')} ₽", "callback_data": f"buy_nft_{c['id']}"}]
+                           for c in cols]
+                buttons.append([{"text": "◀️ Назад", "callback_data": "menu_main"}])
+                _pay_tg_edit(token, chat_id, msg_id, "🖼 *Выберите NFT:*", {"inline_keyboard": buttons})
         elif cq_data.startswith('buy_'):
             key = cq_data[4:]
-            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
-            if plan:
-                ud['pending_key'] = key
-                ud['awaiting_username'] = True
-                ud['awaiting_screenshot'] = False
-                _pay_tg_edit(token, chat_id, msg_id,
-                    f"✅ Вы выбрали: *{plan['label']}* — *{plan['price']}*\n\nВведите ваш *username* в Tabletone (без @):",
-                    {"inline_keyboard": [[{"text": "◀️ Отмена", "callback_data": "menu_main"}]]})
+            is_nft = key.startswith('nft_')
+            if is_nft:
+                nft_id = key[4:]
+                import urllib.request as _ur_nft2
+                try:
+                    resp_nft2 = json.loads(_ur_nft2.urlopen(
+                        f"{site_url_pay}/api/nft/collections", timeout=10
+                    ).read())
+                    cols2 = resp_nft2.get("collections", [])
+                except Exception:
+                    cols2 = []
+                nft = next((c for c in cols2 if str(c['id']) == str(nft_id)), None)
+                if nft:
+                    ud['pending_key'] = key
+                    ud['awaiting_username'] = True
+                    ud['awaiting_screenshot'] = False
+                    _pay_tg_edit(token, chat_id, msg_id,
+                        f"✅ Вы выбрали: *{nft['name']}* — *{nft.get('price','?')} ₽*\n\nВведите ваш *username* в Tabletone (без @):",
+                        {"inline_keyboard": [[{"text": "◀️ Отмена", "callback_data": "menu_main"}]]})
+            else:
+                plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+                if plan:
+                    ud['pending_key'] = key
+                    ud['awaiting_username'] = True
+                    ud['awaiting_screenshot'] = False
+                    _pay_tg_edit(token, chat_id, msg_id,
+                        f"✅ Вы выбрали: *{plan['label']}* — *{plan['price']}*\n\nВведите ваш *username* в Tabletone (без @):",
+                        {"inline_keyboard": [[{"text": "◀️ Отмена", "callback_data": "menu_main"}]]})
         elif cq_data.startswith('confirm_') or cq_data.startswith('reject_'):
             if cq['from']['id'] != owner_tg_id:
                 return jsonify({'ok': True})
             action = 'confirm' if cq_data.startswith('confirm_') else 'reject'
             raw = cq_data[len(action)+1:]
             key = None
-            for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()):
-                if raw.startswith(k + '_'):
-                    key = k
-                    raw = raw[len(k)+1:]
-                    break
+            if raw.startswith('nft_'):
+                # nft_{id}_{username}_{chat_id}
+                parts_nft = raw.split('_')
+                key = f"nft_{parts_nft[1]}"
+                raw = '_'.join(parts_nft[2:])
+            else:
+                for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()):
+                    if raw.startswith(k + '_'):
+                        key = k
+                        raw = raw[len(k)+1:]
+                        break
             if not key:
                 return jsonify({'ok': True})
             last_ = raw.rfind('_')
             username = raw[:last_]
             user_chat_id = raw[last_+1:]
-            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+            is_nft_confirm = key.startswith('nft_')
             import urllib.request as _ur_pay
             if action == 'confirm':
                 activated = False
                 try:
-                    if key.startswith('premium'):
+                    if is_nft_confirm:
+                        ep = f"{site_url_pay}/api/nft/give"
+                        pl = json.dumps({"username": username, "nft_id": key[4:], "secret": pay_secret}).encode()
+                    elif key.startswith('premium'):
+                        plan = PAY_PREMIUM_PLANS[key]
                         ep = f"{site_url_pay}/api/payment/activate-premium"
                         pl = json.dumps({"username": username, "days": plan["days"], "secret": pay_secret}).encode()
                     else:
+                        plan = PAY_SPARKS_PLANS[key]
                         ep = f"{site_url_pay}/api/payment/add-sparks"
                         pl = json.dumps({"username": username, "sparks": plan["sparks"], "secret": pay_secret}).encode()
                     req = _ur_pay.Request(ep, data=pl, headers={'Content-Type': 'application/json'})
@@ -2248,10 +2297,12 @@ def payment_webhook():
                     activated = resp.get('success', False)
                 except Exception as e:
                     print(f"pay activate error: {e}")
-                if key.startswith('premium'):
-                    user_msg = f"🎉 *Оплата подтверждена!*\n\n👑 Premium на *{plan['days']} дней* активирован для @{username}!"
+                if is_nft_confirm:
+                    user_msg = f"🎉 *Оплата подтверждена!*\n\n🖼 NFT выдан для @{username}!"
+                elif key.startswith('premium'):
+                    plan = PAY_PREMIUM_PLANS[key]; user_msg = f"🎉 *Оплата подтверждена!*\n\n👑 Premium на *{plan['days']} дней* активирован для @{username}!"
                 else:
-                    user_msg = f"🎉 *Оплата подтверждена!*\n\n✨ *{plan['sparks']} Искр* зачислено для @{username}!"
+                    plan = PAY_SPARKS_PLANS[key]; user_msg = f"🎉 *Оплата подтверждена!*\n\n✨ *{plan['sparks']} Искр* зачислено для @{username}!"
                 if not activated:
                     user_msg += "\n\n_(Автоактивация не удалась — администратор активирует вручную)_"
                 _pay_tg_send(token, user_chat_id, user_msg)
@@ -2358,8 +2409,29 @@ def payment_webhook():
             _pay_tg_send(token, chat_id, "❌ Слишком короткий username. Попробуйте ещё раз:")
         else:
             key = ud.get('pending_key')
-            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
-            if plan:
+            is_nft = key and key.startswith('nft_')
+            plan = (None if is_nft else (PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)))
+            if is_nft:
+                nft_id = key[4:]
+                import urllib.request as _ur_nft3
+                try:
+                    resp_nft3 = json.loads(_ur_nft3.urlopen(
+                        f"{site_url_pay}/api/nft/collections", timeout=10
+                    ).read())
+                    nft_item = next((c for c in resp_nft3.get("collections", []) if str(c['id']) == str(nft_id)), None)
+                except Exception:
+                    nft_item = None
+                if nft_item:
+                    ud['tabletone_username'] = username
+                    ud['awaiting_username'] = False
+                    ud['awaiting_screenshot'] = True
+                    _pay_tg_send(token, chat_id,
+                        f"💳 *Реквизиты для оплаты:*\n\n"
+                        f"📱 Номер: `{PAY_CARD}`\n"
+                        f"🏦 по номеру телефона (СБП / любой банк)\n"
+                        f"💰 Сумма: *{nft_item.get('price','?')} ₽*\n\n"
+                        f"После перевода пришлите *скриншот* подтверждения оплаты.\n⏳ У вас есть *10 минут*.")
+            elif plan:
                 ud['tabletone_username'] = username
                 ud['awaiting_username'] = False
                 ud['awaiting_screenshot'] = True
@@ -2373,10 +2445,26 @@ def payment_webhook():
         ud['awaiting_screenshot'] = False
         key = ud.get('pending_key')
         username = ud.get('tabletone_username', '?')
-        plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
-        if not plan:
-            _pay_tg_send(token, chat_id, "Что-то пошло не так. Напишите /start")
-            return jsonify({'ok': True})
+        is_nft = key and key.startswith('nft_')
+        if is_nft:
+            nft_id = key[4:]
+            import urllib.request as _ur_nft4
+            try:
+                resp_nft4 = json.loads(_ur_nft4.urlopen(
+                    f"{site_url_pay}/api/nft/collections", timeout=10
+                ).read())
+                nft_item2 = next((c for c in resp_nft4.get("collections", []) if str(c['id']) == str(nft_id)), None)
+            except Exception:
+                nft_item2 = None
+            label = nft_item2['name'] if nft_item2 else key
+            price_str = f"{nft_item2.get('price','?')} ₽" if nft_item2 else "?"
+        else:
+            plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+            if not plan:
+                _pay_tg_send(token, chat_id, "Что-то пошло не так. Напишите /start")
+                return jsonify({'ok': True})
+            label = plan['label']
+            price_str = plan['price']
         photo_file_id = photos[-1]['file_id']
         user_info = f"@{tg_user.get('username')}" if tg_user.get('username') else f"id:{tg_user.get('id')}"
         _pay_tg_send(token, chat_id,
@@ -2388,7 +2476,7 @@ def payment_webhook():
         _pay_tg_send_photo(token, owner_tg_id, photo_file_id,
             f"⚠️ *Новая заявка на оплату!*\n\n"
             f"👤 TG: {user_info}\n🎮 Tabletone: @{username}\n"
-            f"🛒 Товар: {plan['label']}\n💰 Сумма: {plan['price']}\n\nПодтвердить перевод?",
+            f"🛒 Товар: {label}\n💰 Сумма: {price_str}\n\nПодтвердить перевод?",
             confirm_kb)
 
     return jsonify({'ok': True})
