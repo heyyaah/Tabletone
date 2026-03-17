@@ -6429,41 +6429,6 @@ def add_group_member(group_id):
     
     return jsonify({'success': True})
 
-@app.route('/users/search_for_group')
-def search_users_for_group():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    query = request.args.get('q', '').strip()
-    group_id = request.args.get('group_id')
-    
-    if not query:
-        return jsonify({'users': []})
-    
-    # Ищем пользователей
-    users = User.query.filter(
-        User.username.like(f'%{query}%'),
-        User.id != session['user_id']
-    ).limit(10).all()
-    
-    # Если указана группа, исключаем уже состоящих
-    if group_id:
-        existing_members = [m.user_id for m in GroupMember.query.filter_by(group_id=group_id).all()]
-        users = [u for u in users if u.id not in existing_members]
-    
-    users_data = []
-    for user in users:
-        users_data.append({
-            'id': user.id,
-            'username': user.username,
-            'display_name': user.display_name or user.username,
-            'avatar_color': user.avatar_color,
-            'avatar_letter': user.get_avatar_letter(),
-            'bio': user.bio
-        })
-    
-    return jsonify({'users': users_data})
-
 # Socket.IO для групп
 @socketio.on('join_group')
 def handle_join_group(data):
