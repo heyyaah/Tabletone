@@ -5023,8 +5023,10 @@ def get_group(group_id):
     if not group:
         return jsonify({'error': 'Группа не найдена'}), 404
     
-    # Получаем сообщения
-    messages = GroupMessage.query.filter_by(group_id=group_id).order_by(GroupMessage.timestamp.asc()).limit(100).all()
+    # Получаем сообщения (без удалённых)
+    messages = GroupMessage.query.filter_by(group_id=group_id).filter(
+        (GroupMessage.is_deleted == False) | (GroupMessage.is_deleted == None)
+    ).order_by(GroupMessage.timestamp.asc()).limit(100).all()
     
     messages_data = []
     for msg in messages:
