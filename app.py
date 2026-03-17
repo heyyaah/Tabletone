@@ -257,6 +257,15 @@ class MessageMedia(db.Model):
     file_size = db.Column(db.Integer)
     order_index = db.Column(db.Integer, default=0)
 
+class GroupMessageMedia(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('group_message.id'), nullable=False)
+    media_type = db.Column(db.String(20), nullable=False)  # image, file, video
+    media_url = db.Column(db.Text, nullable=False)
+    file_name = db.Column(db.String(255))
+    file_size = db.Column(db.Integer)
+    order_index = db.Column(db.Integer, default=0)
+
 class Group(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
