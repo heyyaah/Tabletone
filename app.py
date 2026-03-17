@@ -27,7 +27,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'poolclass': __import__('sqlalchemy.pool', fromlist=['NullPool']).NullPool,
-    'pool_pre_ping': True,
+    'connect_args': {'timeout': 10},
 }
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
