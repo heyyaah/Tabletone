@@ -9791,7 +9791,9 @@ with app.app_context():
             try:
                 _existing = [c['name'] for c in _insp.get_columns(_tbl)]
                 if _col not in _existing:
-                    db.session.execute(text(f'ALTER TABLE {_tbl} ADD COLUMN {_col} {_def}'))
+                    # PostgreSQL требует кавычки для зарезервированных слов
+                    _tbl_quoted = f'"{_tbl}"' if db.engine.dialect.name == 'postgresql' else _tbl
+                    db.session.execute(text(f'ALTER TABLE {_tbl_quoted} ADD COLUMN {_col} {_def}'))
                     db.session.commit()
                     print(f'[auto-migration] Added {_tbl}.{_col}')
             except Exception as _e:

@@ -2550,7 +2550,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let _mediaMode = 'video'; // 'video' | 'voice'
     let _recording = false;
     let _locked = false;
-    let _pressTimer = null;
+    let _pressTimer = null;       // 300ms → начать запись
+    let _switchTimer = null;      // 600ms → сменить режим (мобильный)
     let _pressStartY = 0;
     let _pressStartX = 0;
 
@@ -2638,8 +2639,27 @@ document.addEventListener('DOMContentLoaded', function() {
         if (_locked) return;
         const touch = e.touches ? e.touches[0] : e;
         _pressStartY = touch.clientY; _pressStartX = touch.clientX;
+
+        // На тач-устройствах: 600ms = смена режима (без записи)
+        // На десктопе смена режима — ПКМ (contextmenu)
+        const isTouch = !!e.touches;
+        if (isTouch) {
+            _switchTimer = setTimeout(() => {
+                _switchTimer = null;
+                // Отменяем таймер записи если он ещё не сработал
+                if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+                if (_recording) return; // уже пишем — не переключаем
+                _mediaMode = _mediaMode === 'video' ? 'voice' : 'video';
+                _updateBtns();
+                // Вибрация как фидбек
+                if (navigator.vibrate) navigator.vibrate(50);
+            }, 600);
+        }
+
         _pressTimer = setTimeout(() => {
-            _pressTimer = null; _recording = true;
+            _pressTimer = null;
+            if (_switchTimer) return; // ждём — вдруг это смена режима
+            _recording = true;
             _showLockHint();
             if (_mediaMode === 'voice') startVoiceRecord();
             else openVideoRecorder();
@@ -2647,6 +2667,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function _onPressMove(e) {
+        if (_switchTimer && e.touches) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - _pressStartX;
+            const dy = touch.clientY - _pressStartY;
+            // Если палец двигается — отменяем смену режима
+            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                clearTimeout(_switchTimer); _switchTimer = null;
+            }
+        }
         if (!_recording || _locked) return;
         const touch = e.touches ? e.touches[0] : e;
         const dx = touch.clientX - _pressStartX;
@@ -2656,6 +2685,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function _onPressEnd(e) {
+        if (_switchTimer) { clearTimeout(_switchTimer); _switchTimer = null; }
         if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; return; }
         if (_locked || !_recording) return;
         _finishRecording();
