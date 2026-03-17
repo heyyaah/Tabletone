@@ -2237,11 +2237,10 @@ def login():
                 user.two_fa_code = code
                 user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=10)
                 db.session.commit()
-                # Отправляем код через tabletonebot
-                try:
-                    _send_2fa_code(user.id, code)
-                except Exception as e:
-                    print(f"2FA send error: {e}")
+                # Отправляем код асинхронно чтобы не блокировать запрос
+                _uid = user.id
+                import threading
+                threading.Thread(target=_send_2fa_code, args=(_uid, code), daemon=True).start()
                 # Сохраняем user_id во временной сессии для верификации
                 session['2fa_pending_user_id'] = user.id
                 session['2fa_resend_count'] = 0
@@ -6668,28 +6667,29 @@ def _send_tabletone_welcome(user_id):
 
 def _send_2fa_code(user_id, code):
     """Отправляет код 2FA через @tabletonebot и в Telegram если привязан."""
-    user = User.query.get(user_id)
-    bot_user = User.query.filter_by(username='tabletonebot').first()
-    text = (
-        f"🔐 Код для входа в Tabletone:\n\n"
-        f"  {code}  \n\n"
-        f"⏱ Код действителен 10 минут.\n\n"
-        f"⚠️ НЕ ПЕРЕДАВАЙТЕ ЭТОТ КОД ТРЕТЬИМ ЛИЦАМ!\n"
-        f"Администрация Tabletone никогда не запрашивает коды."
-    )
-    if bot_user:
-        _bot_send_message(bot_user.id, user_id, text)
-    else:
-        print(f"[2FA] tabletonebot not found in DB — cannot send internal message to user {user_id}")
+    with app.app_context():
+        user = User.query.get(user_id)
+        bot_user = User.query.filter_by(username='tabletonebot').first()
+        text = (
+            f"🔐 Код для входа в Tabletone:\n\n"
+            f"  {code}  \n\n"
+            f"⏱ Код действителен 10 минут.\n\n"
+            f"⚠️ НЕ ПЕРЕДАВАЙТЕ ЭТОТ КОД ТРЕТЬИМ ЛИЦАМ!\n"
+            f"Администрация Tabletone никогда не запрашивает коды."
+        )
+        if bot_user:
+            _bot_send_message(bot_user.id, user_id, text)
+        else:
+            print(f"[2FA] tabletonebot not found in DB — cannot send internal message to user {user_id}")
 
-    # Отправка в Telegram если привязан
-    if user and user.telegram_chat_id:
-        try:
-            _send_telegram_2fa(user.telegram_chat_id, code)
-        except Exception as e:
-            print(f"Telegram 2FA error: {e}")
-    else:
-        print(f"[2FA] User {user_id} has no telegram_chat_id linked")
+        # Отправка в Telegram если привязан
+        if user and user.telegram_chat_id:
+            try:
+                _send_telegram_2fa(user.telegram_chat_id, code)
+            except Exception as e:
+                print(f"Telegram 2FA error: {e}")
+        else:
+            print(f"[2FA] User {user_id} has no telegram_chat_id linked")
 
 
 def _send_email_2fa(to_email, code):
