@@ -8037,16 +8037,18 @@ def spark_react(msg_id):
     if not group or not group.is_channel:
         return jsonify({'error': 'Только для каналов'}), 400
 
-    # Проверяем дубль
+    # Проверяем дубль — если уже есть, суммируем
     existing = SparkReaction.query.filter_by(sender_id=uid, group_message_id=msg_id).first()
-    if existing:
-        return jsonify({'error': 'Вы уже отправили искру на этот пост'}), 400
 
     if not _spend_sparks(uid, amount, 'spark_reaction', msg_id):
         return jsonify({'error': 'Недостаточно искр'}), 400
 
-    sr = SparkReaction(sender_id=uid, group_message_id=msg_id, amount=amount)
-    db.session.add(sr)
+    if existing:
+        existing.amount += amount
+        existing.sent_at = datetime.utcnow()
+    else:
+        sr = SparkReaction(sender_id=uid, group_message_id=msg_id, amount=amount)
+        db.session.add(sr)
     db.session.commit()
 
     # Начисляем владельцу канала
@@ -8062,6 +8064,9 @@ def spark_react_cancel(msg_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     uid = session['user_id']
+    data = request.get_json() or {}
+    cancel_amount = int(data.get('amount', 0))
+
     sr = SparkReaction.query.filter_by(sender_id=uid, group_message_id=msg_id).first()
     if not sr:
         return jsonify({'error': 'Реакция не найдена'}), 404
@@ -8071,12 +8076,17 @@ def spark_react_cancel(msg_id):
         return jsonify({'error': 'Время отмены истекло'}), 400
     msg = GroupMessage.query.get(msg_id)
     group = Group.query.get(msg.group_id) if msg else None
+    refund = cancel_amount if cancel_amount > 0 else sr.amount
     # Возвращаем искры отправителю
-    _add_sparks(uid, sr.amount, 'spark_reaction_cancel', msg_id)
+    _add_sparks(uid, refund, 'spark_reaction_cancel', msg_id)
     # Снимаем с владельца канала
     if group:
-        _spend_sparks(group.creator_id, sr.amount, 'spark_reaction_cancel', msg_id)
-    db.session.delete(sr)
+        _spend_sparks(group.creator_id, refund, 'spark_reaction_cancel', msg_id)
+    # Уменьшаем или удаляем запись
+    if sr.amount <= refund:
+        db.session.delete(sr)
+    else:
+        sr.amount -= refund
     db.session.commit()
     total = db.session.query(db.func.sum(SparkReaction.amount)).filter_by(group_message_id=msg_id).scalar() or 0
     if msg:

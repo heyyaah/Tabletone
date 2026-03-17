@@ -3531,6 +3531,18 @@ function displayGroupMessages(messages) {
     _fixStickerImages(container);
     _reattachCtxMenu();
     _attachSwipeReply(container);
+
+    // Загружаем счётчики искр для постов канала
+    if (_currentGroupData && _currentGroupData.is_channel) {
+        container.querySelectorAll('.spark-reaction-bar[id^="spark-bar-"]').forEach(async bar => {
+            const msgId = bar.id.replace('spark-bar-', '');
+            try {
+                const r = await fetch(`/sparks/post/${msgId}/total`);
+                const d = await r.json();
+                if (d.total > 0) bar.innerHTML = `<span class="spark-total">✨ ${d.total}</span>`;
+            } catch {}
+        });
+    }
 }
 
 // Создание HTML для группового сообщения
