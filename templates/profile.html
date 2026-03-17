@@ -528,6 +528,56 @@
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }
 }
+
+/* ── Фиксы цветов для тёмной темы ── */
+.profile-section p,
+.profile-section small,
+.profile-section label,
+.profile-section .char-count {
+    color: var(--text-secondary);
+}
+.profile-section h3 {
+    color: var(--text-primary);
+}
+.profile-section strong {
+    color: var(--text-primary);
+}
+/* Инпуты и textarea */
+.profile-section input[type="text"],
+.profile-section input[type="number"],
+.profile-section input[type="password"],
+.profile-section input[type="time"],
+.profile-section textarea,
+.profile-section select {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+/* Кнопка "Отключить" расписание */
+.profile-section .btn:not(.btn-primary):not(.btn-danger) {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+/* Разделитель */
+.profile-section [style*="border-top:1px solid #e2e8f0"] {
+    border-top-color: var(--border-color) !important;
+}
+/* Текст внутри модалок (spark history, gifts) */
+.profile-modal [style*="color:#4a5568"],
+.profile-modal [style*="color:#718096"],
+.profile-modal [style*="color:#a0aec0"] {
+    color: var(--text-secondary) !important;
+}
+.profile-modal [style*="border-bottom:1px solid #e2e8f0"] {
+    border-bottom-color: var(--border-color) !important;
+}
+/* Premium features list */
+[style*="color:#4a5568"] { color: var(--text-primary) !important; }
+/* QR border */
+#profile-qr-img { border-color: var(--border-color) !important; }
+/* tg-link-status code color */
+#tg-link-status [style*="color:#2d3748"] { color: var(--text-primary) !important; }
 </style>
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 <script>
@@ -1031,6 +1081,45 @@ async function saveMsgPrice() {
         if (el) el.textContent = d.price ? `${d.price} ✨` : 'бесплатно';
         if (inp) inp.value = d.price || '';
         alert(d.price ? `Цена установлена: ${d.price} ✨` : 'Платные сообщения отключены');
+    }
+}
+
+async function showAutoReplySettings() {
+    const r = await fetch('/user/auto-reply');
+    const d = await r.json();
+    const current = d.text || '';
+    const modal = _createModal('Настройки автоответа 🤖', `
+        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+            Автоответ отправляется автоматически на первое сообщение от пользователя.
+        </p>
+        <textarea id="auto-reply-text" rows="4" maxlength="200" placeholder="Например: Сейчас недоступен, отвечу позже..."
+            style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;resize:vertical;box-sizing:border-box;">${current}</textarea>
+        <small style="color:var(--text-secondary);font-size:12px;display:block;margin:6px 0 14px;">Максимум 200 символов. Оставьте пустым чтобы отключить.</small>
+        <div style="display:flex;gap:8px;">
+            <button onclick="saveAutoReply()" class="btn btn-primary" style="flex:1;padding:10px;">
+                <i class="fas fa-save"></i> Сохранить
+            </button>
+            <button onclick="this.closest('.profile-modal').remove()" class="btn" style="padding:10px 16px;">
+                Отмена
+            </button>
+        </div>
+    `);
+    document.body.appendChild(modal);
+}
+
+async function saveAutoReply() {
+    const text = document.getElementById('auto-reply-text').value.trim();
+    const r = await fetch('/user/auto-reply', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text})
+    });
+    const d = await r.json();
+    if (d.success) {
+        document.querySelectorAll('.profile-modal').forEach(m => m.remove());
+        showToast(text ? 'Автоответ сохранён' : 'Автоответ отключён');
+    } else {
+        alert(d.error || 'Ошибка');
     }
 }
 </script>
