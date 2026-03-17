@@ -7733,7 +7733,7 @@ def _send_email_register_verify(to_email, code, username):
         try:
             import resend as _resend
             _resend.api_key = resend_key
-            from_addr = smtp_user if smtp_user else 'noreply@tabletone.app'
+            from_addr = 'onboarding@resend.dev'
             _resend.Emails.send({
                 'from': f'Tabletone <{from_addr}>',
                 'to': [to_email],
