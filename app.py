@@ -26,12 +26,10 @@ elif _db_url.startswith('postgresql://'):
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# NullPool — без пула соединений, каждый запрос открывает/закрывает соединение.
-# Это необходимо для eventlet+PostgreSQL на Render (ограничение 5 соединений).
+# NullPool — без пула, каждый запрос открывает/закрывает соединение.
+# Необходимо для eventlet+PostgreSQL на Render (лимит 5 соединений).
 from sqlalchemy.pool import NullPool
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'poolclass': NullPool,
-}
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -6344,7 +6342,14 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
 
     # Проверяем запрос на генерацию картинки
     text_lower = text.strip().lower()
-    image_prefixes = ['/image ', '/img ', 'нарисуй ', 'сгенерируй картинку ', 'generate image ']
+    image_prefixes = [
+        '/image ', '/img ',
+        'нарисуй ', 'нарисуй\n',
+        'сгенерируй картинку ', 'сгенерируй фото ', 'сгенерируй изображение ',
+        'сгенерируй ', 'генерируй ',
+        'generate image ', 'draw ', 'create image ',
+        'покажи картинку ', 'покажи фото ',
+    ]
     image_prompt = None
     for prefix in image_prefixes:
         if text_lower.startswith(prefix):
