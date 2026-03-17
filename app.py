@@ -8722,62 +8722,6 @@ def check_contact(target_id):
 
 # ── Пересылка сообщений ───────────────────────────────────────────────────────
 
-@app.route('/message/forward', methods=['POST'])
-def forward_message():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    uid = session['user_id']
-    sender = User.query.get(uid)
-    data = request.get_json() or {}
-    # Источник
-    msg_id = data.get('message_id')
-    group_msg_id = data.get('group_message_id')
-    # Назначение
-    to_user_id = data.get('to_user_id')
-    to_group_id = data.get('to_group_id')
-    if not (msg_id or group_msg_id) or not (to_user_id or to_group_id):
-        return jsonify({'error': 'Укажите источник и назначение'}), 400
-    # Получаем контент
-    if msg_id:
-        orig = Message.query.get(msg_id)
-        if not orig or (orig.sender_id != uid and orig.receiver_id != uid):
-            return jsonify({'error': 'Нет доступа'}), 403
-        content = orig.content
-        msg_type = orig.message_type or 'text'
-        media_url = orig.media_url
-        orig_sender = User.query.get(orig.sender_id)
-    else:
-        orig = GroupMessage.query.get(group_msg_id)
-        if not orig:
-            return jsonify({'error': 'Не найдено'}), 404
-        membership = GroupMember.query.filter_by(group_id=orig.group_id, user_id=uid).first()
-        if not membership:
-            return jsonify({'error': 'Нет доступа'}), 403
-        content = orig.content
-        msg_type = 'text'
-        media_url = None
-        orig_sender = User.query.get(orig.sender_id)
-    fwd_prefix = f'↩ Переслано от {orig_sender.display_name or orig_sender.username}:\n' if orig_sender else '↩ Переслано:\n'
-    fwd_content = fwd_prefix + content
-    if to_user_id:
-        new_msg = Message(sender_id=uid, receiver_id=int(to_user_id), content=fwd_content, message_type='text', media_url=media_url)
-        db.session.add(new_msg)
-        db.session.commit()
-        msg_data = {'id': new_msg.id, 'sender_id': uid, 'content': fwd_content, 'message_type': 'text', 'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'), 'timestamp_iso': new_msg.timestamp.isoformat() + 'Z'}
-        sender_info = {'id': sender.id, 'username': sender.username, 'display_name': sender.display_name or sender.username, 'avatar_color': sender.avatar_color, 'avatar_letter': sender.get_avatar_letter()}
-        socketio.emit('new_message', {'message': {**msg_data, 'is_mine': True}, 'other_user_id': int(to_user_id), 'sender_info': sender_info}, room=f'user_{uid}', namespace='/')
-        socketio.emit('new_message', {'message': {**msg_data, 'is_mine': False}, 'other_user_id': uid, 'sender_info': sender_info}, room=f'user_{to_user_id}', namespace='/')
-    elif to_group_id:
-        membership = GroupMember.query.filter_by(group_id=int(to_group_id), user_id=uid).first()
-        if not membership:
-            return jsonify({'error': 'Нет доступа к группе'}), 403
-        new_msg = GroupMessage(group_id=int(to_group_id), sender_id=uid, content=fwd_content)
-        db.session.add(new_msg)
-        db.session.commit()
-        msg_data = {'id': new_msg.id, 'sender_id': uid, 'sender_name': sender.display_name or sender.username, 'sender_avatar_color': sender.avatar_color, 'sender_avatar_letter': sender.get_avatar_letter(), 'content': fwd_content, 'timestamp': new_msg.timestamp.strftime('%H:%M %d.%m'), 'timestamp_iso': new_msg.timestamp.isoformat() + 'Z', 'media_files': []}
-        socketio.emit('new_group_message', {'group_id': int(to_group_id), 'message': msg_data}, room=f'group_{to_group_id}', include_self=True, namespace='/')
-    return jsonify({'success': True})
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # ИСКРЫ (SPARKS)
 # ═══════════════════════════════════════════════════════════════════════════════
