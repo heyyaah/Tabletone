@@ -6314,6 +6314,62 @@ def _trigger_webhook(bot, update):
                         _handle_support_message(bot, sender_id, text)
                         return
 
+            # ── Premium Support — пересылаем сообщения владельцу ────────────
+            is_premium_support = bot_user_obj and bot_user_obj.username == 'premium_support'
+            if is_premium_support:
+                sender_user = User.query.get(sender_id)
+                owner = User.query.filter_by(username='romancev228').first()
+
+                if not sender_user:
+                    return
+
+                sender_is_owner = owner and sender_id == owner.id
+
+                if sender_is_owner:
+                    # Владелец отвечает: /reply_<user_id> <текст>
+                    if text.lower().startswith('/reply_'):
+                        try:
+                            parts = text.split(' ', 1)
+                            target_user_id = int(parts[0].split('_')[1])
+                            reply_text = parts[1].strip() if len(parts) > 1 else ''
+                            if reply_text:
+                                target_user = User.query.get(target_user_id)
+                                target_name = (target_user.display_name or target_user.username) if target_user else str(target_user_id)
+                                _bot_send_message(bot.user_id, target_user_id,
+                                    f"⭐ *Ответ от разработчика:*\n\n{reply_text}")
+                                _bot_send_message(bot.user_id, sender_id,
+                                    f"✅ Ответ отправлен пользователю {target_name}.")
+                            else:
+                                _bot_send_message(bot.user_id, sender_id,
+                                    "⚠️ Укажите текст: /reply_<id> <текст>")
+                        except (ValueError, IndexError):
+                            _bot_send_message(bot.user_id, sender_id,
+                                "⚠️ Формат: /reply_<id> <текст>")
+                        return
+                    # Любое другое сообщение от владельца — показываем инструкцию
+                    _bot_send_message(bot.user_id, sender_id,
+                        "💡 Чтобы ответить пользователю:\n/reply_<user_id> <текст>")
+                    return
+
+                # Обычный пользователь — пересылаем владельцу
+                if not text.startswith('/'):
+                    if owner:
+                        uname = sender_user.username
+                        udisp = sender_user.display_name or sender_user.username
+                        _bot_send_message(bot.user_id, owner.id,
+                            f"⭐ *Premium Support*\n"
+                            f"От: @{uname} ({udisp}) [id={sender_id}]\n\n"
+                            f"{text}\n\n"
+                            f"💡 Ответить: /reply_{sender_id} <текст>",
+                            buttons=[{"label": f"💬 Ответить", "reply": f"/reply_{sender_id} "}])
+                    _bot_send_message(bot.user_id, sender_id,
+                        "✅ Ваше обращение получено. Разработчик ответит вам в ближайшее время.")
+                    return
+
+                # Команды — стандартный ответ
+                _bot_auto_reply(bot, sender_id, text)
+                return
+
             # ── Перехват /pay_confirm_* для premium бота ─────────────────────
             is_premium_bot = bot_user_obj and bot_user_obj.username == 'tabletone_premiumbot'
             if is_premium_bot and text.lower().startswith('/pay_confirm_'):
