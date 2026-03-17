@@ -7719,6 +7719,7 @@ def _send_email_register_verify(to_email, code, username):
     from email.mime.multipart import MIMEMultipart
     smtp_user = os.environ.get('SMTP_USER')
     smtp_pass = os.environ.get('SMTP_PASS')
+    print(f"[EMAIL VERIFY] smtp_user={smtp_user!r} smtp_pass={'***' if smtp_pass else None!r} to={to_email}")
     if not smtp_user or not smtp_pass:
         print(f"[EMAIL VERIFY] SMTP не настроен — код: {code}")
         return
