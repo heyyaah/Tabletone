@@ -9252,11 +9252,12 @@ def handle_call_reject(data):
 
 @app.route('/chat/<int:other_id>/clear', methods=['POST'])
 def clear_chat_history(other_id):
-    """Удаляет историю чата только для текущего пользователя (soft delete через hidden_messages)."""
+    """Удаляет историю чата. Если both_sides=True — у обоих пользователей."""
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401
     uid = session['user_id']
-    # Помечаем все сообщения между двумя пользователями как скрытые для текущего пользователя
+    data = request.get_json() or {}
+    both_sides = data.get('both_sides', False)
     msgs = Message.query.filter(
         db.or_(
             db.and_(Message.sender_id == uid, Message.receiver_id == other_id),
@@ -9264,11 +9265,18 @@ def clear_chat_history(other_id):
         )
     ).all()
     for msg in msgs:
-        if uid == msg.sender_id:
+        if both_sides:
             msg.hidden_for_sender = True
-        else:
             msg.hidden_for_receiver = True
+        else:
+            if uid == msg.sender_id:
+                msg.hidden_for_sender = True
+            else:
+                msg.hidden_for_receiver = True
     db.session.commit()
+    # Уведомляем собеседника через сокет если удаляем у обоих
+    if both_sides:
+        socketio.emit('chat_history_cleared', {'by_user_id': uid}, room=f'user_{other_id}')
     return jsonify({'success': True, 'cleared': len(msgs)})
 
 with app.app_context():

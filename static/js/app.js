@@ -1899,18 +1899,27 @@ async function clearChatHistory() {
         <div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:14px;padding:24px;max-width:320px;width:90%;text-align:center;">
             <i class="fas fa-trash-alt" style="font-size:32px;color:#e53e3e;margin-bottom:12px;"></i>
             <h3 style="margin:0 0 8px;font-size:17px;">Очистить историю?</h3>
-            <p style="margin:0 0 20px;color:#718096;font-size:14px;">Сообщения будут удалены только у вас. Собеседник их не потеряет.</p>
+            <p style="margin:0 0 14px;color:var(--text-secondary);font-size:14px;">Сообщения будут удалены только у вас.</p>
+            <label style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;margin-bottom:20px;cursor:pointer;">
+                <input type="checkbox" id="clear-both-sides" style="width:16px;height:16px;cursor:pointer;">
+                Удалить и у собеседника
+            </label>
             <div style="display:flex;gap:10px;justify-content:center;">
                 <button id="clear-confirm-btn" style="background:#e53e3e;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;">Очистить</button>
-                <button onclick="this.closest('[style*=fixed]').remove()" style="background:#e2e8f0;color:#4a5568;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;">Отмена</button>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;">Отмена</button>
             </div>
         </div>`;
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
     document.getElementById('clear-confirm-btn').onclick = async () => {
+        const bothSides = document.getElementById('clear-both-sides').checked;
         modal.remove();
         try {
-            const r = await fetch(`/chat/${currentChatUserId}/clear`, { method: 'POST' });
+            const r = await fetch(`/chat/${currentChatUserId}/clear`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({both_sides: bothSides})
+            });
             const d = await r.json();
             if (d.success) {
                 document.getElementById('messages-container').innerHTML = '';
@@ -7666,6 +7675,14 @@ function setupSecretChatSocketHandlers() {
             document.getElementById('secret-chat-modal').classList.remove('active');
             showToast('Секретный чат был закрыт', 'info');
             _secretChatId = null;
+        }
+    });
+
+    socket.on('chat_history_cleared', data => {
+        // Собеседник удалил историю у обоих
+        if (currentChatUserId && currentChatUserId == data.by_user_id) {
+            const container = document.getElementById('messages-container');
+            if (container) container.innerHTML = '';
         }
     });
 }
