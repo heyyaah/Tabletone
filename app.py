@@ -6383,8 +6383,30 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                         _bot_send_message(bot_user_id, sender_id, "⚠️ ИИ временно недоступен (нет ключей CF).")
                     return
 
+                # Переводим промпт на английский через Gemini
+                cf_prompt = image_prompt
+                try:
+                    gemini_key = _os.environ.get('GEMINI_API_KEY', '')
+                    if gemini_key:
+                        tr_payload = _json.dumps({
+                            "contents": [{"parts": [{"text": f"Translate this image generation prompt to English. Return ONLY the translated prompt, nothing else: {image_prompt}"}]}]
+                        }).encode('utf-8')
+                        tr_req = urllib.request.Request(
+                            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                            data=tr_payload,
+                            headers={"Content-Type": "application/json"},
+                            method="POST"
+                        )
+                        with urllib.request.urlopen(tr_req, timeout=10) as tr_resp:
+                            tr_data = _json.loads(tr_resp.read())
+                            translated = tr_data['candidates'][0]['content']['parts'][0]['text'].strip()
+                            if translated:
+                                cf_prompt = translated
+                except Exception as tr_err:
+                    app.logger.warning(f"Nexus prompt translation failed: {tr_err}")
+
                 payload = _json.dumps({
-                    "prompt": image_prompt,
+                    "prompt": cf_prompt,
                     "num_steps": 20
                 }).encode('utf-8')
 
