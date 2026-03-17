@@ -1271,27 +1271,46 @@ def _has_role(user, min_role):
 # Middleware для обновления активности сессии
 @app.before_request
 def update_session_activity():
-    # Обновляем активность только если есть токен сессии
+    # Обновляем активность только если есть токен сессии, раз в 60 секунд
     if 'user_id' in session and 'session_token' in session:
         try:
+            token = session['session_token']
+            if not hasattr(app, '_session_activity_cache'):
+                app._session_activity_cache = {}
+            now = time.time()
+            if now - app._session_activity_cache.get(token, 0) < 60:
+                return
             user_session = UserSession.query.filter_by(
-                session_token=session['session_token'],
+                session_token=token,
                 is_active=True
             ).first()
             if user_session:
                 user_session.last_activity = datetime.utcnow()
                 db.session.commit()
+                app._session_activity_cache[token] = now
         except Exception as e:
-            print(f"Error updating session activity: {e}")
             db.session.rollback()
-    # Если нет токена сессии, но пользователь авторизован (старая сессия)
-    # просто продолжаем работу без обновления активности
+
+_banned_ip_cache = {}
+_banned_ip_cache_time = 0
 
 @app.before_request
 def check_ip_ban():
     """Блокируем запросы с забаненных IP."""
+    global _banned_ip_cache, _banned_ip_cache_time
     ip = request.remote_addr
-    if ip and BannedIP.query.filter_by(ip_address=ip).first():
+    if not ip:
+        return
+    now = time.time()
+    # Обновляем кэш раз в 60 секунд
+    if now - _banned_ip_cache_time > 60:
+        try:
+            banned = BannedIP.query.all()
+            _banned_ip_cache = {b.ip_address for b in banned}
+            _banned_ip_cache_time = now
+        except Exception:
+            pass
+    if ip in _banned_ip_cache:
         return jsonify({'error': 'Ваш IP заблокирован.'}), 403
 
 
