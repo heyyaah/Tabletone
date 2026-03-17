@@ -1663,12 +1663,6 @@ function createMessageHTML(msg) {
             </div>`;
         }
     }
-                <div class="video-play-btn">
-                    <i class="fas fa-play"></i>
-                </div>
-            </div>
-        `;
-    }
     // Изображение
     else if (msg.message_type === 'image' && msg.media_url) {
         const isDataUrl = msg.media_url.startsWith('data:');
