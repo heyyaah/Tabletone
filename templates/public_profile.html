@@ -101,6 +101,14 @@
         {% endif %}
     </div>
 
+    <!-- NFT коллекция -->
+    <div class="pub-card" id="pub-nft-section" style="display:none;">
+        <h2 class="pub-section-title">
+            <i class="fas fa-gem" style="color:#667eea;font-size:13px;"></i> Коллекционные предметы
+        </h2>
+        <div class="pub-nft-grid" id="pub-nft-grid"></div>
+    </div>
+
     <!-- Истории -->
     {% if stories %}
     <div class="pub-card">
@@ -320,8 +328,109 @@
     .pub-name { font-size: 18px; }
     .pub-avatar { width: 76px; height: 76px; font-size: 30px; }
 }
-.pub-owner-note {
-    background: linear-gradient(135deg, #667eea18, #764ba218);
+/* NFT */
+.pub-nft-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.pub-nft-card {
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .15s;
+}
+.pub-nft-card:active { transform: scale(.95); }
+.pub-nft-badge {
+    position: absolute;
+    top: 0; right: 0;
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 6px 3px 10px;
+    border-radius: 0 14px 0 14px;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+}
+.pub-nft-emoji {
+    font-size: 44px;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+}
+/* NFT модалка */
+.nft-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 99999;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 0;
+}
+.nft-modal-sheet {
+    background: var(--bg-primary, #fff);
+    border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 480px;
+    overflow: hidden;
+    animation: nftSlideUp .25s ease;
+}
+@keyframes nftSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+.nft-modal-header {
+    padding: 28px 20px 20px;
+    text-align: center;
+    position: relative;
+}
+.nft-modal-header-actions {
+    position: absolute; top: 14px; right: 14px;
+    display: flex; gap: 6px;
+}
+.nft-modal-header-actions button {
+    background: rgba(255,255,255,.15);
+    border: none; border-radius: 50%;
+    width: 32px; height: 32px;
+    color: #fff; font-size: 15px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.nft-modal-emoji-wrap {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.12);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+    font-size: 56px;
+}
+.nft-modal-title { font-size: 22px; font-weight: 700; color: #fff; margin: 0 0 4px; }
+.nft-modal-subtitle { font-size: 13px; color: rgba(255,255,255,.7); }
+.nft-modal-body { padding: 20px; }
+.nft-attr-table { width: 100%; border-collapse: collapse; }
+.nft-attr-table td {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    font-size: 14px;
+    vertical-align: middle;
+}
+.nft-attr-table td:first-child { color: var(--text-secondary, #718096); font-weight: 600; width: 40%; }
+.nft-attr-rarity {
+    display: inline-block;
+    background: #ebf8ff; color: #2b6cb0;
+    border-radius: 20px; padding: 2px 8px;
+    font-size: 11px; font-weight: 700; margin-left: 6px;
+}
+.nft-modal-ok {
+    display: block; width: calc(100% - 40px);
+    margin: 0 20px 20px;
+    padding: 14px;
+    background: #4299e1; color: #fff;
+    border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.pub-owner-note {    background: linear-gradient(135deg, #667eea18, #764ba218);
     border: 1px solid #667eea44;
     border-radius: 10px;
     padding: 10px 14px;
@@ -353,6 +462,75 @@ if (_uid) {
     sessionStorage.removeItem('openChatUserId');
     sessionStorage.removeItem('openChatUsername');
     window.location.href = '/?chat=' + _uid;
+}
+
+// ── NFT ──────────────────────────────────────────────────────────────────────
+const _NFT_EMOJIS = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','🌊','🎭'];
+
+(async function loadPublicNFTs() {
+    const userId = {{ user.id }};
+    try {
+        const r = await fetch(`/nft/user/${userId}`);
+        const d = await r.json();
+        if (!d.nfts || d.nfts.length === 0) return;
+        const section = document.getElementById('pub-nft-section');
+        const grid = document.getElementById('pub-nft-grid');
+        section.style.display = '';
+        d.nfts.forEach(nft => {
+            const card = document.createElement('div');
+            card.className = 'pub-nft-card';
+            card.style.background = nft.bg_color || '#2d3748';
+            const emoji = _NFT_EMOJIS[nft.collection_id % _NFT_EMOJIS.length];
+            const total = nft.total_supply >= 1000
+                ? (nft.total_supply / 1000).toFixed(1).replace('.0','') + 'K'
+                : nft.total_supply;
+            card.innerHTML = `
+                <div class="pub-nft-badge">${nft.serial_number} из ${total}</div>
+                <div class="pub-nft-emoji">${emoji}</div>
+            `;
+            card.addEventListener('click', () => _showNFTModal(nft, emoji));
+            grid.appendChild(card);
+        });
+    } catch(e) {}
+})();
+
+function _showNFTModal(nft, emoji) {
+    document.querySelectorAll('.nft-modal-overlay').forEach(m => m.remove());
+    const total = nft.total_supply >= 1000
+        ? (nft.total_supply / 1000).toFixed(1).replace('.0','') + 'K'
+        : nft.total_supply;
+    const attrs = nft.attributes || {};
+    const rarity = nft.attr_rarity || {};
+    let attrRows = '';
+    for (const [k, v] of Object.entries(attrs)) {
+        const pct = rarity[k] ? `<span class="nft-attr-rarity">${rarity[k]}%</span>` : '';
+        attrRows += `<tr><td>${k}</td><td>${v}${pct}</td></tr>`;
+    }
+    const valueFmt = nft.value_sparks ? `${nft.value_sparks} ✨` : '—';
+    const overlay = document.createElement('div');
+    overlay.className = 'nft-modal-overlay';
+    overlay.innerHTML = `
+        <div class="nft-modal-sheet">
+            <div class="nft-modal-header" style="background:${nft.bg_color || '#2d3748'};">
+                <div class="nft-modal-header-actions">
+                    <button onclick="this.closest('.nft-modal-overlay').remove()">✕</button>
+                </div>
+                <div class="nft-modal-emoji-wrap">${emoji}</div>
+                <div class="nft-modal-title">${nft.collection_name}</div>
+                <div class="nft-modal-subtitle">Коллекционный предмет #${nft.serial_number}</div>
+            </div>
+            <div class="nft-modal-body">
+                <table class="nft-attr-table">
+                    ${attrRows}
+                    <tr><td>Количество</td><td>${nft.serial_number}, выпущено ${nft.total_supply.toLocaleString('ru')}</td></tr>
+                    <tr><td>Ценность</td><td>${valueFmt}</td></tr>
+                </table>
+            </div>
+            <button class="nft-modal-ok" onclick="this.closest('.nft-modal-overlay').remove()">OK</button>
+        </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
 }
 </script>
 {% endblock %}

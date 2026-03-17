@@ -307,6 +307,18 @@
                 </div>
             </div>
 
+            <!-- NFT коллекция -->
+            <div class="profile-section">
+                <h3><i class="fas fa-gem" style="color:#667eea;"></i> NFT коллекция</h3>
+                <div id="my-nft-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;"></div>
+                <p id="my-nft-empty" style="color:#a0aec0;font-size:13px;margin-bottom:12px;display:none;">У вас пока нет NFT.</p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="showNFTShop()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#667eea,#764ba2);">
+                        <i class="fas fa-store"></i> Магазин NFT
+                    </button>
+                </div>
+            </div>
+
             <!-- Безопасность: 2FA -->
             <div class="profile-section">
                 <h3><i class="fas fa-shield-alt"></i> Безопасность</h3>
@@ -511,6 +523,12 @@
 </div>{% endblock %}
 
 {% block scripts %}
+<style>
+@keyframes nftSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+</style>
 <script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 <script>
 function buyPremium() {
@@ -815,9 +833,125 @@ function _createModal(title, content) {
     return m;
 }
 
-// ── Платные сообщения ─────────────────────────────────────────────────────────
-(async function loadMsgPrice() {
+// ── NFT ──────────────────────────────────────────────────────────────────────
+const _NFT_EMOJIS_P = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','🌊','🎭'];
+
+(async function loadMyNFTs() {
     try {
+        const r = await fetch('/nft/my');
+        const d = await r.json();
+        const grid = document.getElementById('my-nft-grid');
+        const empty = document.getElementById('my-nft-empty');
+        if (!d.nfts || d.nfts.length === 0) {
+            empty.style.display = '';
+            return;
+        }
+        d.nfts.forEach(nft => {
+            const emoji = _NFT_EMOJIS_P[nft.collection_id % _NFT_EMOJIS_P.length];
+            const total = nft.total_supply >= 1000
+                ? (nft.total_supply/1000).toFixed(1).replace('.0','')+'K'
+                : nft.total_supply;
+            const card = document.createElement('div');
+            card.style.cssText = `border-radius:14px;overflow:hidden;cursor:pointer;position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:${nft.bg_color||'#2d3748'};`;
+            card.innerHTML = `
+                <div style="position:absolute;top:0;right:0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:3px 6px 3px 10px;border-radius:0 14px 0 14px;backdrop-filter:blur(4px);">${nft.serial_number} из ${total}</div>
+                <div style="font-size:40px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));">${emoji}</div>
+            `;
+            card.addEventListener('click', () => _showNFTModalProfile(nft, emoji));
+            grid.appendChild(card);
+        });
+    } catch(e) {}
+})();
+
+function _showNFTModalProfile(nft, emoji) {
+    document.querySelectorAll('.nft-modal-overlay').forEach(m => m.remove());
+    const total = nft.total_supply >= 1000
+        ? (nft.total_supply/1000).toFixed(1).replace('.0','')+'K'
+        : nft.total_supply;
+    const attrs = nft.attributes || {};
+    let attrRows = '';
+    for (const [k, v] of Object.entries(attrs)) {
+        attrRows += `<tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${k}</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${v}</td></tr>`;
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'nft-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+    overlay.innerHTML = `
+        <div style="background:var(--bg-primary);border-radius:20px 20px 0 0;width:100%;max-width:480px;overflow:hidden;animation:nftSlideUp .25s ease;">
+            <div style="padding:28px 20px 20px;text-align:center;background:${nft.bg_color||'#2d3748'};position:relative;">
+                <button onclick="this.closest('.nft-modal-overlay').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:32px;height:32px;color:#fff;font-size:15px;cursor:pointer;">✕</button>
+                <div style="width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:56px;">${emoji}</div>
+                <div style="font-size:22px;font-weight:700;color:#fff;margin:0 0 4px;">${nft.collection_name}</div>
+                <div style="font-size:13px;color:rgba(255,255,255,.7);">Коллекционный предмет #${nft.serial_number}</div>
+            </div>
+            <div style="padding:20px;">
+                <table style="width:100%;border-collapse:collapse;">${attrRows}
+                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">Количество</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${nft.serial_number}, выпущено ${nft.total_supply.toLocaleString('ru')}</td></tr>
+                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;font-size:14px;">Ценность</td><td style="padding:10px 0;font-size:14px;">${nft.value_sparks ? nft.value_sparks+' ✨' : '—'}</td></tr>
+                </table>
+            </div>
+            <div style="display:flex;gap:10px;padding:0 20px 20px;">
+                <button onclick="toggleNFTDisplay(${nft.user_nft_id}, this)" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;font-size:14px;cursor:pointer;">${nft.is_displayed ? '👁 Скрыть' : '👁 Показать'}</button>
+                <button onclick="this.closest('.nft-modal-overlay').remove()" style="flex:2;padding:12px;background:#4299e1;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;">OK</button>
+            </div>
+        </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function toggleNFTDisplay(userNftId, btn) {
+    const r = await fetch(`/nft/${userNftId}/toggle-display`, {method:'POST'});
+    const d = await r.json();
+    if (d.success) btn.textContent = d.is_displayed ? '👁 Скрыть' : '👁 Показать';
+}
+
+async function showNFTShop() {
+    try {
+        const [colR, balR] = await Promise.all([fetch('/nft/collections'), fetch('/sparks/balance')]);
+        const colD = await colR.json();
+        const balD = await balR.json();
+        const balance = balD.balance || 0;
+        const cols = colD.collections || [];
+        if (!cols.length) { alert('Магазин NFT пуст'); return; }
+        let html = `<div style="margin-bottom:14px;font-size:13px;color:#718096;">Ваш баланс: <strong>${balance} ✨</strong></div><div style="display:flex;flex-direction:column;gap:12px;">`;
+        cols.forEach(c => {
+            const emoji = _NFT_EMOJIS_P[c.id % _NFT_EMOJIS_P.length];
+            const left = c.total_supply - c.minted;
+            html += `<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg-secondary);border-radius:14px;border:1px solid var(--border-color);">
+                <div style="width:60px;height:60px;border-radius:12px;background:${c.bg_color};display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;">${emoji}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:15px;">${c.name}</div>
+                    <div style="font-size:12px;color:#718096;margin:2px 0;">${c.description}</div>
+                    <div style="font-size:12px;color:#a0aec0;">Осталось: ${left} из ${c.total_supply}</div>
+                </div>
+                <button onclick="buyNFT(${c.id}, this)" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">${c.price_sparks} ✨</button>
+            </div>`;
+        });
+        html += '</div>';
+        const m = _createModal('Магазин NFT 💎', html);
+        document.body.appendChild(m);
+    } catch(e) { alert('Ошибка загрузки'); }
+}
+
+async function buyNFT(collectionId, btn) {
+    btn.disabled = true; btn.textContent = '...';
+    try {
+        const r = await fetch(`/nft/buy/${collectionId}`, {method:'POST'});
+        const d = await r.json();
+        if (d.success) {
+            document.querySelectorAll('.profile-modal').forEach(m => m.remove());
+            alert(`NFT получен! ${d.nft.collection_name} #${d.nft.serial_number}`);
+            location.reload();
+        } else {
+            alert(d.error || 'Ошибка');
+            btn.disabled = false; btn.textContent = 'Купить';
+        }
+    } catch(e) { btn.disabled = false; btn.textContent = 'Купить'; }
+}
+
+// ── Платные сообщения ─────────────────────────────────────────────────────────
+(async function loadMsgPrice() {    try {
         const r = await fetch('/user/msg-price');
         const d = await r.json();
         const el = document.getElementById('msg-price-current');
