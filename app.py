@@ -8055,6 +8055,33 @@ def spark_react(msg_id):
     socketio.emit('spark_reaction', {'msg_id': msg_id, 'total': total}, room=f'group_{msg.group_id}', namespace='/')
     return jsonify({'success': True, 'total': total})
 
+@app.route('/sparks/react/<int:msg_id>/cancel', methods=['POST'])
+def spark_react_cancel(msg_id):
+    """Отмена искорной реакции в течение 5 секунд."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    sr = SparkReaction.query.filter_by(sender_id=uid, group_message_id=msg_id).first()
+    if not sr:
+        return jsonify({'error': 'Реакция не найдена'}), 404
+    # Разрешаем отмену только в течение 10 секунд (с запасом)
+    age = (datetime.utcnow() - sr.sent_at).total_seconds()
+    if age > 10:
+        return jsonify({'error': 'Время отмены истекло'}), 400
+    msg = GroupMessage.query.get(msg_id)
+    group = Group.query.get(msg.group_id) if msg else None
+    # Возвращаем искры отправителю
+    _add_sparks(uid, sr.amount, 'spark_reaction_cancel', msg_id)
+    # Снимаем с владельца канала
+    if group:
+        _spend_sparks(group.creator_id, sr.amount, 'spark_reaction_cancel', msg_id)
+    db.session.delete(sr)
+    db.session.commit()
+    total = db.session.query(db.func.sum(SparkReaction.amount)).filter_by(group_message_id=msg_id).scalar() or 0
+    if msg:
+        socketio.emit('spark_reaction', {'msg_id': msg_id, 'total': total}, room=f'group_{msg.group_id}', namespace='/')
+    return jsonify({'success': True, 'total': total})
+
 @app.route('/sparks/post/<int:msg_id>/total')
 def spark_post_total(msg_id):
     if 'user_id' not in session:

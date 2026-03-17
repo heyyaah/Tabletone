@@ -502,7 +502,9 @@ function _showCtxMenu(msgEl, x, y) {
     // В канале удалять могут только админы; в группе — только свои
     const canDelete = isFav
         ? false
-        : (isChannel ? (isMine && _currentGroupData && _currentGroupData.is_admin) : (isMine && !isDeleted));
+        : (isChannel
+            ? (_currentGroupData && _currentGroupData.is_admin)
+            : (isMine && !isDeleted));
     if (canDelete) {
         items.push({ icon: 'fa-trash', label: 'Удалить', _fn: () => isGroup ? deleteGroupMessage(msgId) : deleteMessage(msgId), color: '#e53e3e' });
     }
@@ -5713,12 +5715,37 @@ window.showSparkReactModal = showSparkReactModal;
 
 async function doSparkReact(msgId, amount, modal) {
     modal && modal.remove();
+
+    // Показываем тост с кнопкой отмены на 5 секунд
+    let cancelled = false;
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2d3748;color:#fff;border-radius:12px;padding:10px 18px;display:flex;align-items:center;gap:12px;z-index:99999;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+    toast.innerHTML = `<span>✨ Отправляю ${amount} искр...</span><button id="_spark-cancel-btn" style="background:#f6ad55;color:#1a202c;border:none;border-radius:8px;padding:4px 12px;cursor:pointer;font-weight:700;font-size:13px;">Отмена</button>`;
+    document.body.appendChild(toast);
+
+    // Прогресс-бар
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:absolute;bottom:0;left:0;height:3px;background:#f6ad55;border-radius:0 0 12px 12px;width:100%;transition:width 5s linear;';
+    toast.style.position = 'fixed';
+    toast.style.overflow = 'hidden';
+    toast.appendChild(bar);
+    requestAnimationFrame(() => { bar.style.width = '0%'; });
+
+    toast.querySelector('#_spark-cancel-btn').addEventListener('click', () => {
+        cancelled = true;
+        toast.remove();
+    });
+
+    await new Promise(r => setTimeout(r, 5000));
+    toast.remove();
+    if (cancelled) return;
+
     const r = await fetch(`/sparks/react/${msgId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({amount}) });
     const d = await r.json();
     if (d.error) { showError(d.error); return; }
     showError(`Отправлено ${amount} ✨`, 'success');
-    const bar = document.getElementById(`spark-bar-${msgId}`);
-    if (bar) bar.innerHTML = `<span class="spark-total">✨ ${d.total}</span>`;
+    const sparkBar = document.getElementById(`spark-bar-${msgId}`);
+    if (sparkBar) sparkBar.innerHTML = `<span class="spark-total">✨ ${d.total}</span>`;
 }
 window.doSparkReact = doSparkReact;
 
