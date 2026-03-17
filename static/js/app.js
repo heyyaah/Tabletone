@@ -389,6 +389,21 @@ function setupEventListeners() {
                 messageForm.dispatchEvent(new Event('submit'));
             }
         });
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + '\n' + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 1;
+                this.dispatchEvent(new Event('input'));
+            }
+        });
+        // Авто-ресайз textarea при переносах строк
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+        });
     }
 
     // Контекстное меню сообщений (long-press / правый клик)
