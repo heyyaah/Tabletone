@@ -5326,7 +5326,7 @@ function showAttachMenu() {
 
     const menu = document.createElement('div');
     menu.id = 'attach-menu-popup';
-    menu.style.cssText = 'position:absolute;bottom:70px;left:12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:200;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:180px;';
+    menu.style.cssText = 'position:fixed;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:99999;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:180px;';
     menu.innerHTML = `
         <button onclick="document.getElementById('image-input').click();document.getElementById('attach-menu-popup')?.remove();"
             style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
@@ -5350,10 +5350,17 @@ function showAttachMenu() {
         });
     }, 10);
 
-    const container = document.querySelector('.message-input-container');
-    if (container) container.style.position = 'relative';
-    const form = document.getElementById('message-form');
-    form.parentNode.insertBefore(menu, form);
+    document.body.appendChild(menu);
+    // Позиционируем над кнопкой скрепки
+    const btn = document.getElementById('image-btn');
+    if (btn) {
+        const r = btn.getBoundingClientRect();
+        menu.style.left = Math.max(8, r.left) + 'px';
+        menu.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+    } else {
+        menu.style.left = '12px';
+        menu.style.bottom = '80px';
+    }
 }
 window.showAttachMenu = showAttachMenu;
 
@@ -6280,7 +6287,7 @@ async function toggleStickerPanel() {
 
     const panel = document.createElement('div');
     panel.id = 'sticker-panel';
-    panel.style.cssText = 'position:absolute;bottom:60px;right:0;width:340px;max-height:420px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.22);z-index:1000;display:flex;flex-direction:column;overflow:hidden;';
+    panel.style.cssText = 'position:fixed;width:340px;max-height:420px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.22);z-index:99999;display:flex;flex-direction:column;overflow:hidden;';
     panel.innerHTML = `
         <div id="emoji-cat-bar" style="display:flex;align-items:center;gap:2px;padding:6px 8px;border-bottom:1px solid var(--border-color);overflow-x:auto;flex-shrink:0;scrollbar-width:none;">
             ${EMOJI_CATEGORIES.map((c,i) => `<button data-cat="${i}" onclick="_emojiSwitchCat(${i})" title="${c.label}" style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px 5px;border-radius:8px;flex-shrink:0;opacity:${i===0?1:0.5};transition:opacity .15s;">${c.icon}</button>`).join('')}
@@ -6293,12 +6300,20 @@ async function toggleStickerPanel() {
         </div>
     `;
 
-    const inputArea = document.querySelector('.message-input-container') || document.querySelector('.input-area') || document.querySelector('#message-input')?.parentElement;
-    if (inputArea) {
-        inputArea.style.position = 'relative';
-        inputArea.appendChild(panel);
+    document.body.appendChild(panel);
+    // Позиционируем над кнопкой стикеров
+    const stickerBtn = document.getElementById('sticker-btn');
+    if (stickerBtn) {
+        const r = stickerBtn.getBoundingClientRect();
+        const panelW = Math.min(340, window.innerWidth - 16);
+        panel.style.width = panelW + 'px';
+        let left = r.right - panelW;
+        if (left < 8) left = 8;
+        panel.style.left = left + 'px';
+        panel.style.bottom = (window.innerHeight - r.top + 8) + 'px';
     } else {
-        document.body.appendChild(panel);
+        panel.style.right = '8px';
+        panel.style.bottom = '80px';
     }
 
     _emojiPanelTab = 'emoji';
