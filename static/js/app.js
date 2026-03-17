@@ -6566,14 +6566,12 @@ async function _loadStickerPanel() {
 
                 if (s.is_animated && window.lottie) {
                     try {
-                        const jsonStr = atob(s.image_url.replace('data:application/json;base64,', ''));
-                        lottie.loadAnimation({
-                            container: cell,
-                            renderer: 'svg',
-                            loop: true,
-                            autoplay: true,
-                            animationData: JSON.parse(jsonStr),
-                        });
+                        if (s.image_url.startsWith('data:application/json;base64,')) {
+                            const jsonStr = atob(s.image_url.replace('data:application/json;base64,', ''));
+                            lottie.loadAnimation({ container: cell, renderer: 'svg', loop: true, autoplay: true, animationData: JSON.parse(jsonStr) });
+                        } else {
+                            lottie.loadAnimation({ container: cell, renderer: 'svg', loop: true, autoplay: true, path: s.image_url });
+                        }
                     } catch(e) { cell.textContent = '🎭'; }
                 } else {
                     const img = document.createElement('img');
@@ -6638,8 +6636,12 @@ async function viewStickerPack(packId) {
             cell.style.cssText = 'width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;';
             if (s.is_animated && window.lottie) {
                 try {
-                    const jsonStr = atob(s.image_url.replace('data:application/json;base64,', ''));
-                    lottie.loadAnimation({ container: cell, renderer: 'svg', loop: true, autoplay: true, animationData: JSON.parse(jsonStr) });
+                    if (s.image_url.startsWith('data:application/json;base64,')) {
+                        const jsonStr = atob(s.image_url.replace('data:application/json;base64,', ''));
+                        lottie.loadAnimation({ container: cell, renderer: 'svg', loop: true, autoplay: true, animationData: JSON.parse(jsonStr) });
+                    } else {
+                        lottie.loadAnimation({ container: cell, renderer: 'svg', loop: true, autoplay: true, path: s.image_url });
+                    }
                 } catch(e) { cell.textContent = '🎭'; }
             } else {
                 const img = document.createElement('img');
@@ -6681,17 +6683,16 @@ function _fixStickerImages(container) {
     container.querySelectorAll('[data-lottie-src]').forEach(el => {
         if (el.dataset.lottieLoaded) return;
         el.dataset.lottieLoaded = '1';
+        if (!window.lottie) return;
+        const src = decodeURIComponent(el.dataset.lottieSrc);
         try {
-            const jsonStr = atob(decodeURIComponent(el.dataset.lottieSrc).replace('data:application/json;base64,', ''));
-            const animData = JSON.parse(jsonStr);
-            if (window.lottie) {
-                lottie.loadAnimation({
-                    container: el,
-                    renderer: 'svg',
-                    loop: true,
-                    autoplay: true,
-                    animationData: animData,
-                });
+            if (src.startsWith('data:application/json;base64,')) {
+                // Старый формат — base64 в БД
+                const animData = JSON.parse(atob(src.replace('data:application/json;base64,', '')));
+                lottie.loadAnimation({ container: el, renderer: 'svg', loop: true, autoplay: true, animationData: animData });
+            } else {
+                // Новый формат — файл на диске
+                lottie.loadAnimation({ container: el, renderer: 'svg', loop: true, autoplay: true, path: src });
             }
         } catch(e) { console.warn('Lottie load error:', e); }
     });
@@ -6785,6 +6786,7 @@ async function submitCreateStickerPack() {
         if (d.success) {
             showError('Пак создан!', 'success');
             document.getElementById('create-sticker-modal')?.remove();
+            _loadStickerPanel();
         } else { showError(d.error || 'Ошибка'); }
     } catch(e) { showError('Ошибка создания'); }
 }
@@ -7641,35 +7643,49 @@ async function showStickerShop() {
         body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Паков стикеров пока нет</div>';
         return;
     }
-    body.innerHTML = data.packs.map(p => `
-        <div style="border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                <div style="font-weight:600;flex:1;">${escapeHtml(p.name)}</div>
-                <div style="font-size:12px;color:var(--text-secondary);">${p.sticker_count} стикеров</div>
-                <button onclick="toggleStickerPackAdd(${p.id}, this, ${p.added})"
-                    style="padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${p.added ? '#e53e3e' : '#667eea'};color:white;">
-                    ${p.added ? 'Удалить' : 'Добавить'}
-                </button>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${p.preview.map(url => `<img src="${url}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:var(--bg-primary);">`).join('')}
-            </div>
-        </div>
-    `).join('');
+    body.innerHTML = '';
+    data.packs.forEach(p => {
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid var(--border-color);border-radius:12px;padding:14px;margin-bottom:10px;';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:10px;';
+        header.innerHTML = `
+            <div style="font-weight:600;flex:1;">${escapeHtml(p.name)}</div>
+            <div style="font-size:12px;color:var(--text-secondary);">${p.sticker_count} стикеров</div>`;
+        const btn = document.createElement('button');
+        btn.style.cssText = `padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${p.added ? '#e53e3e' : '#667eea'};color:white;`;
+        btn.textContent = p.added ? 'Удалить' : 'Добавить';
+        btn.onclick = () => toggleStickerPackAdd(p.id, btn, btn.textContent === 'Удалить');
+        header.appendChild(btn);
+        card.appendChild(header);
+
+        const previewRow = document.createElement('div');
+        previewRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+        (p.preview || []).forEach(url => {
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.cssText = 'width:48px;height:48px;object-fit:contain;border-radius:6px;background:var(--bg-primary);';
+            previewRow.appendChild(img);
+        });
+        card.appendChild(previewRow);
+        body.appendChild(card);
+    });
 }
 
 async function toggleStickerPackAdd(packId, btn, isAdded) {
-    const url = isAdded ? `/stickers/pack/${packId}/remove` : `/stickers/pack/${packId}/add`;
+    const url = isAdded ? `/stickers/pack/${packId}/delete` : `/stickers/pack/${packId}/add`;
+    btn.disabled = true;
     await fetch(url, { method: 'POST' });
+    btn.disabled = false;
     if (isAdded) {
         btn.textContent = 'Добавить'; btn.style.background = '#667eea';
-        btn.onclick = () => toggleStickerPackAdd(packId, btn, false);
     } else {
         btn.textContent = 'Удалить'; btn.style.background = '#e53e3e';
-        btn.onclick = () => toggleStickerPackAdd(packId, btn, true);
     }
+    btn.onclick = () => toggleStickerPackAdd(packId, btn, !isAdded);
     // Перезагружаем панель стикеров
-    if (typeof loadUserStickers === 'function') loadUserStickers();
+    _loadStickerPanel();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

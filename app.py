@@ -8919,19 +8919,26 @@ def sticker_pack_create():
     db.session.add(pack)
     db.session.flush()
 
-    import base64 as _b64stk
+    import base64 as _b64stk, os as _os
+    sticker_dir = _os.path.join('static', 'media', 'stickers', str(pack.id))
+    _os.makedirs(sticker_dir, exist_ok=True)
+
     for i, f in enumerate(files[:20]):
         ext = f.filename.rsplit('.', 1)[1].lower() if '.' in f.filename else ''
         is_animated = ext == 'json'
         if not is_animated and not allowed_file(f.filename, ALLOWED_IMAGES):
             continue
+        filename = f"sticker_{i}.{ext}"
+        filepath = _os.path.join(sticker_dir, filename)
         if is_animated:
             raw = f.read()
-            url = 'data:application/json;base64,' + _b64stk.b64encode(raw).decode('utf-8')
+            # Сохраняем JSON на диск
+            with open(filepath, 'wb') as fh:
+                fh.write(raw)
+            url = f"/static/media/stickers/{pack.id}/{filename}"
         else:
-            mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                    'gif': 'image/gif', 'webp': 'image/webp'}.get(ext, 'image/png')
-            url = f"data:{mime};base64," + _b64stk.b64encode(f.read()).decode('utf-8')
+            f.save(filepath)
+            url = f"/static/media/stickers/{pack.id}/{filename}"
         sticker = Sticker(pack_id=pack.id, image_url=url, order_index=i)
         db.session.add(sticker)
         if i == 0:
@@ -9020,7 +9027,15 @@ def sticker_send():
         db.session.add(msg)
         db.session.commit()
         sender = User.query.get(uid)
-        for room_uid in [uid, receiver_id]:
+        sender_info = {
+            'id': sender.id,
+            'username': sender.username,
+            'display_name': sender.display_name or sender.username,
+            'avatar_color': sender.avatar_color,
+            'avatar_letter': sender.get_avatar_letter(),
+            'avatar_url': sender.avatar_url or ''
+        }
+        for room_uid in [uid, int(receiver_id)]:
             socketio.emit('new_message', {
                 'message': {
                     'id': msg.id, 'content': content, 'message_type': 'sticker',
@@ -9029,7 +9044,8 @@ def sticker_send():
                     'timestamp_iso': msg.timestamp.isoformat(),
                     'sticker_pack_id': sticker.pack_id,
                 },
-                'other_user_id': receiver_id if room_uid == uid else uid,
+                'other_user_id': int(receiver_id) if room_uid == uid else uid,
+                'sender_info': sender_info,
             }, room=f'user_{room_uid}', namespace='/')
         return jsonify({'success': True, 'message_id': msg.id})
     return jsonify({'error': 'Укажите receiver_id или group_id'}), 400
@@ -9597,11 +9613,13 @@ def sticker_shop():
     result = []
     for p in packs:
         stickers = Sticker.query.filter_by(pack_id=p.id).order_by(Sticker.order_index).limit(4).all()
+        # Не отдаём base64 в preview — только file-path URLs (data: URLs слишком большие)
+        preview_urls = [s.image_url for s in stickers if s.image_url and not s.image_url.startswith('data:')]
         result.append({
             'id': p.id, 'name': p.name,
-            'cover_url': p.cover_url,
+            'cover_url': p.cover_url if p.cover_url and not p.cover_url.startswith('data:') else None,
             'sticker_count': Sticker.query.filter_by(pack_id=p.id).count(),
-            'preview': [s.image_url for s in stickers],
+            'preview': preview_urls,
             'added': p.id in my_pack_ids
         })
     return jsonify({'packs': result})
