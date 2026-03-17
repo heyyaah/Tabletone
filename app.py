@@ -2213,10 +2213,13 @@ def login():
     if request.method == 'POST':
         username = request.form['username'].strip().lower()
         password = request.form['password']
+        app.logger.warning(f"[LOGIN] start for {username}")
         
         user = User.query.filter_by(username=username).first()
+        app.logger.warning(f"[LOGIN] user query done, found={user is not None}")
         
         if user and user.check_password(password):
+            app.logger.warning(f"[LOGIN] password ok for {username}")
             # Проверяем, не забанен ли пользователь
             if user.is_banned:
                 return render_template('login.html', error='Ваш аккаунт заблокирован администратором')
@@ -2281,12 +2284,15 @@ def login():
             # Сохраняем токен сессии в Flask session
             session['session_token'] = session_token
 
+            app.logger.warning(f"[LOGIN] before commit for {username}")
             db.session.commit()
+            app.logger.warning(f"[LOGIN] after commit for {username}")
 
             # Уведомление о входе с нового устройства
             existing_sessions = UserSession.query.filter_by(
                 user_id=user.id, is_active=True
             ).filter(UserSession.id != new_session.id).count()
+            app.logger.warning(f"[LOGIN] existing_sessions={existing_sessions}")
             if existing_sessions == 0:
                 # Первый вход — не уведомляем
                 pass
