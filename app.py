@@ -26,14 +26,8 @@ elif _db_url.startswith('postgresql://'):
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Небольшой пул для Render (лимит 5 соединений на бесплатном плане)
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 3,
-    'max_overflow': 1,
-    'pool_timeout': 10,
-    'pool_recycle': 180,
-    'pool_pre_ping': True,
-}
+from sqlalchemy.pool import NullPool
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 app.config['PROPAGATE_EXCEPTIONS'] = True
@@ -153,8 +147,8 @@ def update_last_seen():
                 app.last_seen_cache = {}
             current_time = time.time()
             last_update = app.last_seen_cache.get(user_id, 0)
-            # Обновляем раз в 60 секунд (было 30 — слишком часто)
-            if current_time - last_update > 60:
+            # Обновляем раз в 5 минут — меньше запросов к БД
+            if current_time - last_update > 300:
                 user = User.query.get(user_id)
                 if user:
                     user.last_seen = datetime.utcnow()
