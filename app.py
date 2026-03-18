@@ -7854,6 +7854,8 @@ def _send_telegram_verify_code(chat_id, code, reason='email'):
     except Exception as e:
         print(f"[TG VERIFY] Ошибка: {e}", flush=True)
         return False
+
+def _send_telegram_2fa(chat_id, code):
     """Отправляет код 2FA через Telegram бота."""
     import urllib.request
     import urllib.error
