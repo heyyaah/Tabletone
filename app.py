@@ -216,6 +216,7 @@ class User(db.Model):
     telegram_link_code = db.Column(db.String(20), nullable=True)  # Код привязки Telegram
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    reg_ip = db.Column(db.String(45), nullable=True)  # IP при регистрации (анти-спам)
     # Новые поля
     status_text = db.Column(db.String(100))          # Текстовый статус
     theme_schedule = db.Column(db.String(50))        # "08:00-22:00:light,22:00-08:00:dark"
@@ -960,6 +961,7 @@ def _init_db():
                 "ALTER TABLE group_message ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'text'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS admin_apply_blocked_until TIMESTAMP",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS reputation INTEGER DEFAULT 100",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS reg_ip VARCHAR(45)",
                 "ALTER TABLE story ADD COLUMN IF NOT EXISTS media_url VARCHAR(500)",
                 "ALTER TABLE story ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0",
                 "ALTER TABLE password_reset_request ADD COLUMN IF NOT EXISTS request_type VARCHAR(30) DEFAULT 'password'",
@@ -1018,6 +1020,7 @@ def _init_db():
                 "ALTER TABLE group_message ADD COLUMN message_type VARCHAR(50) DEFAULT 'text'",
                 f"ALTER TABLE {user_table} ADD COLUMN admin_apply_blocked_until DATETIME",
                 f"ALTER TABLE {user_table} ADD COLUMN reputation INTEGER DEFAULT 100",
+                f"ALTER TABLE {user_table} ADD COLUMN reg_ip VARCHAR(45)",
                 "ALTER TABLE story ADD COLUMN media_url VARCHAR(500)",
                 "ALTER TABLE story ADD COLUMN views_count INTEGER DEFAULT 0",
                 "ALTER TABLE password_reset_request ADD COLUMN request_type VARCHAR(30) DEFAULT 'password'",
@@ -2660,7 +2663,7 @@ def index():
 
 # Регистрация
 @app.route('/register', methods=['GET', 'POST'])
-@limiter.limit("10 per minute; 3 per second")
+@limiter.limit("3 per hour; 1 per 30 second")
 def register():
     import random as _random
     if request.method == 'POST':
@@ -2677,6 +2680,20 @@ def register():
             return render_template('register.html', error='Неверный ответ на проверку. Попробуйте ещё раз.',
                                    captcha_q=f'{a} + {b}')
         session.pop('captcha_answer', None)
+
+        # Проверка количества аккаунтов с одного IP за последние 24 часа
+        ip = request.remote_addr
+        cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+        recent_regs = User.query.filter(
+            User.reg_ip == ip,
+            User.created_at >= cutoff_24h
+        ).count()
+        if recent_regs >= 2:
+            a, b = _random.randint(1, 9), _random.randint(1, 9)
+            session['captcha_answer'] = a + b
+            return render_template('register.html',
+                error='С вашего IP уже зарегистрировано слишком много аккаунтов. Попробуйте позже.',
+                captcha_q=f'{a} + {b}')
 
         # Проверка на существование пользователя
         if len(username) < 4:
@@ -2696,7 +2713,8 @@ def register():
             display_name=display_name or username,
             avatar_color=_random.choice(colors),
             timezone=request.form.get('timezone', 'Europe/Moscow'),
-            email_verified=False
+            email_verified=False,
+            reg_ip=ip
         )
         user.set_password(password)
         db.session.add(user)
