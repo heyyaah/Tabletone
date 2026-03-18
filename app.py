@@ -11622,6 +11622,33 @@ def _scheduled_messages_worker():
 import threading as _threading
 _sched_thread = _threading.Thread(target=_scheduled_messages_worker, daemon=True)
 _sched_thread.start()
+
+# ── Запуск Telegram payment бота в фоновом потоке ────────────────────────────
+def _start_payment_bot():
+    try:
+        import asyncio
+        from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+        from telegram.ext import (
+            Application, CommandHandler, CallbackQueryHandler,
+            MessageHandler, filters, ContextTypes
+        )
+        # Импортируем все хендлеры из tg_payment_bot
+        import importlib.util, os as _os
+        _bot_path = _os.path.join(_os.path.dirname(__file__), 'tg_payment_bot.py')
+        _spec = importlib.util.spec_from_file_location('tg_payment_bot', _bot_path)
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        _mod.main()
+    except Exception as _e:
+        print(f'[payment_bot] Failed to start: {_e}')
+
+_bot_token = os.environ.get('PAYMENT_BOT_TOKEN', '')
+if _bot_token:
+    _bot_thread = _threading.Thread(target=_start_payment_bot, daemon=True)
+    _bot_thread.start()
+    print('✓ Payment bot started in background thread')
+else:
+    print('⚠ PAYMENT_BOT_TOKEN not set, payment bot not started')
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
