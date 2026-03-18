@@ -320,7 +320,7 @@
             </div>
 
             <!-- Безопасность: 2FA -->
-            <div class="profile-section">
+            <div class="profile-section" id="2fa-section">
                 <h3><i class="fas fa-shield-alt"></i> Безопасность</h3>
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0;">
                     <div>
@@ -342,25 +342,18 @@
                     {% endif %}
                 </div>
 
-                <!-- Email -->
+                <!-- 2FA Banner -->
+                {% if not user.two_fa_enabled %}
                 <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
-                    <strong>Email адрес</strong>
-                    <p style="color:#718096; font-size:13px; margin:6px 0 10px;">Используется для восстановления доступа и уведомлений.</p>
-                    {% if user.email %}
-                    <p style="color:#38a169; font-size:13px; margin-bottom:8px;">
-                        <i class="fas fa-check-circle"></i> {{ user.email }}
-                    </p>
-                    {% endif %}
-                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <input type="email" id="email-input" value="{{ user.email or '' }}"
-                               placeholder="your@email.com"
-                               style="flex:1; min-width:180px; padding:10px; border:2px solid #e2e8f0; border-radius:10px; font-size:14px;">
-                        <button type="button" class="btn btn-primary" onclick="saveEmail()" style="padding:10px 16px; font-size:13px; white-space:nowrap; flex-shrink:0;">
-                            <i class="fas fa-save"></i> Сохранить
-                        </button>
+                    <div style="background:linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1)); border:1px solid rgba(102,126,234,0.3); border-radius:12px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px;">
+                        <i class="fas fa-shield-alt" style="color:#667eea; font-size:22px; margin-top:2px; flex-shrink:0;"></i>
+                        <div>
+                            <strong style="color:#553c9a;">Включите двухфакторную аутентификацию</strong>
+                            <p style="color:#718096; font-size:13px; margin:5px 0 0;">Защитите аккаунт — включите переключатель выше и привяжите Telegram.</p>
+                        </div>
                     </div>
-                    <div id="email-save-status" style="margin-top:6px; font-size:13px;"></div>
                 </div>
+                {% endif %}
 
                 <!-- Привязка Telegram для 2FA -->
                 <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
