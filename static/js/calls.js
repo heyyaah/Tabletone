@@ -1,4 +1,4 @@
-п»ї// WebRTC Voice + Video Calls
+// WebRTC Voice + Video Calls
 let callPeerConnection = null;
 let localStream = null;
 let callTargetUserId = null;
@@ -18,15 +18,15 @@ function showCallModal(name, avatarLetter, avatarColor, incoming, isVideo) {
     modal.style.display = 'flex';
     document.getElementById('call-name').textContent = name;
     document.getElementById('call-status').textContent = incoming
-        ? (isVideo ? 'Р’С…РѕРґСЏС‰РёР№ РІРёРґРµРѕР·РІРѕРЅРѕРє...' : 'Р’С…РѕРґСЏС‰РёР№ Р·РІРѕРЅРѕРє...')
-        : (isVideo ? 'Р’РёРґРµРѕРІС‹Р·РѕРІ...' : 'Р’С‹Р·РѕРІ...');
+        ? (isVideo ? 'Входящий видеозвонок...' : 'Входящий звонок...')
+        : (isVideo ? 'Видеовызов...' : 'Вызов...');
     const av = document.getElementById('call-avatar');
     av.textContent = avatarLetter || name[0].toUpperCase();
     av.style.background = avatarColor || 'var(--primary)';
     const videoArea = document.getElementById('call-video-area');
     videoArea.style.display = isVideo ? 'flex' : 'none';
     av.style.display = isVideo ? 'none' : 'flex';
-    // РџРѕРєР°Р·С‹РІР°РµРј РЅСѓР¶РЅС‹Р№ РЅР°Р±РѕСЂ РєРЅРѕРїРѕРє
+    // Показываем нужный набор кнопок
     const incomingBtns = document.getElementById('call-incoming-btns');
     const activeBtns = document.getElementById('call-active-btns');
     if (incomingBtns) incomingBtns.style.display = incoming ? 'flex' : 'none';
@@ -53,7 +53,7 @@ function _setCallStatus(text) { document.getElementById('call-status').textConte
 function showCallTypeModal() {
     if (!currentChatUserId) return;
     const chatItem = document.querySelector('.chat-item[data-user-id="' + currentChatUserId + '"]');
-    if (chatItem && chatItem.dataset.isBot === 'true') { showError('РќРµР»СЊР·СЏ РїРѕР·РІРѕРЅРёС‚СЊ Р±РѕС‚Сѓ'); return; }
+    if (chatItem && chatItem.dataset.isBot === 'true') { showError('Нельзя позвонить боту'); return; }
     document.getElementById('call-type-modal').style.display = 'flex';
 }
 
@@ -68,7 +68,7 @@ async function _initiateCall(isVideo) {
         localStream = await navigator.mediaDevices.getUserMedia(
             isVideo ? { audio: true, video: { facingMode: 'user' } } : { audio: true }
         );
-    } catch (e) { showError(isVideo ? 'РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РєР°РјРµСЂРµ/РјРёРєСЂРѕС„РѕРЅСѓ' : 'РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РјРёРєСЂРѕС„РѕРЅСѓ'); return; }
+    } catch (e) { showError(isVideo ? 'Нет доступа к камере/микрофону' : 'Нет доступа к микрофону'); return; }
     if (isVideo) document.getElementById('local-video').srcObject = localStream;
     callPeerConnection = _createPC();
     localStream.getTracks().forEach(t => callPeerConnection.addTrack(t, localStream));
@@ -82,7 +82,7 @@ async function _initiateCall(isVideo) {
 
 async function acceptCall() {
     callIsIncoming = false;
-    _setCallStatus('РЎРѕРµРґРёРЅРµРЅРёРµ...');
+    _setCallStatus('Соединение...');
     const incomingBtns2 = document.getElementById('call-incoming-btns');
     const activeBtns2 = document.getElementById('call-active-btns');
     if (incomingBtns2) incomingBtns2.style.display = 'none';
@@ -91,7 +91,7 @@ async function acceptCall() {
         localStream = await navigator.mediaDevices.getUserMedia(
             callIsVideo ? { audio: true, video: { facingMode: 'user' } } : { audio: true }
         );
-    } catch (e) { showError(callIsVideo ? 'РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РєР°РјРµСЂРµ/РјРёРєСЂРѕС„РѕРЅСѓ' : 'РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РјРёРєСЂРѕС„РѕРЅСѓ'); endCall(); return; }
+    } catch (e) { showError(callIsVideo ? 'Нет доступа к камере/микрофону' : 'Нет доступа к микрофону'); endCall(); return; }
     if (callIsVideo) {
         document.getElementById('local-video').srcObject = localStream;
         document.getElementById('call-video-area').style.display = 'flex';
@@ -145,7 +145,7 @@ function _createPC() {
         else { document.getElementById('remote-audio').srcObject = stream; }
     };
     pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') _setCallStatus('РРґС‘С‚ Р·РІРѕРЅРѕРє');
+        if (pc.connectionState === 'connected') _setCallStatus('Идёт звонок');
         if (pc.connectionState === 'failed') _cleanupCall();
     };
     return pc;
@@ -163,7 +163,7 @@ function initCallSocketHandlers(sock) {
     sock.on('call_answered', async data => {
         if (!callPeerConnection) return;
         await callPeerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        _setCallStatus('РРґС‘С‚ Р·РІРѕРЅРѕРє');
+        _setCallStatus('Идёт звонок');
         for (const c of pendingIceCandidates) await callPeerConnection.addIceCandidate(new RTCIceCandidate(c));
         pendingIceCandidates = [];
     });
@@ -172,8 +172,8 @@ function initCallSocketHandlers(sock) {
         if (callPeerConnection.remoteDescription) await callPeerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
         else pendingIceCandidates.push(data.candidate);
     });
-    sock.on('call_ended', () => { _cleanupCall(); showError('Р—РІРѕРЅРѕРє Р·Р°РІРµСЂС€С‘РЅ', 'info'); });
-    sock.on('call_rejected', () => { _cleanupCall(); showError('Р—РІРѕРЅРѕРє РѕС‚РєР»РѕРЅС‘РЅ', 'info'); });
+    sock.on('call_ended', () => { _cleanupCall(); showError('Звонок завершён', 'info'); });
+    sock.on('call_rejected', () => { _cleanupCall(); showError('Звонок отклонён', 'info'); });
 }
 
 window.showCallTypeModal = showCallTypeModal;
@@ -181,6 +181,7 @@ window.startCall = startCall;
 window.startVideoCall = startVideoCall;
 window.acceptCall = acceptCall;
 window.endCall = endCall;
+window.rejectCall = rejectCall;
 window.toggleMute = toggleMute;
 window.toggleVideo = toggleVideo;
 window.initCallSocketHandlers = initCallSocketHandlers;
