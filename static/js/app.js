@@ -5465,6 +5465,11 @@ function showAttachMenu() {
             onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
             <i class="fas fa-gift" style="color:#e53e3e;width:18px;"></i> Подарок
         </button>
+        <button onclick="showPremiumGiftModal();document.getElementById('attach-menu-popup')?.remove();"
+            style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
+            onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
+            <i class="fas fa-crown" style="color:#d69e2e;width:18px;"></i> Подарить Premium
+        </button>
         <button onclick="showPollModal();document.getElementById('attach-menu-popup')?.remove();"
             style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:none;cursor:pointer;border-radius:10px;font-size:14px;color:var(--text-primary);width:100%;text-align:left;"
             onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='none'">
@@ -7982,6 +7987,67 @@ async function sendGift(giftTypeId, name, emoji, price) {
         document.getElementById('gift-shop-modal').classList.remove('active');
         document.getElementById('gift-balance').textContent = data.new_balance;
         showToast(`Подарок ${emoji} отправлен!`, 'success');
+    } else {
+        showToast(data.error || 'Ошибка', 'error');
+    }
+}
+
+async function showPremiumGiftModal() {
+    if (!currentChatUserId) { showToast('Сначала откройте чат', 'error'); return; }
+    const recipientName = document.getElementById('chat-username')?.textContent || '';
+    const resp = await fetch('/gifts/premium-plans');
+    const data = await resp.json();
+    const plans = data.plans || [];
+    const balResp = await fetch('/sparks/balance');
+    const balData = await balResp.json();
+    const balance = balData.balance || 0;
+
+    const existing = document.getElementById('premium-gift-modal-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'premium-gift-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+        <div style="background:var(--bg-primary);border-radius:20px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="font-size:48px;margin-bottom:8px;">👑</div>
+                <h3 style="margin:0 0 4px;font-size:18px;">Подарить Premium</h3>
+                <p style="margin:0;color:#718096;font-size:13px;">для <strong>${escapeHtml(recipientName)}</strong></p>
+                <p style="margin:8px 0 0;font-size:13px;color:#667eea;">Ваш баланс: <strong>${balance} ✨</strong></p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+                ${plans.map(p => `
+                <button onclick="_sendPremiumGift('${p.key}', '${escapeHtml(p.label)}', ${p.price_sparks})"
+                    style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.4);border-radius:14px;cursor:pointer;text-align:left;width:100%;">
+                    <div>
+                        <div style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(p.label)}</div>
+                        <div style="font-size:12px;color:#718096;margin-top:2px;">${p.price_sparks} ✨</div>
+                    </div>
+                    <i class="fas fa-crown" style="color:#d69e2e;font-size:20px;"></i>
+                </button>`).join('')}
+            </div>
+            <button onclick="document.getElementById('premium-gift-modal-overlay').remove()"
+                style="width:100%;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;cursor:pointer;font-size:14px;">
+                Отмена
+            </button>
+        </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+async function _sendPremiumGift(planKey, label, price) {
+    if (!confirm(`Подарить "${label}" за ${price} ✨?`)) return;
+    const resp = await fetch('/gifts/send-premium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_key: planKey, recipient_id: currentChatUserId })
+    });
+    const data = await resp.json();
+    document.getElementById('premium-gift-modal-overlay')?.remove();
+    if (data.success) {
+        showToast(`👑 Premium подарен!`, 'success');
     } else {
         showToast(data.error || 'Ошибка', 'error');
     }
