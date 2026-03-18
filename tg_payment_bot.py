@@ -61,7 +61,7 @@ async def _get_nft_list():
     try:
         import aiohttp
         async with aiohttp.ClientSession() as s:
-            r = await s.get(f"{SITE_URL}/api/nft/collections", timeout=aiohttp.ClientTimeout(total=10))
+            r = await s.get(f"{SITE_URL}/nft/collections", timeout=aiohttp.ClientTimeout(total=10))
             d = await r.json()
             return d.get("collections", [])
     except Exception as e:
@@ -121,7 +121,7 @@ async def cmd_give_gift(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Usage: /givegift <username> <gift_id>"); return
     username, gift_id = args[0].lstrip("@"), args[1]
     try:
-        data = await _api_post("/api/gifts/give", {"username": username, "gift_id": gift_id})
+        data = await _api_post("/api/payment/give-gift", {"username": username, "gift_type_id": gift_id})
         if data.get("success"):
             await update.message.reply_text(f"Gift {gift_id} sent to @{username}.")
         else:
@@ -136,7 +136,7 @@ async def cmd_give_nft(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Usage: /givenft <username> <nft_id>"); return
     username, nft_id = args[0].lstrip("@"), args[1]
     try:
-        data = await _api_post("/api/nft/give", {"username": username, "nft_id": nft_id})
+        data = await _api_post("/api/payment/buy-nft", {"username": username, "collection_id": nft_id})
         if data.get("success"):
             await update.message.reply_text(f"NFT {nft_id} given to @{username}.")
         else:
@@ -149,7 +149,7 @@ async def cmd_gift_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         import aiohttp
         async with aiohttp.ClientSession() as s:
-            r = await s.get(f"{SITE_URL}/api/gifts/list", timeout=aiohttp.ClientTimeout(total=10))
+            r = await s.get(f"{SITE_URL}/api/payment/gift-types", timeout=aiohttp.ClientTimeout(total=10))
             d = await r.json()
         gifts = d.get("gifts", [])
         if not gifts:
@@ -306,7 +306,7 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             is_nft = key.startswith("nft_")
             if is_nft:
-                data = await _api_post("/api/nft/give", {"username": username, "nft_id": key[4:]})
+                data = await _api_post("/api/payment/buy-nft", {"username": username, "collection_id": key[4:]})
             elif key.startswith("premium"):
                 plan = PREMIUM_PLANS[key]
                 data = await _api_post("/api/payment/activate-premium", {"username": username, "days": plan["days"]})
