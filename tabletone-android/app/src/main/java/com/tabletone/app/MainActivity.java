@@ -2,8 +2,10 @@ package com.tabletone.app;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.CookieManager;
@@ -100,12 +102,20 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                // Все ссылки открываем внутри приложения
+                // Внутренние ссылки — открываем в WebView
                 if (url.startsWith("https://hi-j5rs.onrender.com") ||
                     url.startsWith("http://hi-j5rs.onrender.com")) {
                     return false;
                 }
-                return false;
+                // Внешние ссылки (t.me, telegram.me и др.) — открываем через Intent
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    // ignore
+                }
+                return true;
             }
 
             @Override

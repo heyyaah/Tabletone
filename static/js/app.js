@@ -8017,14 +8017,14 @@ async function showPremiumGiftModal() {
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
                 ${plans.map(p => `
-                <a href="https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}" target="_blank"
-                    style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.4);border-radius:14px;cursor:pointer;text-decoration:none;">
+                <button onclick="window.open('https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}','_blank') || (window.location.href='https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}')"
+                    style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.4);border-radius:14px;cursor:pointer;text-align:left;width:100%;">
                     <div>
                         <div style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(p.label)}</div>
                         <div style="font-size:12px;color:#718096;margin-top:2px;">${p.price_rub}</div>
                     </div>
                     <i class="fas fa-crown" style="color:#d69e2e;font-size:20px;"></i>
-                </a>`).join('')}
+                </button>`).join('')}
             </div>
             <button onclick="document.getElementById('premium-gift-modal-overlay').remove()"
                 style="width:100%;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;cursor:pointer;font-size:14px;">
