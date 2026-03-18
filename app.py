@@ -19,6 +19,16 @@ from flask_limiter.util import get_remote_address
 app = Flask(__name__)
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+import hashlib as _hashlib
+@app.template_filter('file_hash')
+def file_hash_filter(filename):
+    path = os.path.join(app.static_folder, filename)
+    try:
+        with open(path, 'rb') as f:
+            return _hashlib.md5(f.read()).hexdigest()[:8]
+    except Exception:
+        return '0'
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production')
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
 if _db_url.startswith('postgres://'):
@@ -11114,6 +11124,10 @@ def api_buy_nft():
     collection_id = data.get('collection_id')
     if not username or not collection_id:
         return jsonify({'error': 'Bad params'}), 400
+    try:
+        collection_id = int(collection_id)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid collection_id'}), 400
     user = User.query.filter_by(username=username).first()
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -11123,12 +11137,18 @@ def api_buy_nft():
     item = NFTItem.query.filter_by(collection_id=collection_id, is_minted=False).first()
     if not item:
         return jsonify({'error': 'Sold out'}), 400
-    item.is_minted = True
-    item.minted_at = datetime.utcnow()
+    try:
+        item.is_minted = True
+        item.minted_at = datetime.utcnow()
+        import json as _j
+        user_nft = UserNFT(owner_id=user.id, nft_item_id=item.id, is_displayed=True)
+        db.session.add(user_nft)
+        db.session.commit()
+    except Exception as _nft_err:
+        db.session.rollback()
+        print(f'[buy-nft] DB error: {_nft_err}')
+        return jsonify({'error': f'DB error: {_nft_err}'}), 500
     import json as _j
-    user_nft = UserNFT(owner_id=user.id, nft_item_id=item.id, is_displayed=True)
-    db.session.add(user_nft)
-    db.session.commit()
     attrs = _j.loads(item.attributes or '{}')
     minted_count = NFTItem.query.filter_by(collection_id=col.id, is_minted=True).count()
     return jsonify({
@@ -11661,24 +11681,142 @@ import threading as _threading
 _sched_thread = _threading.Thread(target=_scheduled_messages_worker, daemon=True)
 _sched_thread.start()
 
+# ── Праздничные NFT и подарки ─────────────────────────────────────────────────
+# Список праздников: (месяц, день, slug, nft_name, nft_emoji, nft_supply, gifts)
+# gifts = [(name, emoji, rarity, price_sparks), ...]
+_HOLIDAYS = [
+    (1,  1,  "ny",       "New Year",          "🎆", 5, [
+        ("Shampanskoe",  "🥂", "rare",      50),
+        ("Snegurochka",  "⛄", "epic",     100),
+        ("Novogodniy Shar", "🎄", "common", 20),
+    ]),
+    (2,  14, "val",      "Valentine",         "💝", 3, [
+        ("Serdechko",    "💖", "rare",      40),
+        ("Roza",         "🌹", "common",    20),
+        ("Lyubov",       "💌", "epic",      80),
+    ]),
+    (2,  23, "feb23",    "Tabletone",         "🛡️", 3, [
+        ("Zvezda",       "⭐", "rare",      60),
+        ("Tank",         "🪖", "epic",     100),
+        ("Orden",        "🎖️", "legendary", 200),
+    ]),
+    (3,  8,  "mar8",     "Spring",            "🌸", 3, [
+        ("Buket",        "💐", "rare",      50),
+        ("Tulpan",       "🌷", "common",    20),
+        ("Zolotoe Serdce", "💛", "epic",    90),
+    ]),
+    (5,  1,  "may1",     "May Day",           "🌿", 3, [
+        ("Pervomay",     "🌱", "common",    20),
+        ("Krasnaya Zvezda", "🔴", "rare",   60),
+    ]),
+    (5,  9,  "may9",     "Victory",           "🎗️", 3, [
+        ("Georgievskaya Lenta", "🎗️", "legendary", 300),
+        ("Zvezda Pobedy", "⭐", "epic",    150),
+        ("Vechniy Ogon", "🔥", "rare",      80),
+    ]),
+    (6,  1,  "jun1",     "Children Day",      "🎈", 3, [
+        ("Sharik",       "🎈", "common",    20),
+        ("Igrushka",     "🧸", "rare",      50),
+    ]),
+    (8,  12, "youth",    "Youth Day",         "⚡", 3, [
+        ("Molodost",     "⚡", "rare",      60),
+        ("Energiya",     "🌟", "epic",     100),
+    ]),
+    (11, 4,  "unity",    "Unity Day",         "🤝", 3, [
+        ("Edinstvo",     "🤝", "rare",      60),
+        ("Rodina",       "🏔️", "epic",     120),
+    ]),
+    (12, 31, "nye",      "New Year Eve",      "🎇", 5, [
+        ("Feierwerk",    "🎇", "epic",     100),
+        ("Dedmoroz",     "🎅", "legendary", 250),
+        ("Snezhinка",    "❄️", "rare",      50),
+    ]),
+]
+
+def _ensure_holiday_content(month, day):
+    """Создаёт праздничные NFT-коллекцию и подарки если их ещё нет."""
+    holiday = next((h for h in _HOLIDAYS if h[0] == month and h[1] == day), None)
+    if not holiday:
+        return
+    _, _, slug, nft_name, nft_emoji, nft_supply, gifts = holiday
+    year = datetime.utcnow().year
+    col_name = f"{nft_name} {year}"
+    with app.app_context():
+        # NFT коллекция
+        existing_col = NFTCollection.query.filter_by(name=col_name).first()
+        if not existing_col:
+            col = NFTCollection(
+                name=col_name,
+                description=f"Limitirovannaya kollekciya {col_name}. Vsego {nft_supply} sht.",
+                total_supply=nft_supply,
+                price_sparks=500,
+                image_url=nft_emoji,
+                bg_color='#1a1a2e',
+                is_active=True
+            )
+            db.session.add(col)
+            db.session.flush()
+            for i in range(1, nft_supply + 1):
+                item = NFTItem(
+                    collection_id=col.id,
+                    serial_number=i,
+                    attributes='{}',
+                    value_sparks=500,
+                    is_minted=False
+                )
+                db.session.add(item)
+            db.session.commit()
+            print(f'[holidays] Created NFT collection: {col_name} ({nft_supply} items)')
+        # Подарки
+        for gift_name, gift_emoji, gift_rarity, gift_price in gifts:
+            full_name = f"{gift_name} {year}"
+            existing_gift = GiftType.query.filter_by(name=full_name).first()
+            if not existing_gift:
+                g = GiftType(
+                    name=full_name,
+                    emoji=gift_emoji,
+                    description=f"Limitirovannyy podarok k prazdniku {col_name}",
+                    price_sparks=gift_price,
+                    rarity=gift_rarity,
+                    is_active=True
+                )
+                db.session.add(g)
+        db.session.commit()
+        print(f'[holidays] Gifts created for {col_name}')
+
+def _holiday_worker():
+    import time as _time
+    _checked_today = None
+    while True:
+        try:
+            now = datetime.utcnow()
+            today = (now.month, now.day)
+            if today != _checked_today:
+                _checked_today = today
+                _ensure_holiday_content(today[0], today[1])
+        except Exception as e:
+            print(f'[holidays] Error: {e}')
+        _time.sleep(3600)  # проверяем раз в час
+
+_holiday_thread = _threading.Thread(target=_holiday_worker, daemon=True)
+_holiday_thread.start()
+
 # ── Запуск Telegram payment бота в фоновом потоке ────────────────────────────
 def _start_payment_bot():
     try:
-        import asyncio
-        from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-        from telegram.ext import (
-            Application, CommandHandler, CallbackQueryHandler,
-            MessageHandler, filters, ContextTypes
-        )
-        # Импортируем все хендлеры из tg_payment_bot
-        import importlib.util, os as _os
+        import subprocess, sys, os as _os
         _bot_path = _os.path.join(_os.path.dirname(__file__), 'tg_payment_bot.py')
-        _spec = importlib.util.spec_from_file_location('tg_payment_bot', _bot_path)
-        _mod = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
-        _mod.main()
+        print(f'[payment_bot] Starting as subprocess: {_bot_path}')
+        proc = subprocess.Popen(
+            [sys.executable, _bot_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT
+        )
+        for line in iter(proc.stdout.readline, b''):
+            print(f'[bot] {line.decode().rstrip()}')
     except Exception as _e:
         print(f'[payment_bot] Failed to start: {_e}')
+        import traceback; traceback.print_exc()
 
 _bot_token = os.environ.get('PAYMENT_BOT_TOKEN', '')
 if _bot_token:
