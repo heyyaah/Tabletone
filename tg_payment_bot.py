@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN         = os.environ.get("PAYMENT_BOT_TOKEN", "8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M")
-OWNER_TELEGRAM_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
+OWNER_TELEGRAM_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "8081350794"))
 CARD_NUMBER       = "+79519603466"
 CARD_BANK         = "po nomeru telefona (SBP / lyuboy bank)"
 SITE_URL          = os.environ.get("SITE_URL", "https://hi-latest.onrender.com")
