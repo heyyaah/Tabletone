@@ -16,42 +16,20 @@
         const _t = localStorage.getItem('theme');
         if (_t) document.body.setAttribute('data-theme', _t);
     </script>
-    <!-- Баннер: привязать email -->
-    <div id="email-warning-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#e53e3e,#c53030);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);">
-        <span><i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i><strong>СРОЧНО:</strong> Привяжите email для защиты аккаунта — без него вы можете потерять доступ навсегда.</span>
+    <!-- Баннер: включить 2FA -->
+    {% if show_twofa_banner %}
+    <div id="twofa-warning-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#667eea,#764ba2);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);">
+        <span><i class="fas fa-shield-alt" style="margin-right:6px;"></i><strong>Защитите аккаунт:</strong> Включите двухфакторную аутентификацию.</span>
         <div style="display:flex;gap:8px;flex-shrink:0;">
-            <a href="/profile#security" style="background:rgba(255,255,255,.2);color:#fff;padding:5px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap;">
-                <i class="fas fa-envelope"></i> Привязать
+            <a href="/profile#2fa-section" style="background:rgba(255,255,255,.2);color:#fff;padding:5px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap;">
+                <i class="fas fa-lock"></i> Включить 2FA
             </a>
-            <button onclick="document.getElementById('email-warning-banner').style.display='none';sessionStorage.setItem('email_banner_dismissed','1');" style="background:transparent;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;">×</button>
+            <button onclick="this.closest('#twofa-warning-banner').style.display='none';document.body.style.paddingTop='0';" style="background:transparent;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;">×</button>
         </div>
     </div>
-    <script>
-    (async function() {
-        if (sessionStorage.getItem('email_banner_dismissed')) return;
-        try {
-            const r = await fetch('/api/me/email-status');
-            if (!r.ok) return;
-            const d = await r.json();
-            if (!d.has_email) {
-                const b = document.getElementById('email-warning-banner');
-                if (b) {
-                    b.style.display = 'flex';
-                    document.body.style.paddingTop = b.offsetHeight + 'px';
-                }
-            }
-        } catch(e) {}
-    })();
-    </script>
+    <script>document.body.style.paddingTop = document.getElementById('twofa-warning-banner').offsetHeight + 'px';</script>
+    {% endif %}
     <div class="container">
-        {% if current_user_no_email %}
-        <div id="email-warning-banner" style="background:#c05621;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;position:sticky;top:0;z-index:9999;">
-            <span><i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i><strong>СРОЧНО:</strong> Привяжите email — без него вы не сможете восстановить доступ к аккаунту!</span>
-            <a href="/profile#email-input" style="background:#fff;color:#c05621;padding:6px 14px;border-radius:8px;font-weight:700;text-decoration:none;white-space:nowrap;font-size:13px;">
-                <i class="fas fa-envelope"></i> Привязать email
-            </a>
-        </div>
-        {% endif %}
         {% block content %}{% endblock %}
     </div>
     {% block scripts %}{% endblock %}

@@ -240,6 +240,16 @@ class User(db.Model):
     def get_avatar_letter(self):
         return (self.display_name or self.username)[0].upper()
 
+@app.context_processor
+def inject_twofa_banner():
+    if 'user_id' not in session:
+        return {'show_twofa_banner': False}
+    try:
+        u = User.query.get(session['user_id'])
+        return {'show_twofa_banner': u is not None and not u.two_fa_enabled}
+    except Exception:
+        return {'show_twofa_banner': False}
+
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
