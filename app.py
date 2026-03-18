@@ -145,12 +145,6 @@ def handle_exception(e):
     # Для других ошибок возвращаем JSON
     return jsonify({'error': str(e)}), 500
 
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    if exception:
-        db.session.rollback()
-    db.session.remove()
-
 # Middleware для обновления last_seen при каждом запросе
 @app.before_request
 def update_last_seen():
@@ -2220,6 +2214,7 @@ PAY_PREMIUM_PLANS = {
     "premium_7":   {"label": "Premium 7 дней",    "price": "59 ₽",  "days": 7},
     "premium_14":  {"label": "Premium 14 дней",   "price": "99 ₽",  "days": 14},
     "premium_30":  {"label": "Premium 30 дней",   "price": "149 ₽", "days": 30},
+    "premium_90":  {"label": "Premium 3 месяца",  "price": "299 ₽", "days": 90},
     "premium_180": {"label": "Premium 6 месяцев", "price": "499 ₽", "days": 180},
     "premium_365": {"label": "Premium 1 год",     "price": "799 ₽", "days": 365},
 }
@@ -2464,7 +2459,92 @@ def payment_webhook():
             _pay_tg_send(token, chat_id, "Использование: `/givesparks <username> <кол-во>`")
     elif text_msg.startswith('/ownerhelp') and tg_user.get('id') == owner_tg_id:
         _pay_tg_send(token, chat_id,
-            "🔧 *Owner-команды:*\n\n`/givepremium <username> <дней>`\n`/givesparks <username> <кол-во>`")
+            "🔧 *Owner-команды:*\n\n"
+            "`/giftpremium <username> <дней>`\n"
+            "`/givesparks <username> <кол-во>`\n"
+            "`/givegift <username> <gift_id>`\n"
+            "`/givenft <username> <collection_id>`\n"
+            "`/giftlist` — список подарков\n"
+            "`/nftlist` — список NFT коллекций")
+    elif text_msg.startswith('/giftpremium') and tg_user.get('id') == owner_tg_id:
+        parts = text_msg.split()
+        if len(parts) >= 3:
+            uname = parts[1].lstrip('@')
+            try:
+                import urllib.request as _ur_pay
+                pl = json.dumps({"username": uname, "days": int(parts[2]), "secret": pay_secret}).encode()
+                req = _ur_pay.Request(f"{site_url_pay}/api/payment/activate-premium",
+                                      data=pl, headers={'Content-Type': 'application/json'})
+                resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                _pay_tg_send(token, chat_id,
+                    f"✅ Premium на *{parts[2]} дней* подарен @{uname}." if resp.get('success')
+                    else f"❌ Ошибка: {resp.get('error','?')}")
+            except Exception as e:
+                _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+        else:
+            _pay_tg_send(token, chat_id, "Использование: `/giftpremium <username> <дней>`")
+    elif text_msg.startswith('/givegift') and tg_user.get('id') == owner_tg_id:
+        parts = text_msg.split()
+        if len(parts) >= 3:
+            uname = parts[1].lstrip('@')
+            try:
+                import urllib.request as _ur_pay
+                pl = json.dumps({"username": uname, "gift_type_id": parts[2], "secret": pay_secret}).encode()
+                req = _ur_pay.Request(f"{site_url_pay}/api/payment/give-gift",
+                                      data=pl, headers={'Content-Type': 'application/json'})
+                resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                _pay_tg_send(token, chat_id,
+                    f"✅ Подарок выдан @{uname}." if resp.get('success')
+                    else f"❌ Ошибка: {resp.get('error','?')}")
+            except Exception as e:
+                _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+        else:
+            _pay_tg_send(token, chat_id, "Использование: `/givegift <username> <gift_id>`")
+    elif text_msg.startswith('/givenft') and tg_user.get('id') == owner_tg_id:
+        parts = text_msg.split()
+        if len(parts) >= 3:
+            uname = parts[1].lstrip('@')
+            try:
+                import urllib.request as _ur_pay
+                pl = json.dumps({"username": uname, "collection_id": parts[2], "secret": pay_secret}).encode()
+                req = _ur_pay.Request(f"{site_url_pay}/api/payment/buy-nft",
+                                      data=pl, headers={'Content-Type': 'application/json'})
+                resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                _pay_tg_send(token, chat_id,
+                    f"✅ NFT выдан @{uname}." if resp.get('success')
+                    else f"❌ Ошибка: {resp.get('error','?')}")
+            except Exception as e:
+                _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+        else:
+            _pay_tg_send(token, chat_id, "Использование: `/givenft <username> <collection_id>`")
+    elif text_msg.startswith('/giftlist') and tg_user.get('id') == owner_tg_id:
+        try:
+            import urllib.request as _ur_pay
+            resp = json.loads(_ur_pay.urlopen(
+                f"{site_url_pay}/api/payment/gift-types?secret={pay_secret}", timeout=10
+            ).read())
+            gifts = resp.get('gifts', [])
+            if gifts:
+                lines = '\n'.join(f"{g['id']} — {g.get('emoji','')} {g['name']} ({g.get('rarity','')})" for g in gifts)
+                _pay_tg_send(token, chat_id, f"🎁 *Подарки:*\n\n{lines}")
+            else:
+                _pay_tg_send(token, chat_id, "Подарков нет.")
+        except Exception as e:
+            _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+    elif text_msg.startswith('/nftlist') and tg_user.get('id') == owner_tg_id:
+        try:
+            import urllib.request as _ur_pay
+            resp = json.loads(_ur_pay.urlopen(
+                f"{site_url_pay}/nft/collections", timeout=10
+            ).read())
+            cols = resp.get('collections', [])
+            if cols:
+                lines = '\n'.join(f"{c['id']} — {c['name']} ({c.get('minted',0)}/{c.get('total_supply','?')})" for c in cols)
+                _pay_tg_send(token, chat_id, f"🖼 *NFT коллекции:*\n\n{lines}")
+            else:
+                _pay_tg_send(token, chat_id, "NFT коллекций нет.")
+        except Exception as e:
+            _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
     elif ud.get('awaiting_username') and text_msg and not text_msg.startswith('/'):
         username = text_msg.lstrip('@')
         if len(username) < 3:
@@ -2572,7 +2652,6 @@ def register():
         username = request.form['username'].strip().lower()
         password = request.form['password']
         display_name = request.form.get('display_name', '').strip()
-        email = request.form.get('email', '').strip().lower()
 
         # Проверка капчи
         captcha_answer = request.form.get('captcha_answer', '').strip()
@@ -2593,14 +2672,6 @@ def register():
             a, b = _random.randint(1, 9), _random.randint(1, 9)
             session['captcha_answer'] = a + b
             return render_template('register.html', error='Пользователь с таким именем уже существует', captcha_q=f'{a} + {b}')
-        if not email or '@' not in email or '.' not in email.split('@')[-1]:
-            a, b = _random.randint(1, 9), _random.randint(1, 9)
-            session['captcha_answer'] = a + b
-            return render_template('register.html', error='Введите корректный email адрес', captcha_q=f'{a} + {b}')
-        if User.query.filter_by(email=email).first():
-            a, b = _random.randint(1, 9), _random.randint(1, 9)
-            session['captcha_answer'] = a + b
-            return render_template('register.html', error='Этот email уже используется', captcha_q=f'{a} + {b}')
 
         # Генерация случайного цвета для аватара
         colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#fee140', '#30cfd0']
@@ -2610,7 +2681,6 @@ def register():
             display_name=display_name or username,
             avatar_color=_random.choice(colors),
             timezone=request.form.get('timezone', 'Europe/Moscow'),
-            email=email,
             email_verified=False
         )
         user.set_password(password)
@@ -2623,17 +2693,8 @@ def register():
             user.admin_role = 'owner'
             db.session.commit()
 
-        # Отправляем код подтверждения email
-        verify_code = str(_random.randint(100000, 999999))
-        user.two_fa_code = verify_code
-        user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
-        db.session.commit()
-
-        import threading
-        threading.Thread(target=_send_email_register_verify, args=(email, verify_code, username), daemon=True).start()
-
-        session['verify_email_user_id'] = user.id
-        return redirect(url_for('register_verify_email'))
+        session['user_id'] = user.id
+        return redirect(url_for('index'))
 
     a, b = _random.randint(1, 9), _random.randint(1, 9)
     session['captcha_answer'] = a + b
@@ -2664,9 +2725,9 @@ def register_verify_email():
             import threading
             threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
             return redirect(url_for('index'))
-        return render_template('register_verify_email.html', error='Неверный или просроченный код', email=user.email)
+        return render_template('register_verify_email.html', error='Неверный или просроченный код', email=user.email or '')
 
-    return render_template('register_verify_email.html', email=user.email)
+    return render_template('register_verify_email.html', email=user.email or '')
 
 
 @app.route('/register/resend-verify', methods=['POST'])
@@ -2679,6 +2740,8 @@ def register_resend_verify():
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
+    if not user.email:
+        return jsonify({'error': 'Email не привязан'}), 400
     code = str(_random.randint(100000, 999999))
     user.two_fa_code = code
     user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
@@ -9511,7 +9574,11 @@ def owner_command():
 
 PAYMENT_SECRET = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
 
-@app.route('/api/payment/activate-premium', methods=['POST'])
+def _check_payment_secret():
+    data = request.get_json() or {}
+    return data.get('secret') == PAYMENT_SECRET, data
+
+
 def payment_activate_premium():
     data = request.get_json() or {}
     if data.get('secret') != PAYMENT_SECRET:
@@ -9554,7 +9621,34 @@ def payment_add_sparks():
     print(f"✅ {sparks:+} искр у @{username}")
     return jsonify({'success': True, 'username': username, 'sparks': sparks})
 
-# Подавление ошибок разрыва соединения
+@app.route('/api/payment/give-gift', methods=['POST'])
+def api_give_gift():
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').strip().lstrip('@')
+    gift_type_id = data.get('gift_type_id')
+    if not username or not gift_type_id:
+        return jsonify({'error': 'Bad request'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'Пользователь @{username} не найден'}), 404
+    gift_type = GiftType.query.get(gift_type_id)
+    if not gift_type:
+        return jsonify({'error': 'Тип подарка не найден'}), 404
+    gift = UserGift(owner_id=user.id, gift_type_id=gift_type.id, sender_id=None, is_displayed=True)
+    db.session.add(gift)
+    db.session.commit()
+    return jsonify({'success': True, 'gift': gift_type.name, 'emoji': gift_type.emoji})
+
+@app.route('/api/payment/gift-types', methods=['GET'])
+def api_gift_types():
+    secret = request.args.get('secret', '')
+    if secret != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    gifts = GiftType.query.filter_by(is_active=True).all()
+    return jsonify({'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'rarity': g.rarity, 'price_sparks': g.price_sparks} for g in gifts]})
+
 import logging
 import warnings
 
@@ -11031,79 +11125,6 @@ def api_buy_nft():
             'value_sparks': item.value_sparks,
         }
     })
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAYMENT BOT API
-# ═══════════════════════════════════════════════════════════════════════════════
-_PAYMENT_SECRET = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
-
-def _check_payment_secret():
-    data = request.get_json() or {}
-    return data.get('secret') == _PAYMENT_SECRET, data
-
-@app.route('/api/payment/activate-premium', methods=['POST'])
-def api_activate_premium():
-    ok, data = _check_payment_secret()
-    if not ok:
-        return jsonify({'error': 'Forbidden'}), 403
-    username = data.get('username', '').lstrip('@')
-    days = int(data.get('days', 0))
-    if not username or days <= 0:
-        return jsonify({'error': 'Bad params'}), 400
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    now = datetime.utcnow()
-    base = user.premium_until if user.premium_until and user.premium_until > now else now
-    user.is_premium = True
-    user.premium_until = base + timedelta(days=days)
-    db.session.commit()
-    return jsonify({'success': True, 'premium_until': user.premium_until.isoformat()})
-
-@app.route('/api/payment/add-sparks', methods=['POST'])
-def api_add_sparks():
-    ok, data = _check_payment_secret()
-    if not ok:
-        return jsonify({'error': 'Forbidden'}), 403
-    username = data.get('username', '').lstrip('@')
-    sparks = int(data.get('sparks', 0))
-    if not username or sparks == 0:
-        return jsonify({'error': 'Bad params'}), 400
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    _add_sparks(user.id, sparks, 'payment_bot')
-    sb = _get_spark_balance(user.id)
-    return jsonify({'success': True, 'balance': sb.balance})
-
-@app.route('/api/payment/give-gift', methods=['POST'])
-def api_give_gift():
-    ok, data = _check_payment_secret()
-    if not ok:
-        return jsonify({'error': 'Forbidden'}), 403
-    username = data.get('username', '').lstrip('@')
-    gift_type_id = data.get('gift_type_id')
-    if not username or not gift_type_id:
-        return jsonify({'error': 'Bad params'}), 400
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    gift_type = GiftType.query.get(gift_type_id)
-    if not gift_type:
-        return jsonify({'error': 'Gift type not found'}), 404
-    gift = UserGift(owner_id=user.id, gift_type_id=gift_type.id, sender_id=None, is_displayed=True)
-    db.session.add(gift)
-    db.session.commit()
-    return jsonify({'success': True, 'gift': gift_type.name, 'emoji': gift_type.emoji})
-
-@app.route('/api/payment/gift-types', methods=['GET'])
-def api_gift_types():
-    """Список доступных типов подарков (для бота)."""
-    secret = request.args.get('secret', '')
-    if secret != _PAYMENT_SECRET:
-        return jsonify({'error': 'Forbidden'}), 403
-    gifts = GiftType.query.filter_by(is_active=True).all()
-    return jsonify({'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'rarity': g.rarity} for g in gifts]})
 
 # Автозапуск миграций при старте
 with app.app_context():
