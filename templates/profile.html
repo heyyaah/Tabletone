@@ -1233,9 +1233,12 @@ async function saveEmail() {
         });
         const d = await r.json();
         if (d.success && d.need_verify) {
+            const hint = d.via_telegram
+                ? `<i class="fab fa-telegram"></i> Код отправлен в <strong>Telegram</strong>`
+                : `<i class="fas fa-envelope"></i> Код отправлен на <strong>${email}</strong>`;
             status.innerHTML = `
                 <div style="margin-top:10px;">
-                    <p style="color:#667eea;font-size:13px;margin-bottom:8px;"><i class="fas fa-envelope"></i> Код отправлен на <strong>${email}</strong></p>
+                    <p style="color:#667eea;font-size:13px;margin-bottom:8px;">${hint}</p>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <input type="text" id="email-code-input" placeholder="000000" maxlength="6"
                                style="width:110px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;text-align:center;letter-spacing:4px;">

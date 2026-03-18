@@ -4364,8 +4364,13 @@ def profile_email_update():
     db.session.commit()
     session['email_verify_user_id'] = user.id
     import threading
-    threading.Thread(target=_send_email_register_verify, args=(new_email, code, user.username), daemon=True).start()
-    return jsonify({'success': True, 'need_verify': True})
+    # Сначала пробуем Telegram (работает на Render), потом email
+    if user.telegram_chat_id:
+        threading.Thread(target=_send_telegram_verify_code, args=(user.telegram_chat_id, code, 'email'), daemon=True).start()
+    else:
+        threading.Thread(target=_send_email_register_verify, args=(new_email, code, user.username), daemon=True).start()
+    tg_linked = bool(user.telegram_chat_id)
+    return jsonify({'success': True, 'need_verify': True, 'via_telegram': tg_linked})
 
 @app.route('/profile/email/verify', methods=['POST'])
 def profile_email_verify():
@@ -7808,7 +7813,37 @@ def _send_email_2fa(to_email, code):
         server.sendmail(smtp_user, to_email, msg.as_string())
 
 
-def _send_telegram_2fa(chat_id, code):
+def _send_telegram_verify_code(chat_id, code, reason='email'):
+    """Отправляет код верификации через Telegram бота."""
+    import urllib.request
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    if not token:
+        print(f"[TG VERIFY] TELEGRAM_BOT_TOKEN не задан — код: {code}", flush=True)
+        return False
+    if reason == 'email':
+        text = (
+            f"📧 <b>Tabletone — Подтверждение email</b>\n\n"
+            f"Ваш код подтверждения:\n\n"
+            f"<code>{code}</code>\n\n"
+            f"⏱ Действителен 30 минут.\n"
+            f"⚠️ Никому не передавайте этот код."
+        )
+    else:
+        text = (
+            f"🔐 <b>Tabletone — Код подтверждения</b>\n\n"
+            f"<code>{code}</code>\n\n"
+            f"⏱ Действителен 30 минут."
+        )
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = json.dumps({'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML'}).encode()
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    try:
+        urllib.request.urlopen(req, timeout=5)
+        print(f"[TG VERIFY] Код отправлен в Telegram chat_id={chat_id}", flush=True)
+        return True
+    except Exception as e:
+        print(f"[TG VERIFY] Ошибка: {e}", flush=True)
+        return False
     """Отправляет код 2FA через Telegram бота."""
     import urllib.request
     import urllib.error
@@ -7869,13 +7904,13 @@ def _notify_new_login(user_id, device_name, ip_address):
                 token = os.environ.get('TELEGRAM_BOT_TOKEN')
                 if token:
                     text = (
-                        "\U0001f6e1 <b>Tabletone \u2014 \u041d\u043e\u0432\u044b\u0439 \u0432\u0445\u043e\u0434</b>\n\n"
-                        "\U0001f464 \u0410\u043a\u043a\u0430\u0443\u043d\u0442: <b>@" + user.username + "</b>\n"
-                        "\U0001f4f1 \u0423\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u043e: <b>" + device_name + "</b>\n"
-                        "\U0001f310 IP-\u0430\u0434\u0440\u0435\u0441: <code>" + ip_address + "</code>\n"
-                        "\U0001f550 \u0412\u0440\u0435\u043c\u044f: <b>" + now + "</b>\n\n"
-                        "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
-                        "\u26a0\ufe0f \u0415\u0441\u043b\u0438 \u044d\u0442\u043e \u0431\u044b\u043b\u0438 \u043d\u0435 \u0432\u044b \u2014 \u043d\u0435\u043c\u0435\u0434\u043b\u0435\u043d\u043d\u043e \u0441\u043c\u0435\u043d\u0438\u0442\u0435 \u043f\u0430\u0440\u043e\u043b\u044c!"
+                        "🚨 <b>Tabletone — Вход с нового IP!</b>\n\n"
+                        f"👤 Аккаунт: <b>@{user.username}</b>\n"
+                        f"📱 Устройство: <b>{device_name}</b>\n"
+                        f"🌐 IP-адрес: <code>{ip_address}</code>\n"
+                        f"🕐 Время: <b>{now}</b>\n\n"
+                        "━━━━━━━━━━━━━━━━\n"
+                        "⚠️ Если это были не вы — немедленно смените пароль!"
                     )
                     url = "https://api.telegram.org/bot" + token + "/sendMessage"
                     data = _json.dumps({
