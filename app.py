@@ -1825,6 +1825,11 @@ def admin_resolve_recovery(req_id):
     if not req:
         return jsonify({'error': 'Не найдено'}), 404
     data = request.get_json() or {}
+    new_password = data.get('new_password', '').strip()
+    if new_password:
+        user = User.query.filter_by(username=req.username).first()
+        if user:
+            user.password_hash = generate_password_hash(new_password)
     req.status = 'resolved'
     req.admin_note = data.get('note', '').strip()
     req.reviewed_by = session['user_id']

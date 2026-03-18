@@ -194,6 +194,29 @@
     </div>
 </div>
 
+<!-- Модалка смены пароля (восстановление) -->
+<div id="resolve-recovery-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-secondary);border-radius:16px;padding:28px;width:90%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3);border:1px solid var(--border-color);">
+        <h3 style="margin-bottom:6px;color:var(--text-primary);"><i class="fas fa-key" style="color:#667eea;"></i> Решить заявку</h3>
+        <p style="margin:0 0 18px;font-size:14px;color:#718096;">Пользователь: <strong id="resolve-recovery-username"></strong></p>
+        <input type="hidden" id="resolve-recovery-req-id">
+        <div id="resolve-recovery-pw-row" style="margin-bottom:14px;">
+            <label style="font-size:13px;color:#718096;font-weight:500;">Новый пароль <span style="color:#e53e3e;">*</span></label>
+            <input id="resolve-recovery-new-pw" type="text" placeholder="Введите новый пароль для пользователя"
+                style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:18px;">
+            <label style="font-size:13px;color:#718096;font-weight:500;">Комментарий (необязательно)</label>
+            <input id="resolve-recovery-note" type="text" placeholder="Например: пароль изменён"
+                style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button onclick="submitResolveRecovery()" style="flex:1;padding:12px;background:linear-gradient(135deg,#38a169,#2f855a);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;"><i class="fas fa-check"></i> Решить</button>
+            <button onclick="closeResolveRecovery()" style="flex:1;padding:12px;background:#e2e8f0;color:#4a5568;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Отмена</button>
+        </div>
+    </div>
+</div>
+
 <style>
 /* Наследуем CSS-переменные темы */
 :root {
@@ -1160,7 +1183,7 @@ function loadRecoveryRequests() {
                     </div>
                     <div class="user-actions" style="flex-direction:column;gap:8px;min-width:140px;">
                         ${r.status === 'pending' ? `
-                            <button class="action-btn verify" onclick="resolveRecovery(${r.id})">
+                            <button class="action-btn verify" onclick="openResolveRecovery(${r.id}, '${r.request_type}', '${r.username}')">
                                 <i class="fas fa-check"></i> Решить
                             </button>
                             <button class="action-btn remove" onclick="rejectRecovery(${r.id})">
@@ -1171,6 +1194,33 @@ function loadRecoveryRequests() {
                 </div>
             `).join('');
         });
+}
+
+function openResolveRecovery(reqId, reqType, username) {
+    document.getElementById('resolve-recovery-modal').style.display = 'flex';
+    document.getElementById('resolve-recovery-req-id').value = reqId;
+    document.getElementById('resolve-recovery-username').textContent = '@' + username;
+    const pwRow = document.getElementById('resolve-recovery-pw-row');
+    pwRow.style.display = reqType === 'password_reset' || reqType === 'password' ? 'block' : 'none';
+    document.getElementById('resolve-recovery-new-pw').value = '';
+    document.getElementById('resolve-recovery-note').value = '';
+}
+
+function closeResolveRecovery() {
+    document.getElementById('resolve-recovery-modal').style.display = 'none';
+}
+
+function submitResolveRecovery() {
+    const reqId = document.getElementById('resolve-recovery-req-id').value;
+    const note  = document.getElementById('resolve-recovery-note').value.trim();
+    const newPw = document.getElementById('resolve-recovery-new-pw').value.trim();
+    fetch(`/admin/recovery-requests/${reqId}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note, new_password: newPw })
+    }).then(r => r.json()).then(d => {
+        if (d.success) { closeResolveRecovery(); loadRecoveryRequests(); }
+    });
 }
 
 function resolveRecovery(reqId) {
