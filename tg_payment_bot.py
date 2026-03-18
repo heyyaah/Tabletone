@@ -117,27 +117,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @owner_only
 async def cmd_owner_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Owner commands:\n/givepremium <user> <days>\n/givesparks <user> <amount>\n"
+        "Owner commands:\n/giftpremium <user> <days>\n/givesparks <user> <amount>\n"
         "/givegift <user> <gift_id>\n/givenft <user> <nft_id>\n/giftlist\n/nftlist"
     )
-
-@owner_only
-async def cmd_give_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    args = context.args
-    if len(args) < 2:
-        await update.message.reply_text("Usage: /givepremium <username> <days>"); return
-    username = args[0].lstrip("@")
-    try: days = int(args[1])
-    except ValueError:
-        await update.message.reply_text("Days must be a number."); return
-    try:
-        data = await _api_post("/api/payment/activate-premium", {"username": username, "days": days})
-        if data.get("success"):
-            await update.message.reply_text(f"Premium {days}d given to @{username}.")
-        else:
-            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
 
 @owner_only
 async def cmd_give_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -387,7 +369,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start",       cmd_start))
     app.add_handler(CommandHandler("ownerhelp",   cmd_owner_help))
-    app.add_handler(CommandHandler("givepremium", cmd_give_premium))
+    app.add_handler(CommandHandler("giftpremium", cmd_gift_premium))
     app.add_handler(CommandHandler("givesparks",  cmd_give_sparks))
     app.add_handler(CommandHandler("givegift",    cmd_give_gift))
     app.add_handler(CommandHandler("givenft",     cmd_give_nft))

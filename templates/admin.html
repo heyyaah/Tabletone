@@ -148,6 +148,19 @@
             <div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
         </div>
     </div>
+
+    <!-- NFT вкладка (owner only) -->
+    <div id="nft-tab" class="admin-tab">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <h2 style="margin:0;">NFT Коллекции</h2>
+            <button onclick="showCreateNFTModal()" style="padding:10px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">
+                <i class="fas fa-plus"></i> Новая коллекция
+            </button>
+        </div>
+        <div id="nft-admin-list">
+            <div style="text-align:center;padding:40px;color:#a0aec0;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+    </div>
     {% endif %}
 </div>
 
@@ -1602,22 +1615,7 @@ function cancelWarning(warningId, userId, displayName) {
 </script>
 
 {% if admin_role == 'owner' %}
-<!-- NFT вкладка -->
-<div id="nft-tab" class="admin-tab" style="display:none;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-        <h2 style="margin:0;">NFT Коллекции</h2>
-        <button onclick="showCreateNFTModal()" style="padding:10px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">
-            <i class="fas fa-plus"></i> Новая коллекция
-        </button>
-    </div>
-    <div id="nft-admin-list">
-        <div style="text-align:center;padding:40px;color:#a0aec0;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
-    </div>
-</div>
-{% endif %}
-
 <script>
-{% if admin_role == 'owner' %}
 // ── NFT Admin ─────────────────────────────────────────────────────────────────
 async function loadNFTAdmin() {
     const r = await fetch('/admin/nft/collections');

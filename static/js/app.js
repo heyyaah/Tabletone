@@ -7994,16 +7994,15 @@ async function sendGift(giftTypeId, name, emoji, price) {
 
 async function showPremiumGiftModal() {
     if (!currentChatUserId) { showToast('Сначала откройте чат', 'error'); return; }
-    const recipientName = document.getElementById('chat-username')?.textContent || '';
+    const recipientName = document.getElementById('chat-username')?.textContent?.replace(/^@/, '') || '';
     const resp = await fetch('/gifts/premium-plans');
     const data = await resp.json();
     const plans = data.plans || [];
-    const balResp = await fetch('/sparks/balance');
-    const balData = await balResp.json();
-    const balance = balData.balance || 0;
 
     const existing = document.getElementById('premium-gift-modal-overlay');
     if (existing) existing.remove();
+
+    const TG_BOT = 'TabletonePay_bot';
 
     const overlay = document.createElement('div');
     overlay.id = 'premium-gift-modal-overlay';
@@ -8014,18 +8013,18 @@ async function showPremiumGiftModal() {
                 <div style="font-size:48px;margin-bottom:8px;">👑</div>
                 <h3 style="margin:0 0 4px;font-size:18px;">Подарить Premium</h3>
                 <p style="margin:0;color:#718096;font-size:13px;">для <strong>${escapeHtml(recipientName)}</strong></p>
-                <p style="margin:8px 0 0;font-size:13px;color:#667eea;">Ваш баланс: <strong>${balance} ✨</strong></p>
+                <p style="margin:8px 0 0;font-size:12px;color:#718096;">Оплата через Telegram — переведёт в бота</p>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
                 ${plans.map(p => `
-                <button onclick="_sendPremiumGift('${p.key}', '${escapeHtml(p.label)}', ${p.price_sparks})"
-                    style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.4);border-radius:14px;cursor:pointer;text-align:left;width:100%;">
+                <a href="https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}" target="_blank"
+                    style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.4);border-radius:14px;cursor:pointer;text-decoration:none;">
                     <div>
                         <div style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(p.label)}</div>
-                        <div style="font-size:12px;color:#718096;margin-top:2px;">${p.price_sparks} ✨</div>
+                        <div style="font-size:12px;color:#718096;margin-top:2px;">${p.price_rub}</div>
                     </div>
                     <i class="fas fa-crown" style="color:#d69e2e;font-size:20px;"></i>
-                </button>`).join('')}
+                </a>`).join('')}
             </div>
             <button onclick="document.getElementById('premium-gift-modal-overlay').remove()"
                 style="width:100%;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;cursor:pointer;font-size:14px;">
@@ -8958,3 +8957,90 @@ function _showStreamBanner(groupId, title, broadcasterName) {
         <button onclick="this.closest('#_stream-banner').remove();" style="background:none;border:none;color:#a0aec0;font-size:16px;cursor:pointer;">✕</button>`;
     document.body.appendChild(banner);
 }
+
+// ── Owner Commands Panel ──────────────────────────────────────────────────────
+const _OWNER_CMDS = [
+    { cmd: '/giftpremium', hint: '/giftpremium <username> <дней>' },
+    { cmd: '/givesparks',  hint: '/givesparks <username> <количество>' },
+    { cmd: '/givegift',    hint: '/givegift <username> <gift_id>' },
+    { cmd: '/givenft',     hint: '/givenft <username> <collection_id>' },
+    { cmd: '/giftlist',    hint: '/giftlist — список подарков' },
+    { cmd: '/nftlist',     hint: '/nftlist — список NFT коллекций' },
+];
+
+function _isOwner() {
+    // Check if current user is owner via meta tag set by server
+    return document.querySelector('meta[name="user-role"]')?.content === 'owner';
+}
+
+async function _handleOwnerCommand(text) {
+    const parts = text.trim().split(/\s+/);
+    const cmd = parts[0].toLowerCase().replace('/', '');
+    const args = parts.slice(1);
+    const resp = await fetch('/api/admin/owner-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd, args })
+    });
+    const data = await resp.json();
+    if (data.success) {
+        showToast(data.msg, 'success');
+    } else {
+        showToast(data.error || 'Ошибка', 'error');
+    }
+}
+
+function _showOwnerCmdPanel(inputEl) {
+    document.getElementById('_owner-cmd-panel')?.remove();
+    if (!_isOwner()) return;
+    const val = inputEl.value;
+    if (!val.startsWith('/')) return;
+    const matches = _OWNER_CMDS.filter(c => c.cmd.startsWith(val.toLowerCase()));
+    if (!matches.length) return;
+    const panel = document.createElement('div');
+    panel.id = '_owner-cmd-panel';
+    panel.style.cssText = 'position:absolute;bottom:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;z-index:9999;box-shadow:0 -4px 20px rgba(0,0,0,.15);margin-bottom:4px;';
+    panel.innerHTML = matches.map(c => `
+        <div onclick="_selectOwnerCmd('${c.cmd}')" style="padding:10px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border-color);">
+            <span style="color:#667eea;font-weight:700;">${c.cmd}</span>
+            <span style="color:var(--text-secondary);margin-left:8px;">${c.hint.replace(c.cmd, '').trim()}</span>
+        </div>
+    `).join('');
+    inputEl.parentElement.style.position = 'relative';
+    inputEl.parentElement.appendChild(panel);
+}
+
+function _selectOwnerCmd(cmd) {
+    document.getElementById('_owner-cmd-panel')?.remove();
+    const inp = document.getElementById('message-input') || document.querySelector('.message-input');
+    if (inp) { inp.value = cmd + ' '; inp.focus(); }
+}
+
+// Hook into message input
+document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('message-input') || document.querySelector('.message-input');
+    if (!inp || !_isOwner()) return;
+    inp.addEventListener('input', () => _showOwnerCmdPanel(inp));
+    inp.addEventListener('blur', () => setTimeout(() => document.getElementById('_owner-cmd-panel')?.remove(), 200));
+});
+
+// Intercept send for owner commands
+const _origSendMessage = window.sendMessage;
+window._ownerCmdInterceptReady = true;
+document.addEventListener('DOMContentLoaded', () => {
+    // Patch the send button / Enter key for owner commands
+    const form = document.getElementById('message-form') || document.querySelector('form.message-form');
+    if (!form || !_isOwner()) return;
+    form.addEventListener('submit', async (e) => {
+        const inp = document.getElementById('message-input') || document.querySelector('.message-input');
+        if (!inp) return;
+        const val = inp.value.trim();
+        if (val.startsWith('/') && _OWNER_CMDS.some(c => val.toLowerCase().startsWith(c.cmd))) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            inp.value = '';
+            document.getElementById('_owner-cmd-panel')?.remove();
+            await _handleOwnerCommand(val);
+        }
+    }, true);
+});

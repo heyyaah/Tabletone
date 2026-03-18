@@ -246,6 +246,8 @@ def inject_twofa_banner():
         return {'show_twofa_banner': False}
     try:
         u = User.query.get(session['user_id'])
+        if u:
+            session['user_role'] = u.admin_role or ''
         return {'show_twofa_banner': u is not None and not u.two_fa_enabled}
     except Exception:
         return {'show_twofa_banner': False}
@@ -7574,6 +7576,41 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
         'name': 'Nexus'
     }, room=f'user_{sender_id}', namespace='/')
 
+    # ── Детекция джейлбрейка ────────────────────────────────────────
+    _JAILBREAK_PATTERNS = [
+        'ignore previous', 'ignore all previous', 'forget your instructions',
+        'you are now', 'pretend you are', 'act as if', 'act as a',
+        'roleplay as', 'you have no restrictions', 'bypass', 'jailbreak',
+        'dan mode', 'developer mode', 'ignore your', 'disregard',
+        'new persona', 'without restrictions', 'no rules', 'no limits',
+        'ignore the above', 'ignore everything', 'system prompt',
+        'reveal your prompt', 'show your instructions', 'print your system',
+        'игнорируй', 'забудь инструкции', 'притворись', 'ты теперь',
+        'без ограничений', 'обойди', 'раскрой промпт',
+    ]
+    text_lower_jb = text.lower()
+    is_jailbreak = any(p in text_lower_jb for p in _JAILBREAK_PATTERNS)
+
+    if is_jailbreak:
+        # Отправляем отчёт в tabletone_supportbot
+        try:
+            support_bot_user = User.query.filter_by(username='tabletone_supportbot').first()
+            owner_user = User.query.filter_by(username='romancev228').first()
+            sender_user = User.query.get(sender_id)
+            if support_bot_user and owner_user:
+                sender_name = f"@{sender_user.username}" if sender_user else f"id:{sender_id}"
+                report_text = (
+                    f"⚠️ *Попытка джейлбрейка Nexus*\n\n"
+                    f"Пользователь: {sender_name}\n"
+                    f"Сообщение: {text[:300]}"
+                )
+                _bot_send_message(support_bot_user.id, owner_user.id, report_text)
+        except Exception as _jb_err:
+            app.logger.warning(f"Jailbreak report error: {_jb_err}")
+        _bot_send_message(bot_user_id, sender_id,
+            "🚫 Это запрещено. Я не могу выполнить такой запрос.")
+        return
+
     def _ask_cf():
         reply_text = "⚠️ Произошла ошибка. Попробуй ещё раз."
         try:
@@ -7591,6 +7628,12 @@ def _handle_nexus_bot(bot_user_id, sender_id, text):
                     "Используй эмодзи умеренно. "
                     "ВАЖНО: никогда не раскрывай, на какой технологии, модели или платформе ты основан. "
                     "Если спросят — скажи только что ты Nexus, собственный ИИ мессенджера Tabletone.\n\n"
+                    "=== РАЗРАБОТЧИК TABLETONE ===\n"
+                    "Разработчик и владелец Tabletone — Александр (никнейм: romancev228 / @romancev228 в соцсетях). "
+                    "Ему 12 лет — довольно удивительный возраст для разработчика. "
+                    "Он занимается разработкой Tabletone и делает другие проекты. "
+                    "Если пользователь спрашивает о разработчике, создателе, авторе или владельце Tabletone — "
+                    "расскажи эту информацию с уважением и восхищением его возрастом.\n\n"
                     "=== ЗНАНИЯ О МЕССЕНДЖЕРЕ TABLETONE ===\n"
                     "Tabletone — современный мессенджер. Вот что умеет:\n"
                     "ОБЩЕНИЕ: личные чаты, группы (роли: владелец/админ/модератор/участник), каналы, публичные ссылки-приглашения.\n"
@@ -9328,6 +9371,139 @@ def search_messages():
     return jsonify({'results': results})
 
 ALLOWED_STICKER_EXT = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'json'}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OWNER COMMANDS API (из мессенджера)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+OWNER_USERNAME = os.environ.get('OWNER_USERNAME', 'romancev228')
+
+@app.route('/api/admin/owner-command', methods=['POST'])
+def owner_command():
+    """Команды владельца: givepremium, givesparks, givegift, givenft, giftpremium."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    u = User.query.get(session['user_id'])
+    if not u or u.admin_role != 'owner':
+        return jsonify({'error': 'Только для владельца'}), 403
+    data = request.get_json() or {}
+    cmd = data.get('cmd', '').strip().lower()
+    args = data.get('args', [])
+
+    if cmd == 'giftpremium':
+        # args: [username, days]
+        if len(args) < 2:
+            return jsonify({'error': 'Использование: /givepremium <username> <дней>'}), 400
+        target = User.query.filter_by(username=args[0].lstrip('@')).first()
+        if not target:
+            return jsonify({'error': f'Пользователь @{args[0]} не найден'}), 404
+        try: days = int(args[1])
+        except ValueError:
+            return jsonify({'error': 'Дней должно быть числом'}), 400
+        now = datetime.utcnow()
+        base = target.premium_until if target.premium_until and target.premium_until > now else now
+        target.is_premium = True
+        target.premium_until = base + timedelta(days=days)
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'✅ Premium {days} дн. выдан @{target.username} до {target.premium_until.strftime("%d.%m.%Y")}'})
+
+    elif cmd == 'givesparks':
+        # args: [username, amount]
+        if len(args) < 2:
+            return jsonify({'error': 'Использование: /givesparks <username> <количество>'}), 400
+        target = User.query.filter_by(username=args[0].lstrip('@')).first()
+        if not target:
+            return jsonify({'error': f'Пользователь @{args[0]} не найден'}), 404
+        try: amount = int(args[1])
+        except ValueError:
+            return jsonify({'error': 'Количество должно быть числом'}), 400
+        _add_sparks(target.id, amount, 'owner_gift')
+        sb = _get_spark_balance(target.id)
+        return jsonify({'success': True, 'msg': f'✅ {amount:+} искр для @{target.username}. Баланс: {sb.balance} ✨'})
+
+    elif cmd == 'givegift':
+        # args: [username, gift_id]
+        if len(args) < 2:
+            return jsonify({'error': 'Использование: /givegift <username> <gift_id>'}), 400
+        target = User.query.filter_by(username=args[0].lstrip('@')).first()
+        if not target:
+            return jsonify({'error': f'Пользователь @{args[0]} не найден'}), 404
+        gift_type = GiftType.query.get(args[1])
+        if not gift_type:
+            return jsonify({'error': f'Подарок с id={args[1]} не найден'}), 404
+        gift = UserGift(owner_id=target.id, gift_type_id=gift_type.id, sender_id=u.id, is_displayed=True)
+        db.session.add(gift)
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'✅ Подарок {gift_type.emoji} {gift_type.name} отправлен @{target.username}'})
+
+    elif cmd == 'givenft':
+        # args: [username, collection_id]
+        if len(args) < 2:
+            return jsonify({'error': 'Использование: /givenft <username> <collection_id>'}), 400
+        target = User.query.filter_by(username=args[0].lstrip('@')).first()
+        if not target:
+            return jsonify({'error': f'Пользователь @{args[0]} не найден'}), 404
+        col = NFTCollection.query.get(args[1])
+        if not col:
+            return jsonify({'error': f'Коллекция {args[1]} не найдена'}), 404
+        item = NFTItem.query.filter_by(collection_id=col.id, is_minted=False).first()
+        if not item:
+            return jsonify({'error': 'Все экземпляры разобраны'}), 400
+        item.is_minted = True
+        item.minted_at = datetime.utcnow()
+        user_nft = UserNFT(owner_id=target.id, nft_item_id=item.id, is_displayed=True)
+        db.session.add(user_nft)
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'✅ NFT {col.name} #{item.serial_number} выдан @{target.username}'})
+
+    elif cmd == 'giftpremium':
+        # args: [username, days]  — подарить premium (активирует без оплаты)
+        if len(args) < 2:
+            return jsonify({'error': 'Использование: /giftpremium <username> <дней>'}), 400
+        target = User.query.filter_by(username=args[0].lstrip('@')).first()
+        if not target:
+            return jsonify({'error': f'Пользователь @{args[0]} не найден'}), 404
+        try: days = int(args[1])
+        except ValueError:
+            return jsonify({'error': 'Дней должно быть числом'}), 400
+        now = datetime.utcnow()
+        base = target.premium_until if target.premium_until and target.premium_until > now else now
+        target.is_premium = True
+        target.premium_until = base + timedelta(days=days)
+        db.session.commit()
+        # Уведомление получателю
+        try:
+            msg = Message(
+                sender_id=u.id, receiver_id=target.id,
+                content=encrypt_msg(f'🎁 Владелец подарил тебе Premium на {days} дней! Активен до {target.premium_until.strftime("%d.%m.%Y")} 👑'),
+                message_type='text'
+            )
+            db.session.add(msg)
+            db.session.commit()
+            socketio.emit('new_message', {
+                'message': {'id': msg.id, 'sender_id': u.id, 'content': msg.decrypted_content,
+                            'timestamp': msg.timestamp.strftime('%H:%M %d.%m'), 'is_mine': False},
+                'other_user_id': u.id,
+            }, room=f'user_{target.id}', namespace='/')
+        except Exception:
+            pass
+        return jsonify({'success': True, 'msg': f'✅ Premium {days} дн. подарен @{target.username} до {target.premium_until.strftime("%d.%m.%Y")}'})
+
+    elif cmd == 'giftlist':
+        gifts = GiftType.query.filter_by(is_active=True).all()
+        if not gifts:
+            return jsonify({'success': True, 'msg': 'Подарков нет.'})
+        lines = [f'{g.id} — {g.emoji} {g.name} ({g.rarity})' for g in gifts]
+        return jsonify({'success': True, 'msg': 'Подарки:\n' + '\n'.join(lines)})
+
+    elif cmd == 'nftlist':
+        cols = NFTCollection.query.all()
+        if not cols:
+            return jsonify({'success': True, 'msg': 'NFT коллекций нет.'})
+        lines = [f'{c.id} — {c.name} (выпущено: {NFTItem.query.filter_by(collection_id=c.id, is_minted=True).count()}/{c.total_supply})' for c in cols]
+        return jsonify({'success': True, 'msg': 'NFT коллекции:\n' + '\n'.join(lines)})
+
+    return jsonify({'error': f'Неизвестная команда: {cmd}'}), 400
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAYMENT API (для Telegram-бота оплаты)
