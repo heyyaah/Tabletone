@@ -184,7 +184,6 @@ async def cmd_gift_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-@owner_only
 async def cmd_nft_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cols = await _get_nft_list()
     if not cols:
