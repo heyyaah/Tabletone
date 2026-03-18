@@ -26,7 +26,11 @@ function showCallModal(name, avatarLetter, avatarColor, incoming, isVideo) {
     const videoArea = document.getElementById('call-video-area');
     videoArea.style.display = isVideo ? 'flex' : 'none';
     av.style.display = isVideo ? 'none' : 'flex';
-    document.getElementById('call-accept-btn').style.display = incoming ? 'flex' : 'none';
+    // Показываем нужный набор кнопок
+    const incomingBtns = document.getElementById('call-incoming-btns');
+    const activeBtns = document.getElementById('call-active-btns');
+    if (incomingBtns) incomingBtns.style.display = incoming ? 'flex' : 'none';
+    if (activeBtns) activeBtns.style.display = incoming ? 'none' : 'flex';
     const videoBtnWrap = document.getElementById('call-video-btn-wrap');
     if (videoBtnWrap) videoBtnWrap.style.display = isVideo ? 'flex' : 'none';
     const muteBtn = document.getElementById('call-mute-btn');
@@ -78,8 +82,11 @@ async function _initiateCall(isVideo) {
 
 async function acceptCall() {
     callIsIncoming = false;
-    document.getElementById('call-accept-btn').style.display = 'none';
     _setCallStatus('Соединение...');
+    const incomingBtns2 = document.getElementById('call-incoming-btns');
+    const activeBtns2 = document.getElementById('call-active-btns');
+    if (incomingBtns2) incomingBtns2.style.display = 'none';
+    if (activeBtns2) activeBtns2.style.display = 'flex';
     try {
         localStream = await navigator.mediaDevices.getUserMedia(
             callIsVideo ? { audio: true, video: { facingMode: 'user' } } : { audio: true }
