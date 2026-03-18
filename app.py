@@ -9622,6 +9622,22 @@ def payment_add_sparks():
     print(f"✅ {sparks:+} искр у @{username}")
     return jsonify({'success': True, 'username': username, 'sparks': sparks})
 
+@app.route('/api/payment/cancel-premium', methods=['POST'])
+def payment_cancel_premium():
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').strip().lstrip('@')
+    if not username:
+        return jsonify({'error': 'Bad request'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'User @{username} not found'}), 404
+    user.is_premium = False
+    user.premium_until = None
+    db.session.commit()
+    return jsonify({'success': True, 'username': username})
+
 @app.route('/api/payment/give-gift', methods=['POST'])
 def api_give_gift():
     data = request.get_json() or {}
