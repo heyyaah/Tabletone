@@ -963,20 +963,42 @@ async function showGiftCatalog() {
 }
 
 async function sendPremiumGift(planKey) {
-    const username = prompt('Введите @username получателя:');
-    if (!username) return;
-    const clean = username.replace('@','');
-    const r = await fetch(`/api/user-by-username/${clean}`);
-    if (!r.ok) { alert('Пользователь не найден'); return; }
-    const d = await r.json();
-    const res = await fetch('/gifts/send-premium', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({plan_key: planKey, recipient_id: d.id})
-    });
-    const rd = await res.json();
-    if (rd.success) { alert('Premium подарен! 👑'); document.querySelectorAll('.profile-modal').forEach(m=>m.remove()); }
-    else alert(rd.error || 'Ошибка');
+    // Показываем красивый модал для ввода юзернейма
+    document.querySelectorAll('.gift-username-modal').forEach(m => m.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'gift-username-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+        <div style="background:var(--bg-primary);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">👑</div>
+            <h3 style="margin:0 0 8px;font-size:18px;">Подарить Premium</h3>
+            <p style="color:#718096;font-size:13px;margin:0 0 18px;">Введите username получателя в Tabletone</p>
+            <input id="gift-recipient-input" type="text" placeholder="@username"
+                style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;text-align:center;box-sizing:border-box;margin-bottom:14px;background:var(--bg-secondary);color:var(--text-primary);">
+            <div style="display:flex;gap:10px;">
+                <button onclick="this.closest('.gift-username-modal').remove()"
+                    style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;cursor:pointer;font-size:14px;">Отмена</button>
+                <button onclick="_confirmPremiumGift('${planKey}')"
+                    style="flex:2;padding:12px;background:linear-gradient(135deg,#f6ad55,#ed8936);color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;">Далее →</button>
+            </div>
+        </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    setTimeout(() => document.getElementById('gift-recipient-input').focus(), 100);
+}
+
+async function _confirmPremiumGift(planKey) {
+    const input = document.getElementById('gift-recipient-input');
+    const username = input.value.trim().replace('@', '');
+    if (!username) { input.style.borderColor = '#e53e3e'; return; }
+    // Проверяем что пользователь существует
+    const r = await fetch(`/api/user-by-username/${username}`);
+    if (!r.ok) { input.style.borderColor = '#e53e3e'; input.placeholder = 'Пользователь не найден'; return; }
+    // Закрываем модал и открываем Telegram бота
+    document.querySelectorAll('.gift-username-modal').forEach(m => m.remove());
+    document.querySelectorAll('.profile-modal').forEach(m => m.remove());
+    const startParam = `gift_${planKey}_${username}`;
+    window.open(`https://t.me/TabletonePay_bot?start=${startParam}`, '_blank');
 }
 
 async function sendGiftFromCatalog(giftTypeId) {

@@ -69,7 +69,50 @@ async def _get_nft_list():
         return []
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Privet! Ya bot oplaty Tabletone.\n\nVyberi chto hochesh kupit:", reply_markup=main_kb())
+    # Deep link: /start gift_premium_7_username
+    args = context.args
+    if args:
+        param = args[0]
+        if param.startswith("gift_"):
+            parts = param.split("_", 3)
+            if len(parts) == 4 and parts[1] == "premium":
+                plan_key = f"premium_{parts[2]}"
+                recipient = parts[3]
+                plan = PREMIUM_PLANS.get(plan_key)
+                if plan:
+                    context.user_data["pending_key"] = plan_key
+                    context.user_data["gift_recipient"] = recipient
+                    context.user_data["awaiting_screenshot"] = True
+                    context.user_data["awaiting_username"] = False
+                    context.user_data["tabletone_username"] = recipient
+                    msg = (
+                        "Podarok: " + plan["label"] + " dlya @" + recipient + "\n\n"
+                        "Rekvizity oplaty:\n"
+                        "Telefon: " + CARD_NUMBER + "\n"
+                        "Bank: " + CARD_BANK + "\n"
+                        "Summa: " + plan["price"] + "\n\n"
+                        "Posle oplaty otprav skrinshot syuda. 10 minut."
+                    )
+                    await update.message.reply_text(
+                        msg,
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("Otmena", callback_data="menu_main")
+                        ]])
+                    )
+                    async def timeout_check():
+                        await asyncio.sleep(SCREENSHOT_TIMEOUT)
+                        if context.user_data.get("awaiting_screenshot"):
+                            context.user_data["awaiting_screenshot"] = False
+                            try:
+                                await update.message.reply_text("Vremya isteklo. Nazhmi /start.")
+                            except Exception:
+                                pass
+                    asyncio.create_task(timeout_check())
+                    return
+    await update.message.reply_text(
+        "Privet! Ya bot oplaty Tabletone.\n\nVyberi chto hochesh kupit:",
+        reply_markup=main_kb()
+    )
 
 @owner_only
 async def cmd_owner_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
