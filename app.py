@@ -9579,6 +9579,7 @@ def _check_payment_secret():
     return data.get('secret') == PAYMENT_SECRET, data
 
 
+@app.route('/api/payment/activate-premium', methods=['POST'])
 def payment_activate_premium():
     data = request.get_json() or {}
     if data.get('secret') != PAYMENT_SECRET:
