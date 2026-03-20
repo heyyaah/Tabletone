@@ -994,6 +994,8 @@ def _init_db():
                 'ALTER TABLE message ALTER COLUMN media_url TYPE TEXT',
                 'ALTER TABLE message_media ALTER COLUMN media_url TYPE TEXT',
                 'ALTER TABLE group_message ADD COLUMN IF NOT EXISTS topic_id INTEGER REFERENCES group_topic(id)',
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS ref_code VARCHAR(20)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS referred_by INTEGER",
             ]
         else:
             migrations = [
@@ -12294,6 +12296,7 @@ if __name__ == '__main__':
         print("\n👋 Сервер остановлен")
     except Exception as e:
         print(f"❌ Ошибка сервера: {e}")
+
 
 
 
