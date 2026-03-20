@@ -223,7 +223,6 @@ class User(db.Model):
     two_fa_code = db.Column(db.String(8))           # Текущий код 2FA
     two_fa_code_expires = db.Column(db.DateTime)    # Срок действия кода
     email = db.Column(db.String(200), nullable=True)  # Email для 2FA
-    email_verified = db.Column(db.Boolean, default=False)  # Email подтверждён
     telegram_chat_id = db.Column(db.String(50), nullable=True)  # Telegram chat_id для 2FA
     telegram_link_code = db.Column(db.String(20), nullable=True)  # Код привязки Telegram
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -962,7 +961,6 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
-                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
@@ -1021,7 +1019,6 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
-                f"ALTER TABLE {user_table} ADD COLUMN email_verified BOOLEAN DEFAULT 0",
                 "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN expires_at DATETIME",
@@ -2848,7 +2845,6 @@ def register():
             display_name=display_name or username,
             avatar_color=_random.choice(colors),
             timezone=request.form.get('timezone', 'Europe/Moscow'),
-            email_verified=False,
             reg_ip=ip
         )
         user.set_password(password)
@@ -2872,56 +2868,6 @@ def register():
     session['captcha_answer'] = a + b
     return render_template('register.html', captcha_q=f'{a} + {b}')
 
-
-@app.route('/register/verify-email', methods=['GET', 'POST'])
-@limiter.limit("20 per minute")
-def register_verify_email():
-    user_id = session.get('verify_email_user_id')
-    if not user_id:
-        return redirect(url_for('register'))
-    user = User.query.get(user_id)
-    if not user:
-        return redirect(url_for('register'))
-
-    if request.method == 'POST':
-        code = request.form.get('code', '').strip()
-        if (user.two_fa_code == code and
-                user.two_fa_code_expires and
-                user.two_fa_code_expires > datetime.utcnow()):
-            user.email_verified = True
-            user.two_fa_code = None
-            user.two_fa_code_expires = None
-            db.session.commit()
-            session.pop('verify_email_user_id', None)
-            session['user_id'] = user.id
-            session.permanent = True
-            import threading
-            threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
-            return redirect(url_for('index'))
-        return render_template('register_verify_email.html', error='Неверный или просроченный код', email=user.email or '')
-
-    return render_template('register_verify_email.html', email=user.email or '')
-
-
-@app.route('/register/resend-verify', methods=['POST'])
-@limiter.limit("3 per minute")
-def register_resend_verify():
-    import random as _random
-    user_id = session.get('verify_email_user_id')
-    if not user_id:
-        return jsonify({'error': 'Сессия истекла'}), 400
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'Пользователь не найден'}), 404
-    if not user.email:
-        return jsonify({'error': 'Email не привязан'}), 400
-    code = str(_random.randint(100000, 999999))
-    user.two_fa_code = code
-    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
-    db.session.commit()
-    import threading
-    threading.Thread(target=_send_email_register_verify, args=(user.email, code, user.username), daemon=True).start()
-    return jsonify({'success': True})
 
 # Вход
 @app.route('/login', methods=['GET', 'POST'])
@@ -2964,22 +2910,6 @@ def login():
                 session['2fa_resend_count'] = 0
                 session['2fa_last_resend'] = __import__('time').time()
                 return redirect(url_for('login_2fa'))
-
-            # Проверка нового IP — если email подтверждён и IP ранее не использовался
-            if not _ip_trusted and user.email and user.email_verified:
-                _known_ips = {s.ip_address for s in UserSession.query.filter_by(user_id=user.id, is_active=True).all()}
-                if _current_ip not in _known_ips:
-                    import threading
-                    code = str(random.randint(100000, 999999))
-                    user.two_fa_code = code
-                    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=15)
-                    db.session.commit()
-                    threading.Thread(target=_send_email_2fa, args=(user.email, code), daemon=True).start()
-                    session['2fa_pending_user_id'] = user.id
-                    session['2fa_resend_count'] = 0
-                    session['2fa_last_resend'] = __import__('time').time()
-                    session['2fa_reason'] = 'new_ip'
-                    return redirect(url_for('login_2fa'))
 
             session['user_id'] = user.id
             session.permanent = True
@@ -4584,67 +4514,6 @@ def profile_privacy():
             setattr(user, field, data[field])
     db.session.commit()
     return jsonify({'success': True})
-
-@app.route('/profile/email', methods=['POST'])
-def profile_email_update():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    import random as _r
-    user = User.query.get(session['user_id'])
-    data = request.get_json() or {}
-    new_email = data.get('email', '').strip().lower()
-    if not new_email:
-        # Удаление email
-        user.email = None
-        user.email_verified = False
-        db.session.commit()
-        return jsonify({'success': True})
-    if '@' not in new_email or '.' not in new_email.split('@')[-1]:
-        return jsonify({'error': 'Некорректный email'}), 400
-    existing = User.query.filter_by(email=new_email).first()
-    if existing and existing.id != user.id:
-        return jsonify({'error': 'Этот email уже используется'}), 400
-    # Сохраняем новый email как неподтверждённый и отправляем код
-    code = str(_r.randint(100000, 999999))
-    user.email = new_email
-    user.email_verified = False
-    user.two_fa_code = code
-    user.two_fa_code_expires = datetime.utcnow() + timedelta(minutes=30)
-    db.session.commit()
-    session['email_verify_user_id'] = user.id
-    import threading
-    # Сначала пробуем Telegram (работает на Render), потом email
-    if user.telegram_chat_id:
-        threading.Thread(target=_send_telegram_verify_code, args=(user.telegram_chat_id, code, 'email'), daemon=True).start()
-    else:
-        threading.Thread(target=_send_email_register_verify, args=(new_email, code, user.username), daemon=True).start()
-    tg_linked = bool(user.telegram_chat_id)
-    return jsonify({'success': True, 'need_verify': True, 'via_telegram': tg_linked})
-
-@app.route('/profile/email/verify', methods=['POST'])
-def profile_email_verify():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    user = User.query.get(session['user_id'])
-    data = request.get_json() or {}
-    code = data.get('code', '').strip()
-    if (user.two_fa_code and user.two_fa_code == code and
-            user.two_fa_code_expires and user.two_fa_code_expires > datetime.utcnow()):
-        user.email_verified = True
-        user.two_fa_code = None
-        user.two_fa_code_expires = None
-        db.session.commit()
-        return jsonify({'success': True})
-    return jsonify({'error': 'Неверный или просроченный код'}), 400
-
-@app.route('/api/me/email-status')
-def api_me_email_status():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    user = User.query.get(session['user_id'])
-    if not user:
-        return jsonify({'error': 'Не найден'}), 404
-    return jsonify({'has_email': bool(user.email), 'email_verified': bool(user.email_verified)})
 
 @app.route('/profile/upload_avatar', methods=['POST'])
 def upload_avatar():
@@ -8039,67 +7908,6 @@ def _send_2fa_code(user_id, code):
                 print(f"Telegram 2FA error: {e}")
         else:
             print(f"[2FA] User {user_id} has no telegram_chat_id linked")
-
-
-def _send_email_register_verify(to_email, code, username):
-    """Отправляет код подтверждения email при регистрации."""
-    smtp_user = os.environ.get('SMTP_USER')
-    resend_key = os.environ.get('RESEND_API_KEY')
-    print(f"[EMAIL VERIFY] smtp_user={smtp_user!r} resend={'yes' if resend_key else 'no'} to={to_email}", flush=True)
-
-    html = f"""
-    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;background:#f7f8fc;border-radius:12px;">
-      <h2 style="color:#667eea;margin-bottom:8px;">👋 Привет, {username}!</h2>
-      <p style="color:#4a5568;">Для подтверждения email введите этот код:</p>
-      <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#2d3748;background:#fff;padding:20px;border-radius:8px;text-align:center;margin:20px 0;">{code}</div>
-      <p style="color:#718096;font-size:13px;">⏱ Код действителен 30 минут.</p>
-      <p style="color:#e53e3e;font-size:13px;">⚠️ Если вы не запрашивали код — просто проигнорируйте это письмо.</p>
-    </div>
-    """
-
-    # Resend API (работает на Render)
-    if resend_key:
-        try:
-            import resend as _resend
-            _resend.api_key = resend_key
-            from_addr = 'onboarding@resend.dev'
-            _resend.Emails.send({
-                'from': f'Tabletone <{from_addr}>',
-                'to': [to_email],
-                'subject': 'Подтверждение email — Tabletone',
-                'html': html,
-            })
-            print(f"[EMAIL VERIFY] Отправлено через Resend на {to_email}", flush=True)
-        except Exception as e:
-            import traceback
-            print(f"[EMAIL VERIFY] Ошибка Resend: {e}", flush=True)
-            traceback.print_exc()
-        return
-
-    # Fallback: SMTP (может не работать на Render из-за блокировки портов)
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    smtp_pass = os.environ.get('SMTP_PASS')
-    if not smtp_user or not smtp_pass:
-        print(f"[EMAIL VERIFY] SMTP не настроен — код: {code}", flush=True)
-        return
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = 'Подтверждение email — Tabletone'
-    msg['From'] = f'Tabletone <{smtp_user}>'
-    msg['To'] = to_email
-    msg.attach(MIMEText(html, 'html'))
-    try:
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, to_email, msg.as_string())
-        print(f"[EMAIL VERIFY] Отправлено через SMTP на {to_email}", flush=True)
-    except Exception as e:
-        import traceback
-        print(f"[EMAIL VERIFY] Ошибка SMTP: {e}", flush=True)
-        traceback.print_exc()
 
 
 def _send_email_2fa(to_email, code):
