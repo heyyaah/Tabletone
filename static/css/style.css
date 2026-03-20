@@ -3635,3 +3635,134 @@ body[data-theme="dark"] .profile-modal > div {
     background: var(--bg-secondary) !important;
     color: var(--text-primary) !important;
 }
+
+
+/* ── Android / Mobile Enhancements ───────────────────────── */
+
+/* Safe area insets (notch, navigation bar) */
+@supports (padding: env(safe-area-inset-bottom)) {
+    body.messenger-page .message-input-container {
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    .sidebar-header {
+        padding-top: max(14px, env(safe-area-inset-top));
+    }
+
+    .chat-header {
+        padding-top: max(10px, env(safe-area-inset-top));
+    }
+
+    .auth-container {
+        padding-top: max(16px, env(safe-area-inset-top));
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+        padding-left: max(16px, env(safe-area-inset-left));
+        padding-right: max(16px, env(safe-area-inset-right));
+    }
+}
+
+/* Prevent overscroll bounce on Android */
+body.messenger-page {
+    overscroll-behavior: none;
+}
+
+.messages-container {
+    overscroll-behavior-y: contain;
+}
+
+/* Touch targets — minimum 44px */
+@media (max-width: 768px) {
+    .btn {
+        min-height: 44px;
+    }
+
+    .icon-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .tab-btn {
+        min-height: 44px;
+    }
+
+    .chat-item {
+        min-height: 60px;
+    }
+
+    .send-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .media-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Prevent zoom on input focus (font-size >= 16px) */
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="search"],
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+
+    /* Faster tap response */
+    touch-action: manipulation;
+}
+
+/* touch-action on interactive elements */
+button,
+a,
+.btn,
+.chat-item,
+.tab-btn,
+.icon-btn,
+.send-btn,
+.media-btn,
+.search-result-item,
+.color-option,
+.theme-btn {
+    touch-action: manipulation;
+}
+
+/* Prevent text selection on tap */
+button,
+.btn,
+.chat-item,
+.tab-btn,
+.icon-btn {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Visual viewport fix — keep layout when keyboard opens */
+@media (max-width: 768px) {
+    body.messenger-page .chat-area {
+        height: 100dvh;
+    }
+
+    body.messenger-page .messages-container {
+        /* Shrink when keyboard opens */
+        flex: 1 1 0;
+        min-height: 0;
+    }
+}
+
+/* Auth pages on small screens */
+@media (max-width: 480px) {
+    .auth-container {
+        min-height: 100dvh;
+        justify-content: flex-start;
+        padding-top: 24px;
+    }
+
+    .auth-card {
+        border-radius: var(--radius-lg);
+        margin: 0 8px;
+    }
+}
