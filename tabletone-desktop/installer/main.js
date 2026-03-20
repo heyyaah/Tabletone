@@ -9,9 +9,14 @@ app.whenReady().then(() => {
     win = new BrowserWindow({
         width:  680,
         height: 480,
+        minWidth: 680,
+        minHeight: 480,
+        maxWidth: 680,
+        maxHeight: 480,
         resizable: false,
         frame: false,
         transparent: false,
+        hasShadow: true,
         backgroundColor: '#0d0d1a',
         center: true,
         title: 'Tabletone Setup',
@@ -22,6 +27,7 @@ app.whenReady().then(() => {
         }
     });
     win.loadFile('index.html');
+    win.once('ready-to-show', () => win.show());
 });
 
 ipcMain.on('drag-window', (e, { x, y }) => {
