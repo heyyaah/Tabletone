@@ -109,17 +109,55 @@
         {% endif %}
     </div>
 
-    <!-- NFT коллекция -->
-    <div class="pub-card" id="pub-nft-section" style="display:none;">
-        <h2 class="pub-section-title">
-            <i class="fas fa-gem" style="color:#667eea;font-size:13px;"></i> Коллекционные предметы
-        </h2>
-        <div class="pub-nft-grid" id="pub-nft-grid"></div>
+    <!-- Табы: Подарки / Истории -->
+    <div id="pub-tabs-section" style="display:none;">
+        <div class="pub-tabs-bar">
+            <button class="pub-tab-btn active" id="tab-btn-gifts" onclick="switchPubTab('gifts')">
+                <i class="fas fa-gift"></i> Подарки
+            </button>
+            {% if stories %}
+            <button class="pub-tab-btn" id="tab-btn-stories" onclick="switchPubTab('stories')">
+                <i class="fas fa-circle" style="font-size:9px;"></i> Истории
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- Подарки / NFT -->
+        <div id="pub-tab-gifts" class="pub-tab-content pub-card">
+            <div class="pub-nft-grid" id="pub-nft-grid"></div>
+            <div id="pub-gifts-empty" style="display:none;text-align:center;padding:24px 0;color:var(--text-secondary);font-size:14px;">
+                <div style="font-size:36px;margin-bottom:8px;">🎁</div>
+                Нет подарков для отображения
+            </div>
+        </div>
+
+        <!-- Истории -->
+        {% if stories %}
+        <div id="pub-tab-stories" class="pub-tab-content pub-card" style="display:none;">
+            <div class="pub-stories-grid">
+                {% for story in stories %}
+                <div class="pub-story-item">
+                    {% if story.media_type == 'image' %}
+                    <img src="{{ story.content }}" class="pub-story-media" alt="История">
+                    {% elif story.media_type == 'video' %}
+                    <video src="{{ story.content }}" controls class="pub-story-media"></video>
+                    {% else %}
+                    <div class="pub-story-text">{{ story.content }}</div>
+                    {% endif %}
+                    <div class="pub-story-meta">
+                        <span><i class="fas fa-clock"></i> {{ story.created_at.strftime('%H:%M %d.%m') }}</span>
+                        <span><i class="fas fa-eye"></i> {{ story.views_count or 0 }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
-    <!-- Истории -->
+    <!-- Истории без подарков (если нет NFT) -->
     {% if stories %}
-    <div class="pub-card">
+    <div id="pub-stories-standalone" class="pub-card" style="display:none;">
         <h2 class="pub-section-title">
             <i class="fas fa-circle" style="color:#e53e3e;font-size:10px;"></i> Истории
         </h2>
@@ -337,6 +375,44 @@
     .pub-name { font-size: 18px; }
     .pub-avatar { width: 76px; height: 76px; font-size: 30px; }
 }
+/* Tabs */
+.pub-tabs-bar {
+    display: flex;
+    gap: 4px;
+    padding: 10px 12px 0;
+}
+.pub-tab-btn {
+    flex: 1;
+    padding: 9px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px 10px 0 0;
+    border-bottom: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background .15s, color .15s;
+}
+.pub-tab-btn.active {
+    background: var(--bg-primary);
+    color: #667eea;
+    border-color: var(--border-color);
+    position: relative;
+    z-index: 1;
+}
+.pub-tab-content {
+    border-radius: 0 0 16px 16px;
+    margin: 0 12px 0;
+    border-top: none;
+}
+.pub-tab-content:first-of-type {
+    border-radius: 0 16px 16px 16px;
+}
 /* NFT */
 .pub-nft-grid {
     display: grid;
@@ -473,7 +549,15 @@ if (_uid) {
     window.location.href = '/?chat=' + _uid;
 }
 
-// ── NFT ──────────────────────────────────────────────────────────────────────
+// ── Переключение табов ────────────────────────────────────────────────────────
+function switchPubTab(tab) {
+    document.querySelectorAll('.pub-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.pub-tab-content').forEach(c => c.style.display = 'none');
+    document.getElementById('tab-btn-' + tab).classList.add('active');
+    document.getElementById('pub-tab-' + tab).style.display = '';
+}
+
+// ── NFT / Подарки ─────────────────────────────────────────────────────────────
 const _NFT_EMOJIS = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','🌊','🎭'];
 
 (async function loadPublicNFTs() {
@@ -481,26 +565,45 @@ const _NFT_EMOJIS = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','�
     try {
         const r = await fetch(`/nft/user/${userId}`);
         const d = await r.json();
-        if (!d.nfts || d.nfts.length === 0) return;
-        const section = document.getElementById('pub-nft-section');
-        const grid = document.getElementById('pub-nft-grid');
-        section.style.display = '';
-        d.nfts.forEach(nft => {
-            const card = document.createElement('div');
-            card.className = 'pub-nft-card';
-            card.style.background = nft.bg_color || '#2d3748';
-            const emoji = _NFT_EMOJIS[nft.collection_id % _NFT_EMOJIS.length];
-            const total = nft.total_supply >= 1000
-                ? (nft.total_supply / 1000).toFixed(1).replace('.0','') + 'K'
-                : nft.total_supply;
-            card.innerHTML = `
-                <div class="pub-nft-badge">${nft.serial_number} из ${total}</div>
-                <div class="pub-nft-emoji">${emoji}</div>
-            `;
-            card.addEventListener('click', () => _showNFTModal(nft, emoji));
-            grid.appendChild(card);
-        });
-    } catch(e) {}
+        const hasNFTs = d.nfts && d.nfts.length > 0;
+        const hasStories = {{ 'true' if stories else 'false' }};
+
+        if (hasNFTs) {
+            const grid = document.getElementById('pub-nft-grid');
+            d.nfts.forEach(nft => {
+                const card = document.createElement('div');
+                card.className = 'pub-nft-card';
+                card.style.background = nft.bg_color || '#2d3748';
+                const emoji = _NFT_EMOJIS[nft.collection_id % _NFT_EMOJIS.length];
+                const total = nft.total_supply >= 1000
+                    ? (nft.total_supply / 1000).toFixed(1).replace('.0','') + 'K'
+                    : nft.total_supply;
+                card.innerHTML = `
+                    <div class="pub-nft-badge">${nft.serial_number} из ${total}</div>
+                    <div class="pub-nft-emoji">${emoji}</div>
+                `;
+                card.addEventListener('click', () => _showNFTModal(nft, emoji));
+                grid.appendChild(card);
+            });
+            // Показываем таб-секцию
+            document.getElementById('pub-tabs-section').style.display = '';
+            // Скрываем standalone истории если они есть (они теперь в табе)
+            const standalone = document.getElementById('pub-stories-standalone');
+            if (standalone) standalone.style.display = 'none';
+        } else {
+            // Нет NFT — показываем пустое состояние в табе только если нет историй
+            // Показываем standalone истории если есть
+            if (hasStories) {
+                const standalone = document.getElementById('pub-stories-standalone');
+                if (standalone) standalone.style.display = '';
+            }
+            // Не показываем таб-секцию вообще
+        }
+    } catch(e) {
+        // При ошибке показываем standalone истории
+        const standalone = document.getElementById('pub-stories-standalone');
+        if (standalone) standalone.style.display = '';
+    }
 })();
 
 function _showNFTModal(nft, emoji) {
@@ -526,7 +629,7 @@ function _showNFTModal(nft, emoji) {
                 </div>
                 <div class="nft-modal-emoji-wrap">${emoji}</div>
                 <div class="nft-modal-title">${nft.collection_name}</div>
-                <div class="nft-modal-subtitle">Коллекционный предмет #${nft.serial_number}</div>
+                <div class="nft-modal-subtitle">Подарок #${nft.serial_number}</div>
             </div>
             <div class="nft-modal-body">
                 <table class="nft-attr-table">
