@@ -11,16 +11,26 @@
     "appId": "com.tabletone.installer",
     "productName": "Tabletone Setup",
     "win": {
-      "target": "nsis",
-      "icon": "icon.ico"
+      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "icon": "icon.ico",
+      "signingHashAlgorithms": null,
+      "sign": null
     },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "deleteAppDataOnUninstall": false
+    "portable": {
+      "artifactName": "Tabletone Setup 1.0.0.exe"
     },
-    "files": ["**/*", "!node_modules"],
-    "extraResources": [{ "from": "../dist/win-unpacked", "to": "app" }]
+    "files": [
+      "**/*",
+      "!node_modules/.cache"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist/win-unpacked",
+        "to": "app",
+        "filter": ["**/*"]
+      }
+    ],
+    "publish": null
   },
   "devDependencies": {
     "electron": "^31.0.0",

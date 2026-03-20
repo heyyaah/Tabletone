@@ -14,7 +14,6 @@ app.whenReady().then(() => {
         transparent: true,
         center: true,
         title: 'Tabletone Setup',
-        icon: path.join(__dirname, 'icon.ico'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -24,17 +23,14 @@ app.whenReady().then(() => {
     win.loadFile('index.html');
 });
 
-// Перетаскивание окна
 ipcMain.on('drag-window', (e, { x, y }) => {
     const [wx, wy] = win.getPosition();
     win.setPosition(wx + x, wy + y);
 });
 
-// Закрыть / свернуть
 ipcMain.on('close-app',    () => app.quit());
 ipcMain.on('minimize-app', () => win.minimize());
 
-// Выбор папки установки
 ipcMain.handle('choose-dir', async () => {
     const res = await dialog.showOpenDialog(win, {
         properties: ['openDirectory'],
@@ -43,28 +39,93 @@ ipcMain.handle('choose-dir', async () => {
     return res.canceled ? null : res.filePaths[0];
 });
 
-// Симуляция установки (реальная — через electron-builder NSIS)
-ipcMain.handle('install', async (e, installDir) => {
-    const steps = [
-        { pct: 10, msg: 'Подготовка файлов...' },
-        { pct: 25, msg: 'Распаковка ресурсов...' },
-        { pct: 45, msg: 'Копирование файлов приложения...' },
-        { pct: 65, msg: 'Настройка компонентов...' },
-        { pct: 80, msg: 'Создание ярлыков...' },
-        { pct: 92, msg: 'Запись в реестр...' },
-        { pct: 100, msg: 'Установка завершена!' },
-    ];
-    for (const step of steps) {
-        await new Promise(r => setTimeout(r, 400 + Math.random() * 300));
-        win.webContents.send('install-progress', step);
+// Рекурсивное копирование папки с прогрессом
+function countFiles(dir) {
+    let count = 0;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) count += countFiles(path.join(dir, entry.name));
+        else count++;
     }
-    return { success: true };
+    return count;
+}
+
+function copyDir(src, dest, onFile) {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+        const s = path.join(src, entry.name);
+        const d = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+            copyDir(s, d, onFile);
+        } else {
+            fs.copyFileSync(s, d);
+            onFile(entry.name);
+        }
+    }
+}
+
+ipcMain.handle('install', async (e, installDir) => {
+    try {
+        // Папка с распакованным приложением (рядом с инсталлятором в extraResources)
+        const appSrc = process.resourcesPath
+            ? path.join(process.resourcesPath, 'app')
+            : path.join(__dirname, '..', 'dist', 'win-unpacked');
+
+        if (!fs.existsSync(appSrc)) {
+            return { success: false, error: 'Файлы приложения не найдены: ' + appSrc };
+        }
+
+        const total = countFiles(appSrc);
+        let copied = 0;
+
+        win.webContents.send('install-progress', { pct: 5, msg: 'Подготовка файлов...' });
+        await new Promise(r => setTimeout(r, 300));
+
+        fs.mkdirSync(installDir, { recursive: true });
+
+        win.webContents.send('install-progress', { pct: 10, msg: 'Распаковка ресурсов...' });
+
+        copyDir(appSrc, installDir, (name) => {
+            copied++;
+            const pct = 10 + Math.floor((copied / total) * 75);
+            win.webContents.send('install-progress', { pct, msg: `Копирование: ${name}` });
+        });
+
+        win.webContents.send('install-progress', { pct: 88, msg: 'Создание ярлыков...' });
+        await new Promise(r => setTimeout(r, 300));
+
+        // Ярлык на рабочем столе
+        const exePath = path.join(installDir, 'Tabletone.exe');
+        const desktopDir = path.join(os.homedir(), 'Desktop');
+        const shortcutPath = path.join(desktopDir, 'Tabletone.lnk');
+        try {
+            const { execSync } = require('child_process');
+            const ps = `$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('${shortcutPath.replace(/\\/g, '\\\\')}'); $s.TargetPath = '${exePath.replace(/\\/g, '\\\\')}'; $s.Save()`;
+            execSync(`powershell -Command "${ps}"`, { windowsHide: true });
+        } catch (_) {}
+
+        win.webContents.send('install-progress', { pct: 95, msg: 'Запись в реестр...' });
+        await new Promise(r => setTimeout(r, 300));
+
+        // Запись в реестр для "Программы и компоненты"
+        try {
+            const { execSync } = require('child_process');
+            const regKey = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Tabletone';
+            execSync(`reg add "${regKey}" /v DisplayName /t REG_SZ /d "Tabletone" /f`, { windowsHide: true });
+            execSync(`reg add "${regKey}" /v DisplayVersion /t REG_SZ /d "1.0.0" /f`, { windowsHide: true });
+            execSync(`reg add "${regKey}" /v InstallLocation /t REG_SZ /d "${installDir}" /f`, { windowsHide: true });
+            execSync(`reg add "${regKey}" /v UninstallString /t REG_SZ /d "${exePath}" /f`, { windowsHide: true });
+        } catch (_) {}
+
+        win.webContents.send('install-progress', { pct: 100, msg: 'Установка завершена!' });
+        return { success: true };
+
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
 });
 
-// Открыть папку установки
 ipcMain.on('open-install-dir', (e, dir) => shell.openPath(dir));
 
-// Запустить приложение
 ipcMain.on('launch-app', (e, dir) => {
     const exe = path.join(dir, 'Tabletone.exe');
     if (fs.existsSync(exe)) shell.openPath(exe);
