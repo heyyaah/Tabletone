@@ -1603,6 +1603,14 @@ def _init_db():
             if _fixed:
                 db.session.commit()
                 print(f"✓ Расшифровано {_fixed} gift_premium сообщений")
+            # Если всё ещё есть нечитаемые — заменяем на заглушку
+            _still_bad = [_m for _m in Message.query.filter_by(message_type='gift_premium').all()
+                          if _m.content and not _m.content.startswith('🎁') and '@' not in _m.content]
+            if _still_bad:
+                for _m in _still_bad:
+                    _m.content = '🎁 Premium подарен!'
+                db.session.commit()
+                print(f"✓ Заменено {len(_still_bad)} нечитаемых gift_premium сообщений")
         except Exception as _e:
             print(f"⚠ fix gift_premium: {_e}")
 
