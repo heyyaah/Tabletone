@@ -9716,10 +9716,8 @@ def payment_activate_premium_gift():
             )
             db.session.add(gift_msg)
             db.session.flush()
-            # Уведомляем через сокет
+            # Уведомляем через сокет — формат как у обычных сообщений
             try:
-                room1 = f"user_{sender.id}"
-                room2 = f"user_{recipient.id}"
                 msg_data = {
                     'id': gift_msg.id,
                     'content': gift_text,
@@ -9727,12 +9725,35 @@ def payment_activate_premium_gift():
                     'sender_id': sender.id,
                     'receiver_id': recipient.id,
                     'sender_username': sender.username,
-                    'timestamp': gift_msg.timestamp.isoformat(),
-                    'is_gift': True,
-                    'gift_days': days,
+                    'timestamp': gift_msg.timestamp.strftime('%H:%M %d.%m'),
+                    'timestamp_iso': gift_msg.timestamp.isoformat(),
+                    'is_mine': False,
+                    'is_read': False,
                 }
-                socketio.emit('new_message', msg_data, room=room1)
-                socketio.emit('new_message', msg_data, room=room2)
+                # Для отправителя: other_user_id = recipient
+                socketio.emit('new_message', {
+                    'message': msg_data,
+                    'other_user_id': recipient.id,
+                    'sender_info': {
+                        'username': sender.username,
+                        'display_name': sender.display_name or sender.username,
+                        'avatar_url': sender.avatar_url,
+                        'avatar_color': sender.avatar_color,
+                        'avatar_letter': sender.get_avatar_letter(),
+                    }
+                }, room=f"user_{sender.id}")
+                # Для получателя: other_user_id = sender
+                socketio.emit('new_message', {
+                    'message': {**msg_data, 'is_mine': False},
+                    'other_user_id': sender.id,
+                    'sender_info': {
+                        'username': sender.username,
+                        'display_name': sender.display_name or sender.username,
+                        'avatar_url': sender.avatar_url,
+                        'avatar_color': sender.avatar_color,
+                        'avatar_letter': sender.get_avatar_letter(),
+                    }
+                }, room=f"user_{recipient.id}")
             except Exception as e:
                 print(f"Gift socket error: {e}")
     db.session.commit()
