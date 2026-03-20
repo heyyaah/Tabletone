@@ -5,14 +5,17 @@
 <title>Tabletone Setup</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    width: 680px; height: 480px; overflow: hidden;
+    background: #0d0d1a;
+}
 body {
     font-family: 'Segoe UI', system-ui, sans-serif;
-    width: 680px; height: 480px; overflow: hidden;
-    background: #0d0d1a; color: #fff; user-select: none;
+    color: #fff; user-select: none;
 }
 .bg {
     position: fixed; inset: 0; overflow: hidden;
-    background: #0d0d1a;
+    background: #0d0d1a; z-index: 0;
 }
 .bg-gradient {
     position: absolute; inset: -50%;
@@ -30,7 +33,7 @@ body {
     position: relative; z-index: 1;
     width: 680px; height: 480px;
     display: flex; flex-direction: column; overflow: hidden;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: transparent;
 }
 .titlebar {
     display: flex; align-items: center; justify-content: space-between;
