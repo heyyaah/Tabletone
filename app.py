@@ -33,6 +33,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production
 # Постоянные сессии — не разлогиниваться при закрытии приложения
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
@@ -2860,6 +2862,7 @@ def register():
             db.session.commit()
 
         session['user_id'] = user.id
+        session.permanent = True
         session['show_onboarding'] = True  # Флаг для показа онбординга
         import threading
         threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
@@ -2891,6 +2894,7 @@ def register_verify_email():
             db.session.commit()
             session.pop('verify_email_user_id', None)
             session['user_id'] = user.id
+            session.permanent = True
             import threading
             threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
             return redirect(url_for('index'))
@@ -2978,6 +2982,7 @@ def login():
                     return redirect(url_for('login_2fa'))
 
             session['user_id'] = user.id
+            session.permanent = True
             user.last_seen = datetime.utcnow()
             
             # Создаем новую сессию
@@ -8336,6 +8341,7 @@ def login_2fa():
             session.pop('2fa_pending_user_id', None)
             session.pop('2fa_reason', None)
             session['user_id'] = user.id
+            session.permanent = True
             user.last_seen = datetime.utcnow()
             session_token = secrets.token_urlsafe(32)
             user_agent = request.headers.get('User-Agent', '')
@@ -9754,20 +9760,6 @@ def owner_command():
         except Exception:
             pass
         return jsonify({'success': True, 'msg': f'✅ Premium {days} дн. подарен @{target.username} до {target.premium_until.strftime("%d.%m.%Y")}'})
-
-    elif cmd == 'fixgiftmsgs':
-        # Расшифровывает старые gift_premium сообщения в БД
-        msgs = Message.query.filter_by(message_type='gift_premium').all()
-        fixed = 0
-        for m in msgs:
-            if not m.content:
-                continue
-            decrypted = m.decrypted_content
-            if decrypted and decrypted != m.content:
-                m.content = decrypted
-                fixed += 1
-        db.session.commit()
-        return jsonify({'success': True, 'msg': f'✅ Исправлено {fixed} из {len(msgs)} gift_premium сообщений.'})
 
     elif cmd == 'giftlist':
         gifts = GiftType.query.filter_by(is_active=True).all()
