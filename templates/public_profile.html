@@ -1,32 +1,32 @@
-{% extends "base.html" %}
-{% block title %}{{ user.display_name or user.username }} — Tabletone{% endblock %}
+﻿{% extends "base.html" %}
+{% block title %}{{ user.display_name or user.username }} вЂ” Tabletone{% endblock %}
 
 {% block footer %}{% endblock %}
 
 {% block content %}
 <div class="pub-profile-wrap">
 
-    <!-- Шапка -->
+    <!-- РЁР°РїРєР° -->
     <div class="pub-profile-header-bar">
         <a href="javascript:history.back()" class="pub-back-btn">
             <i class="fas fa-arrow-left"></i>
         </a>
-        <span class="pub-header-title">Профиль</span>
-        <a href="/u/{{ user.username }}" class="pub-share-btn" title="Поделиться">
+        <span class="pub-header-title">РџСЂРѕС„РёР»СЊ</span>
+        <a href="/u/{{ user.username }}" class="pub-share-btn" title="РџРѕРґРµР»РёС‚СЊСЃСЏ">
             <i class="fas fa-share-alt"></i>
         </a>
     </div>
 
-    <!-- Карточка профиля -->
+    <!-- РљР°СЂС‚РѕС‡РєР° РїСЂРѕС„РёР»СЏ -->
     <div class="pub-card">
         {% if profile_hidden %}
         <div style="text-align:center;padding:32px 16px;">
-            <div style="font-size:56px;margin-bottom:16px;">🔒</div>
-            <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;color:var(--text-primary);">Профиль скрыт</h2>
-            <p style="color:var(--text-secondary);font-size:14px;margin:0;">Этот пользователь скрыл свой профиль.</p>
+            <div style="font-size:56px;margin-bottom:16px;">рџ”’</div>
+            <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;color:var(--text-primary);">РџСЂРѕС„РёР»СЊ СЃРєСЂС‹С‚</h2>
+            <p style="color:var(--text-secondary);font-size:14px;margin:0;">Р­С‚РѕС‚ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЃРєСЂС‹Р» СЃРІРѕР№ РїСЂРѕС„РёР»СЊ.</p>
         </div>
         {% else %}
-        <!-- Аватар -->
+        <!-- РђРІР°С‚Р°СЂ -->
         <div class="pub-avatar-wrap">
             {% if user.avatar_url %}
             <div class="pub-avatar pub-avatar-img {% if user.is_premium %}pub-avatar-premium{% endif %}"
@@ -38,11 +38,11 @@
             </div>
             {% endif %}
             {% if user.is_premium %}
-            <div class="pub-crown">👑</div>
+            <div class="pub-crown">рџ‘‘</div>
             {% endif %}
         </div>
 
-        <!-- Имя -->
+        <!-- РРјСЏ -->
         <h1 class="pub-name">
             {{ user.display_name or user.username }}
             {% if user.is_verified %}
@@ -55,13 +55,13 @@
         <div class="pub-username">@{{ user.username }}</div>
 
         {% if user.status_text %}
-        <div class="pub-status">💬 {{ user.status_text }}</div>
+        <div class="pub-status">рџ’¬ {{ user.status_text }}</div>
         {% endif %}
 
         {% if user.username == 'romancev228' %}
         <div class="pub-owner-note">
             <i class="fas fa-code" style="color:#667eea;margin-right:6px;"></i>
-            Разработчик и по совместительству владелец данного проекта. Для связи необходимо 15000 искр, ну или <a href="/" onclick="sessionStorage.setItem('openChatUserId','tabletone_support');return true;" style="color:#667eea;">@tabletone_support</a>
+            Р Р°Р·СЂР°Р±РѕС‚С‡РёРє Рё РїРѕ СЃРѕРІРјРµСЃС‚РёС‚РµР»СЊСЃС‚РІСѓ РІР»Р°РґРµР»РµС† РґР°РЅРЅРѕРіРѕ РїСЂРѕРµРєС‚Р°. Р”Р»СЏ СЃРІСЏР·Рё РЅРµРѕР±С…РѕРґРёРјРѕ 15000 РёСЃРєСЂ, РЅСѓ РёР»Рё <a href="/" onclick="sessionStorage.setItem('openChatUserId','tabletone_support');return true;" style="color:#667eea;">@tabletone_support</a>
         </div>
         {% endif %}
 
@@ -69,76 +69,84 @@
         <p class="pub-bio">{{ user.bio }}</p>
         {% endif %}
 
-        <!-- Репутация -->
+        <!-- Р РµРїСѓС‚Р°С†РёСЏ -->
         <div class="pub-rep-block">
             <div class="pub-rep-row">
-                <span><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Репутация</span>
-                <span style="color:{{ rep_color }};font-weight:700;">{{ rep }}% — {{ rep_level }}</span>
+                <span><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Р РµРїСѓС‚Р°С†РёСЏ</span>
+                <span style="color:{{ rep_color }};font-weight:700;">{{ rep }}% вЂ” {{ rep_level }}</span>
             </div>
             <div class="pub-rep-bg">
                 <div class="pub-rep-fill" style="width:{{ rep }}%;background:{{ rep_color }};"></div>
             </div>
         </div>
 
-        <!-- Дата -->
+        <!-- Р”Р°С‚Р° -->
         <div class="pub-date">
-            <i class="fas fa-calendar"></i> На Tabletone с {{ user.created_at.strftime('%d.%m.%Y') }}
+            <i class="fas fa-calendar"></i> РќР° Tabletone СЃ {{ user.created_at.strftime('%d.%m.%Y') }}
         </div>
 
-        <!-- Кнопки -->
+        <!-- РљРЅРѕРїРєРё -->
         {% if viewer and viewer.id != user.id %}
         <div class="pub-actions">
             {% if user.msg_price and user.msg_price > 0 and not viewer.is_admin %}
             <div class="pub-msg-price">
                 <i class="fas fa-bolt" style="color:#d69e2e;"></i>
-                Первое сообщение стоит <strong>{{ user.msg_price }} ✨</strong>
+                РџРµСЂРІРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ СЃС‚РѕРёС‚ <strong>{{ user.msg_price }} вњЁ</strong>
             </div>
             {% endif %}
             <a href="/" onclick="localStorage.setItem('open_chat_on_load', JSON.stringify({id: {{ user.id }}, name: '{{ (user.display_name or user.username)|e }}'}))"
                class="btn btn-primary pub-action-btn">
-                <i class="fas fa-comment"></i> Написать
+                <i class="fas fa-comment"></i> РќР°РїРёСЃР°С‚СЊ
             </a>
         </div>
         {% elif not viewer %}
         <div class="pub-actions">
             <a href="/login" class="btn btn-primary pub-action-btn">
-                <i class="fas fa-sign-in-alt"></i> Войти чтобы написать
+                <i class="fas fa-sign-in-alt"></i> Р’РѕР№С‚Рё С‡С‚РѕР±С‹ РЅР°РїРёСЃР°С‚СЊ
             </a>
         </div>
         {% endif %}
         {% endif %}
     </div>
 
-    <!-- Табы: Подарки / Истории -->
+    <!-- РўР°Р±С‹: РџРѕРґР°СЂРєРё / NFT / РСЃС‚РѕСЂРёРё -->
     <div id="pub-tabs-section" style="display:none;">
         <div class="pub-tabs-bar">
             <button class="pub-tab-btn active" id="tab-btn-gifts" onclick="switchPubTab('gifts')">
-                <i class="fas fa-gift"></i> Подарки
+                <i class="fas fa-gift"></i> РџРѕРґР°СЂРєРё
+            </button>
+            <button class="pub-tab-btn" id="tab-btn-nft" onclick="switchPubTab('nft')" style="display:none;">
+                <i class="fas fa-gem"></i> NFT
             </button>
             {% if stories %}
             <button class="pub-tab-btn" id="tab-btn-stories" onclick="switchPubTab('stories')">
-                <i class="fas fa-circle" style="font-size:9px;"></i> Истории
+                <i class="fas fa-circle" style="font-size:9px;"></i> РСЃС‚РѕСЂРёРё
             </button>
             {% endif %}
         </div>
 
-        <!-- Подарки / NFT -->
+        <!-- РџРѕРґР°СЂРєРё -->
         <div id="pub-tab-gifts" class="pub-tab-content pub-card">
-            <div class="pub-nft-grid" id="pub-nft-grid"></div>
+            <div class="pub-gifts-grid" id="pub-gifts-grid"></div>
             <div id="pub-gifts-empty" style="display:none;text-align:center;padding:24px 0;color:var(--text-secondary);font-size:14px;">
-                <div style="font-size:36px;margin-bottom:8px;">🎁</div>
-                Нет подарков для отображения
+                <div style="font-size:36px;margin-bottom:8px;">рџЋЃ</div>
+                РќРµС‚ РїРѕРґР°СЂРєРѕРІ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ
             </div>
         </div>
 
-        <!-- Истории -->
+        <!-- NFT -->
+        <div id="pub-tab-nft" class="pub-tab-content pub-card" style="display:none;">
+            <div class="pub-nft-grid" id="pub-nft-grid"></div>
+        </div>
+
+        <!-- РСЃС‚РѕСЂРёРё -->
         {% if stories %}
         <div id="pub-tab-stories" class="pub-tab-content pub-card" style="display:none;">
             <div class="pub-stories-grid">
                 {% for story in stories %}
                 <div class="pub-story-item">
                     {% if story.media_type == 'image' %}
-                    <img src="{{ story.content }}" class="pub-story-media" alt="История">
+                    <img src="{{ story.content }}" class="pub-story-media" alt="РСЃС‚РѕСЂРёСЏ">
                     {% elif story.media_type == 'video' %}
                     <video src="{{ story.content }}" controls class="pub-story-media"></video>
                     {% else %}
@@ -155,17 +163,17 @@
         {% endif %}
     </div>
 
-    <!-- Истории без подарков (если нет NFT) -->
+    <!-- РСЃС‚РѕСЂРёРё Р±РµР· РїРѕРґР°СЂРєРѕРІ/NFT -->
     {% if stories %}
     <div id="pub-stories-standalone" class="pub-card" style="display:none;">
         <h2 class="pub-section-title">
-            <i class="fas fa-circle" style="color:#e53e3e;font-size:10px;"></i> Истории
+            <i class="fas fa-circle" style="color:#e53e3e;font-size:10px;"></i> РСЃС‚РѕСЂРёРё
         </h2>
         <div class="pub-stories-grid">
             {% for story in stories %}
             <div class="pub-story-item">
                 {% if story.media_type == 'image' %}
-                <img src="{{ story.content }}" class="pub-story-media" alt="История">
+                <img src="{{ story.content }}" class="pub-story-media" alt="РСЃС‚РѕСЂРёСЏ">
                 {% elif story.media_type == 'video' %}
                 <video src="{{ story.content }}" controls class="pub-story-media"></video>
                 {% else %}
@@ -413,6 +421,51 @@
 .pub-tab-content:first-of-type {
     border-radius: 0 16px 16px 16px;
 }
+/* Gifts grid */
+.pub-gifts-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+.pub-gift-card {
+    border-radius: 14px;
+    padding: 10px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    transition: transform .15s, box-shadow .15s;
+    position: relative;
+    overflow: hidden;
+}
+.pub-gift-card:active { transform: scale(.95); }
+.pub-gift-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: .07;
+    border-radius: 14px;
+}
+.pub-gift-card.rarity-rare::before    { background: #4299e1; }
+.pub-gift-card.rarity-epic::before    { background: #9f7aea; }
+.pub-gift-card.rarity-legendary::before { background: #d69e2e; }
+.pub-gift-emoji { font-size: 32px; line-height: 1; }
+.pub-gift-name  { font-size: 11px; font-weight: 600; color: var(--text-primary); text-align: center; line-height: 1.2; }
+.pub-gift-rarity {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+.rarity-common    .pub-gift-rarity { background: #e2e8f0; color: #4a5568; }
+.rarity-rare      .pub-gift-rarity { background: #bee3f8; color: #2b6cb0; }
+.rarity-epic      .pub-gift-rarity { background: #e9d8fd; color: #6b46c1; }
+.rarity-legendary .pub-gift-rarity { background: #fefcbf; color: #975a16; }
 /* NFT */
 .pub-nft-grid {
     display: grid;
@@ -447,7 +500,7 @@
     font-size: 44px;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
 }
-/* NFT модалка */
+/* NFT РјРѕРґР°Р»РєР° */
 .nft-modal-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,.7);
@@ -553,59 +606,120 @@ if (_uid) {
 function switchPubTab(tab) {
     document.querySelectorAll('.pub-tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.pub-tab-content').forEach(c => c.style.display = 'none');
-    document.getElementById('tab-btn-' + tab).classList.add('active');
-    document.getElementById('pub-tab-' + tab).style.display = '';
+    const btn = document.getElementById('tab-btn-' + tab);
+    if (btn) btn.classList.add('active');
+    const content = document.getElementById('pub-tab-' + tab);
+    if (content) content.style.display = '';
 }
 
-// ── NFT / Подарки ─────────────────────────────────────────────────────────────
-const _NFT_EMOJIS = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','🌊','🎭'];
+// ── Загрузка данных ───────────────────────────────────────────────────────────
+const _RARITY_LABELS = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+const _NFT_EMOJIS    = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','🌊','🎭'];
+const _userId = {{ user.id }};
 
-(async function loadPublicNFTs() {
-    const userId = {{ user.id }};
-    try {
-        const r = await fetch(`/nft/user/${userId}`);
-        const d = await r.json();
-        const hasNFTs = d.nfts && d.nfts.length > 0;
-        const hasStories = {{ 'true' if stories else 'false' }};
+(async function loadProfileContent() {
+    const [giftsResp, nftsResp] = await Promise.allSettled([
+        fetch(`/gifts/user/${_userId}`).then(r => r.json()),
+        fetch(`/nft/user/${_userId}`).then(r => r.json()),
+    ]);
 
-        if (hasNFTs) {
-            const grid = document.getElementById('pub-nft-grid');
-            d.nfts.forEach(nft => {
-                const card = document.createElement('div');
-                card.className = 'pub-nft-card';
-                card.style.background = nft.bg_color || '#2d3748';
-                const emoji = _NFT_EMOJIS[nft.collection_id % _NFT_EMOJIS.length];
-                const total = nft.total_supply >= 1000
-                    ? (nft.total_supply / 1000).toFixed(1).replace('.0','') + 'K'
-                    : nft.total_supply;
-                card.innerHTML = `
-                    <div class="pub-nft-badge">${nft.serial_number} из ${total}</div>
-                    <div class="pub-nft-emoji">${emoji}</div>
-                `;
-                card.addEventListener('click', () => _showNFTModal(nft, emoji));
-                grid.appendChild(card);
-            });
-            // Показываем таб-секцию
-            document.getElementById('pub-tabs-section').style.display = '';
-            // Скрываем standalone истории если они есть (они теперь в табе)
-            const standalone = document.getElementById('pub-stories-standalone');
-            if (standalone) standalone.style.display = 'none';
-        } else {
-            // Нет NFT — показываем пустое состояние в табе только если нет историй
-            // Показываем standalone истории если есть
-            if (hasStories) {
-                const standalone = document.getElementById('pub-stories-standalone');
-                if (standalone) standalone.style.display = '';
-            }
-            // Не показываем таб-секцию вообще
-        }
-    } catch(e) {
-        // При ошибке показываем standalone истории
-        const standalone = document.getElementById('pub-stories-standalone');
-        if (standalone) standalone.style.display = '';
+    const gifts = giftsResp.status === 'fulfilled' ? (giftsResp.value.gifts || []) : [];
+    const nfts  = nftsResp.status  === 'fulfilled' ? (nftsResp.value.nfts   || []) : [];
+    const hasStories = {{ 'true' if stories else 'false' }};
+    const hasContent = gifts.length > 0 || nfts.length > 0 || hasStories;
+
+    if (!hasContent) return;
+
+    document.getElementById('pub-tabs-section').style.display = '';
+    const standalone = document.getElementById('pub-stories-standalone');
+    if (standalone) standalone.style.display = 'none';
+
+    // ── Подарки ──
+    if (gifts.length > 0) {
+        const grid = document.getElementById('pub-gifts-grid');
+        gifts.forEach(g => {
+            const card = document.createElement('div');
+            card.className = `pub-gift-card rarity-${g.rarity}`;
+            card.innerHTML = `
+                <div class="pub-gift-emoji">${g.emoji}</div>
+                <div class="pub-gift-name">${g.name}</div>
+                <div class="pub-gift-rarity">${_RARITY_LABELS[g.rarity] || g.rarity}</div>
+            `;
+            card.addEventListener('click', () => _showGiftModal(g));
+            grid.appendChild(card);
+        });
+    } else {
+        document.getElementById('pub-gifts-empty').style.display = '';
+    }
+
+    // ── NFT ──
+    if (nfts.length > 0) {
+        document.getElementById('tab-btn-nft').style.display = '';
+        const grid = document.getElementById('pub-nft-grid');
+        nfts.forEach(nft => {
+            const card = document.createElement('div');
+            card.className = 'pub-nft-card';
+            card.style.background = nft.bg_color || '#2d3748';
+            const emoji = _NFT_EMOJIS[nft.collection_id % _NFT_EMOJIS.length];
+            const total = nft.total_supply >= 1000
+                ? (nft.total_supply / 1000).toFixed(1).replace('.0','') + 'K'
+                : nft.total_supply;
+            card.innerHTML = `
+                <div class="pub-nft-badge">${nft.serial_number} из ${total}</div>
+                <div class="pub-nft-emoji">${emoji}</div>
+            `;
+            card.addEventListener('click', () => _showNFTModal(nft, emoji));
+            grid.appendChild(card);
+        });
+    }
+
+    // Если нет подарков но есть NFT — открываем NFT таб
+    if (gifts.length === 0 && nfts.length > 0) {
+        switchPubTab('nft');
+    }
+    // Если нет ни подарков ни NFT но есть истории — открываем истории
+    if (gifts.length === 0 && nfts.length === 0 && hasStories) {
+        switchPubTab('stories');
     }
 })();
 
+// ── Модалка подарка ───────────────────────────────────────────────────────────
+function _showGiftModal(g) {
+    document.querySelectorAll('.nft-modal-overlay').forEach(m => m.remove());
+    const rarityLabel = _RARITY_LABELS[g.rarity] || g.rarity;
+    const rarityColors = { common: '#718096', rare: '#3182ce', epic: '#805ad5', legendary: '#d69e2e' };
+    const color = rarityColors[g.rarity] || '#718096';
+    const senderLine = g.sender_name
+        ? `<tr><td>От кого</td><td>@${g.sender_username || g.sender_name}</td></tr>`
+        : '';
+    const overlay = document.createElement('div');
+    overlay.className = 'nft-modal-overlay';
+    overlay.innerHTML = `
+        <div class="nft-modal-sheet">
+            <div class="nft-modal-header" style="background:${color};">
+                <div class="nft-modal-header-actions">
+                    <button onclick="this.closest('.nft-modal-overlay').remove()">✕</button>
+                </div>
+                <div class="nft-modal-emoji-wrap">${g.emoji}</div>
+                <div class="nft-modal-title">${g.name}</div>
+                <div class="nft-modal-subtitle">${g.description || ''}</div>
+            </div>
+            <div class="nft-modal-body">
+                <table class="nft-attr-table">
+                    <tr><td>Редкость</td><td>${rarityLabel}</td></tr>
+                    <tr><td>Ценность</td><td>${g.price_sparks} ✨</td></tr>
+                    ${senderLine}
+                    <tr><td>Получен</td><td>${g.received_at}</td></tr>
+                </table>
+            </div>
+            <button class="nft-modal-ok" onclick="this.closest('.nft-modal-overlay').remove()">OK</button>
+        </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+// ── Модалка NFT ───────────────────────────────────────────────────────────────
 function _showNFTModal(nft, emoji) {
     document.querySelectorAll('.nft-modal-overlay').forEach(m => m.remove());
     const total = nft.total_supply >= 1000
@@ -629,12 +743,12 @@ function _showNFTModal(nft, emoji) {
                 </div>
                 <div class="nft-modal-emoji-wrap">${emoji}</div>
                 <div class="nft-modal-title">${nft.collection_name}</div>
-                <div class="nft-modal-subtitle">Подарок #${nft.serial_number}</div>
+                <div class="nft-modal-subtitle">NFT #${nft.serial_number}</div>
             </div>
             <div class="nft-modal-body">
                 <table class="nft-attr-table">
                     ${attrRows}
-                    <tr><td>Количество</td><td>${nft.serial_number}, выпущено ${nft.total_supply.toLocaleString('ru')}</td></tr>
+                    <tr><td>Количество</td><td>${nft.serial_number} из ${nft.total_supply.toLocaleString('ru')}</td></tr>
                     <tr><td>Ценность</td><td>${valueFmt}</td></tr>
                 </table>
             </div>
@@ -646,3 +760,4 @@ function _showNFTModal(nft, emoji) {
 }
 </script>
 {% endblock %}
+

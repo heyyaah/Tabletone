@@ -10850,6 +10850,26 @@ def toggle_gift_display(gift_id):
     db.session.commit()
     return jsonify({'success': True, 'displayed': gift.is_displayed})
 
+@app.route('/gifts/user/<int:user_id>')
+def gifts_user_public(user_id):
+    """Публичные подарки пользователя (is_displayed=True)."""
+    gifts = UserGift.query.filter_by(owner_id=user_id, is_displayed=True)\
+        .order_by(UserGift.received_at.desc()).all()
+    result = []
+    for g in gifts:
+        gt = g.gift_type
+        sender = User.query.get(g.sender_id) if g.sender_id else None
+        result.append({
+            'id': g.id,
+            'name': gt.name, 'emoji': gt.emoji,
+            'rarity': gt.rarity, 'price_sparks': gt.price_sparks,
+            'description': gt.description,
+            'sender_name': (sender.display_name or sender.username) if sender else None,
+            'sender_username': sender.username if sender else None,
+            'received_at': g.received_at.strftime('%d.%m.%Y') if g.received_at else '',
+        })
+    return jsonify({'gifts': result})
+
 @app.route('/gifts/info/<int:gift_type_id>')
 def gift_info(gift_type_id):
     g = GiftType.query.get_or_404(gift_type_id)
