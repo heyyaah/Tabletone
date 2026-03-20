@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Профиль - {{ user.display_name or user.username }}{% endblock %}
 
@@ -597,62 +597,6 @@
         </div>
     </div>
 </div>
-
-<!-- ── Реферальная программа ── -->
-<div class="profile-card" style="margin-top:20px;">
-    <div class="profile-section">
-        <h3 style="margin-bottom:16px;"><i class="fas fa-user-plus" style="color:#667eea;margin-right:8px;"></i>Реферальная программа</h3>
-        <p style="color:#718096;font-size:14px;margin-bottom:16px;line-height:1.6;">
-            Приглашай друзей — получай <strong>50 искр</strong> за каждого. Друг получает <strong>25 искр</strong> при регистрации.
-        </p>
-        <div style="background:var(--bg-secondary,#f7fafc);border-radius:12px;padding:16px;margin-bottom:14px;">
-            <div style="font-size:12px;color:#a0aec0;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Ваша реферальная ссылка</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-                <input id="ref-link-input" type="text" readonly value="Загрузка..."
-                    style="flex:1;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;background:#fff;color:#2d3748;font-family:monospace;">
-                <button onclick="copyRefLink()" style="padding:10px 16px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">
-                    <i class="fas fa-copy"></i> Копировать
-                </button>
-            </div>
-        </div>
-        <div style="display:flex;gap:12px;">
-            <div style="flex:1;background:linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1));border:1px solid rgba(102,126,234,0.2);border-radius:12px;padding:14px;text-align:center;">
-                <div id="ref-count" style="font-size:28px;font-weight:800;color:#667eea;">—</div>
-                <div style="font-size:12px;color:#718096;margin-top:2px;">Приглашено</div>
-            </div>
-            <div style="flex:1;background:linear-gradient(135deg,rgba(67,233,123,0.1),rgba(56,249,215,0.1));border:1px solid rgba(67,233,123,0.2);border-radius:12px;padding:14px;text-align:center;">
-                <div id="ref-earned" style="font-size:28px;font-weight:800;color:#38a169;">—</div>
-                <div style="font-size:12px;color:#718096;margin-top:2px;">Искр заработано</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-(function(){
-    fetch('/api/referral/my-code')
-        .then(r => r.json())
-        .then(d => {
-            if (d.link) {
-                document.getElementById('ref-link-input').value = d.link;
-                document.getElementById('ref-count').textContent = d.invited_count || 0;
-                document.getElementById('ref-earned').textContent = (d.invited_count || 0) * 50;
-            }
-        }).catch(()=>{});
-})();
-
-function copyRefLink() {
-    var inp = document.getElementById('ref-link-input');
-    inp.select();
-    document.execCommand('copy');
-    var btn = inp.nextElementSibling;
-    var orig = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> Скопировано';
-    btn.style.background = 'linear-gradient(135deg,#38a169,#2f855a)';
-    setTimeout(function(){ btn.innerHTML = orig; btn.style.background = ''; }, 2000);
-}
-</script>
-{% endblock %}
 
 {% block scripts %}
 <style>
