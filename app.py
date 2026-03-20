@@ -64,8 +64,13 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["200 per minute", "30 per second"],
-    storage_uri="memory://"
+    default_limits=["600 per minute", "60 per second"],
+    storage_uri="memory://",
+    # Не лимитируем статику и socket.io
+    default_limits_exempt_when=lambda: (
+        request.path.startswith('/static') or
+        request.path.startswith('/socket.io')
+    )
 )
 
 
