@@ -14,6 +14,8 @@ app.whenReady().then(() => {
         maxWidth: 680,
         maxHeight: 480,
         resizable: false,
+        maximizable: false,
+        fullscreenable: false,
         frame: false,
         transparent: false,
         hasShadow: true,
@@ -27,7 +29,11 @@ app.whenReady().then(() => {
         }
     });
     win.loadFile('index.html');
-    win.once('ready-to-show', () => win.show());
+    win.once('ready-to-show', () => {
+        win.show();
+        win.setSize(680, 480);
+        win.center();
+    });
 });
 
 ipcMain.on('drag-window', (e, { x, y }) => {
