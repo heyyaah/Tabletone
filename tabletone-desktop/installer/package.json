@@ -1,0 +1,29 @@
+{
+  "name": "tabletone-installer",
+  "version": "1.0.0",
+  "description": "Tabletone Installer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "com.tabletone.installer",
+    "productName": "Tabletone Setup",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "files": ["**/*", "!node_modules"],
+    "extraResources": [{ "from": "../dist/win-unpacked", "to": "app" }]
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

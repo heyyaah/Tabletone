@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Tabletone Setup</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    width: 680px; height: 480px; overflow: hidden;
+    background: transparent; color: #fff; user-select: none;
+}
+.bg {
+    position: fixed; inset: 0; border-radius: 16px; overflow: hidden;
+    background: #0d0d1a; box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+}
+.bg-gradient {
+    position: absolute; inset: -50%;
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        #667eea 0deg, #764ba2 60deg, #f093fb 120deg,
+        #4facfe 180deg, #667eea 240deg, #43e97b 300deg, #667eea 360deg
+    );
+    animation: spin 12s linear infinite;
+    opacity: 0.35; filter: blur(60px);
+}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.bg-noise { position: absolute; inset: 0; background: rgba(10,10,25,0.72); }
+.window {
+    position: relative; z-index: 1;
+    width: 680px; height: 480px; border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.12);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.titlebar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 10px;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0; cursor: default;
+}
+.titlebar-left { display: flex; align-items: center; gap: 10px; }
+.titlebar-logo {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+}
+.titlebar-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.titlebar-controls { display: flex; gap: 8px; }
+.ctrl-btn {
+    width: 28px; height: 28px; border-radius: 8px; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; transition: background 0.15s;
+    background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.7);
+}
+.ctrl-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.ctrl-btn.close:hover { background: #e53e3e; color: #fff; }
+.content { flex: 1; display: flex; overflow: hidden; }
+.sidebar {
+    width: 200px; flex-shrink: 0;
+    background: rgba(255,255,255,0.04);
+    border-right: 1px solid rgba(255,255,255,0.07);
+    padding: 28px 0; display: flex; flex-direction: column; gap: 4px;
+}
+.step-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; transition: background 0.2s;
+}
+.step-item.active { background: rgba(102,126,234,0.18); }
+.step-item.done   { opacity: 0.6; }
+.step-num {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.5); transition: all 0.3s;
+}
+.step-item.active .step-num {
+    background: linear-gradient(135deg,#667eea,#764ba2);
+    border-color: transparent; color: #fff;
+    box-shadow: 0 0 12px rgba(102,126,234,0.6);
+}
+.step-item.done .step-num { background: #38a169; border-color: transparent; color: #fff; }
+.step-label { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.45); transition: color 0.2s; }
+.step-item.active .step-label { color: rgba(255,255,255,0.9); font-weight: 600; }
+.sidebar-bottom {
+    margin-top: auto; padding: 0 20px;
+    font-size: 11px; color: rgba(255,255,255,0.2); line-height: 1.6;
+}
+.main { flex: 1; display: flex; flex-direction: column; padding: 32px 36px 24px; }
+.page { display: none; flex-direction: column; height: 100%; animation: fadeUp 0.3s ease; }
+.page.active { display: flex; }
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.page-icon { font-size: 36px; margin-bottom: 14px; filter: drop-shadow(0 0 16px rgba(102,126,234,0.5)); }
+.page-title {
+    font-size: 22px; font-weight: 700; margin-bottom: 8px;
+    background: linear-gradient(135deg,#fff 0%,rgba(255,255,255,0.7) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.page-subtitle { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.6; margin-bottom: 24px; }
+.dir-row {
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
+}
+.dir-input {
+    flex: 1; background: none; border: none; outline: none;
+    color: rgba(255,255,255,0.85); font-size: 13px; font-family: 'Segoe UI',sans-serif;
+}
+.dir-btn {
+    background: rgba(102,126,234,0.25); border: 1px solid rgba(102,126,234,0.4);
+    color: #a5b4fc; border-radius: 7px; padding: 5px 12px;
+    font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.dir-btn:hover { background: rgba(102,126,234,0.4); color: #fff; }
+.dir-hint { font-size: 11px; color: rgba(255,255,255,0.25); margin-bottom: 20px; }
+.checkbox-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer; }
+.checkbox-row input[type=checkbox] { display: none; }
+.checkbox-box {
+    width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.06);
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.checkbox-row input:checked + .checkbox-box {
+    background: linear-gradient(135deg,#667eea,#764ba2); border-color: transparent;
+}
+.checkbox-box svg { display: none; }
+.checkbox-row input:checked + .checkbox-box svg { display: block; }
+.checkbox-label { font-size: 13px; color: rgba(255,255,255,0.7); }
+.progress-wrap {
+    background: rgba(255,255,255,0.08); border-radius: 100px; height: 6px;
+    overflow: hidden; margin-bottom: 10px;
+}
+.progress-bar {
+    height: 100%; border-radius: 100px; width: 0%;
+    background: linear-gradient(90deg,#667eea,#f093fb,#43e97b);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite; transition: width 0.4s ease;
+}
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.progress-status { font-size: 12px; color: rgba(255,255,255,0.5); min-height: 18px; margin-bottom: 20px; }
+.progress-pct {
+    font-size: 28px; font-weight: 700; margin-bottom: 6px;
+    background: linear-gradient(135deg,#667eea,#f093fb);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.btn-row { margin-top: auto; display: flex; justify-content: flex-end; gap: 10px; }
+.btn {
+    padding: 10px 28px; border-radius: 10px; border: none;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    font-family: 'Segoe UI',sans-serif;
+}
+.btn-primary {
+    background: linear-gradient(135deg,#667eea,#764ba2); color: #fff;
+    box-shadow: 0 4px 20px rgba(102,126,234,0.4);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(102,126,234,0.6); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-secondary {
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.12);
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.btn-success {
+    background: linear-gradient(135deg,#38a169,#2f855a); color: #fff;
+    box-shadow: 0 4px 20px rgba(56,161,105,0.4);
+}
+.btn-success:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(56,161,105,0.6); }
+.license-box {
+    flex: 1; overflow-y: auto;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 14px 16px;
+    font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.7; margin-bottom: 14px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.finish-feature {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;
+}
+.finish-feature-icon {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.finish-feature-text { font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.4; }
+.finish-feature-text strong { color: rgba(255,255,255,0.9); display: block; font-size: 13px; }
+.feature-bullet { display: flex; align-items: center; gap: 10px; font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="bg">
+    <div class="bg-gradient"></div>
+    <div class="bg-noise"></div>
+</div>
+
+<div class="window">
+    <div class="titlebar">
+        <div class="titlebar-left">
+            <div class="titlebar-logo">T</div>
+            <span class="titlebar-title">Tabletone — Установка</span>
+        </div>
+        <div class="titlebar-controls">
+            <button class="ctrl-btn" onclick="installer.minimize()">&#8722;</button>
+            <button class="ctrl-btn close" onclick="installer.close()">&#10005;</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="sidebar">
+            <div class="step-item active" id="step-1"><div class="step-num">1</div><div class="step-label">Добро пожаловать</div></div>
+            <div class="step-item" id="step-2"><div class="step-num">2</div><div class="step-label">Лицензия</div></div>
+            <div class="step-item" id="step-3"><div class="step-num">3</div><div class="step-label">Параметры</div></div>
+            <div class="step-item" id="step-4"><div class="step-num">4</div><div class="step-label">Установка</div></div>
+            <div class="step-item" id="step-5"><div class="step-num">5</div><div class="step-label">Готово</div></div>
+            <div class="sidebar-bottom">Tabletone v1.0.0<br>© 2025 Tabletone Team</div>
+        </div>
+
+        <div class="main">
+
+            <!-- Шаг 1: Приветствие -->
+            <div class="page active" id="page-1">
+                <div class="page-icon">💬</div>
+                <div class="page-title">Добро пожаловать в Tabletone</div>
+                <div class="page-subtitle">Мессенджер нового поколения. Мастер установки проведёт вас через несколько простых шагов.</div>
+                <div style="flex:1;">
+                    <div class="feature-bullet"><span style="color:#667eea;font-size:16px;">✦</span> Мгновенные сообщения и медиафайлы</div>
+                    <div class="feature-bullet"><span style="color:#f093fb;font-size:16px;">✦</span> Голосовые и видеозвонки</div>
+                    <div class="feature-bullet"><span style="color:#43e97b;font-size:16px;">✦</span> NFT, подарки и Premium-подписка</div>
+                    <div class="feature-bullet"><span style="color:#4facfe;font-size:16px;">✦</span> Боты, каналы и группы</div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="installer.close()">Отмена</button>
+                    <button class="btn btn-primary" onclick="goTo(2)">Далее →</button>
+                </div>
+            </div>
+
+            <!-- Шаг 2: Лицензия -->
+            <div class="page" id="page-2">
+                <div class="page-title" style="font-size:18px;margin-bottom:6px;">Лицензионное соглашение</div>
+                <div class="page-subtitle" style="margin-bottom:12px;">Прочитайте и примите условия перед установкой.</div>
+                <div class="license-box">
+                    <strong style="color:rgba(255,255,255,0.8);">ЛИЦЕНЗИОННОЕ СОГЛАШЕНИЕ TABLETONE</strong><br><br>
+                    Настоящее соглашение регулирует использование программного обеспечения Tabletone («Программа»).<br><br>
+                    <strong style="color:rgba(255,255,255,0.6);">1. Предоставление лицензии</strong><br>
+                    Tabletone Team предоставляет вам неисключительную, непередаваемую лицензию на использование Программы в личных и коммерческих целях.<br><br>
+                    <strong style="color:rgba(255,255,255,0.6);">2. Ограничения</strong><br>
+                    Запрещается декомпилировать, дизассемблировать или иным образом пытаться получить исходный код; распространять вредоносный контент; использовать Программу для нарушения законодательства.<br><br>
+                    <strong style="color:rgba(255,255,255,0.6);">3. Конфиденциальность</strong><br>
+                    Программа может собирать анонимные данные об использовании для улучшения качества сервиса. Личные данные не передаются третьим лицам.<br><br>
+                    <strong style="color:rgba(255,255,255,0.6);">4. Отказ от гарантий</strong><br>
+                    Программа предоставляется «как есть». Tabletone Team не несёт ответственности за любой ущерб, возникший в результате использования Программы.<br><br>
+                    <strong style="color:rgba(255,255,255,0.6);">5. Обновления</strong><br>
+                    Tabletone Team оставляет за собой право выпускать обновления. Продолжение использования означает принятие обновлённых условий.
+                </div>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="license-cb" onchange="updateLicenseBtn()">
+                    <div class="checkbox-box">
+                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <span class="checkbox-label">Я принимаю условия лицензионного соглашения</span>
+                </label>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="goTo(1)">← Назад</button>
+                    <button class="btn btn-primary" id="license-next-btn" onclick="goTo(3)" disabled>Далее →</button>
+                </div>
+            </div>
+
+            <!-- Шаг 3: Параметры -->
+            <div class="page" id="page-3">
+                <div class="page-title" style="font-size:18px;margin-bottom:6px;">Параметры установки</div>
+                <div class="page-subtitle" style="margin-bottom:16px;">Выберите папку и дополнительные параметры.</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:8px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Папка установки</div>
+                <div class="dir-row">
+                    <input class="dir-input" id="install-dir" type="text" readonly>
+                    <button class="dir-btn" onclick="chooseDir()">Обзор...</button>
+                </div>
+                <div class="dir-hint">Потребуется ~180 МБ свободного места</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:12px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Дополнительно</div>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cb-desktop" checked>
+                    <div class="checkbox-box"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    <span class="checkbox-label">Создать ярлык на рабочем столе</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cb-startup">
+                    <div class="checkbox-box"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    <span class="checkbox-label">Запускать Tabletone при старте Windows</span>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" id="cb-launch" checked>
+                    <div class="checkbox-box"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    <span class="checkbox-label">Запустить Tabletone после установки</span>
+                </label>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="goTo(2)">← Назад</button>
+                    <button class="btn btn-primary" onclick="startInstall()">Установить</button>
+                </div>
+            </div>
+
+            <!-- Шаг 4: Установка -->
+            <div class="page" id="page-4">
+                <div class="page-icon" id="install-icon">⚙️</div>
+                <div class="page-title" style="font-size:18px;margin-bottom:4px;" id="install-title">Установка...</div>
+                <div class="page-subtitle" style="margin-bottom:20px;">Пожалуйста, подождите. Это займёт несколько секунд.</div>
+                <div class="progress-pct" id="progress-pct">0%</div>
+                <div class="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+                <div class="progress-status" id="progress-status">Инициализация...</div>
+                <div class="btn-row" id="install-done-btns" style="display:none;">
+                    <button class="btn btn-primary" onclick="goTo(5)">Далее →</button>
+                </div>
+            </div>
+
+            <!-- Шаг 5: Готово -->
+            <div class="page" id="page-5">
+                <div class="page-icon">🎉</div>
+                <div class="page-title">Установка завершена!</div>
+                <div class="page-subtitle" style="margin-bottom:16px;">Tabletone успешно установлен на ваш компьютер.</div>
+                <div class="finish-feature">
+                    <div class="finish-feature-icon" style="background:linear-gradient(135deg,#667eea,#764ba2);">💬</div>
+                    <div class="finish-feature-text"><strong>Начните общаться</strong>Войдите или создайте аккаунт прямо сейчас</div>
+                </div>
+                <div class="finish-feature">
+                    <div class="finish-feature-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);">👑</div>
+                    <div class="finish-feature-text"><strong>Попробуйте Premium</strong>Эксклюзивные функции и NFT-подарки</div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="installer.openDir(getInstallDir())">Открыть папку</button>
+                    <button class="btn btn-success" onclick="launchAndClose()">🚀 Запустить Tabletone</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+const DEFAULT_DIR = 'C:\\Users\\User\\AppData\\Local\\Programs\\Tabletone';
+document.getElementById('install-dir').value = DEFAULT_DIR;
+
+// Перетаскивание окна
+let dragStart = null;
+document.querySelector('.titlebar').addEventListener('mousedown', e => {
+    if (e.target.closest('.titlebar-controls')) return;
+    dragStart = { x: e.screenX, y: e.screenY };
+    const onMove = ev => {
+        installer.dragWindow(ev.screenX - dragStart.x, ev.screenY - dragStart.y);
+        dragStart = { x: ev.screenX, y: ev.screenY };
+    };
+    const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+});
+
+function goTo(step) {
+    for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById('step-' + i);
+        el.classList.remove('active', 'done');
+        if (i < step) el.classList.add('done');
+        if (i === step) el.classList.add('active');
+    }
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + step).classList.add('active');
+}
+
+function updateLicenseBtn() {
+    const btn = document.getElementById('license-next-btn');
+    btn.disabled = !document.getElementById('license-cb').checked;
+}
+
+async function chooseDir() {
+    const dir = await installer.chooseDir();
+    if (dir) document.getElementById('install-dir').value = dir;
+}
+
+function getInstallDir() {
+    return document.getElementById('install-dir').value;
+}
+
+async function startInstall() {
+    goTo(4);
+    installer.onProgress(({ pct, msg }) => {
+        document.getElementById('progress-bar').style.width = pct + '%';
+        document.getElementById('progress-pct').textContent = pct + '%';
+        document.getElementById('progress-status').textContent = msg;
+        if (pct >= 100) {
+            setTimeout(() => {
+                document.getElementById('install-icon').textContent = '✅';
+                document.getElementById('install-title').textContent = 'Установка завершена!';
+                document.getElementById('install-done-btns').style.display = 'flex';
+            }, 500);
+        }
+    });
+    await installer.install(getInstallDir());
+}
+
+function launchAndClose() {
+    if (document.getElementById('cb-launch').checked) installer.launch(getInstallDir());
+    else installer.close();
+}
+</script>
+</body>
+</html>
