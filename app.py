@@ -1581,15 +1581,25 @@ def _init_db():
 
         # Расшифровываем старые gift_premium сообщения (одноразово)
         try:
+            import base64 as _b64check
             _gift_msgs = Message.query.filter_by(message_type='gift_premium').all()
             _fixed = 0
             for _m in _gift_msgs:
                 if not _m.content:
                     continue
-                _dec = _m.decrypted_content
-                if _dec and _dec != _m.content:
-                    _m.content = _dec
-                    _fixed += 1
+                # Если контент уже читаемый русский текст — пропускаем
+                if _m.content.startswith('🎁') or '@' in _m.content:
+                    continue
+                # Пробуем расшифровать
+                try:
+                    _raw = _b64check.b64decode(_m.content)
+                    if len(_raw) > 12:
+                        _dec = decrypt_msg(_m.content)
+                        if _dec and _dec != _m.content:
+                            _m.content = _dec
+                            _fixed += 1
+                except Exception:
+                    pass
             if _fixed:
                 db.session.commit()
                 print(f"✓ Расшифровано {_fixed} gift_premium сообщений")
