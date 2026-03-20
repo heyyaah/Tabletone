@@ -11169,6 +11169,24 @@ def privacy():
 def terms():
     return render_template('terms.html')
 
+@app.route('/download/windows')
+def download_windows():
+    import os as _os
+    exe_path = _os.path.join(_os.path.dirname(__file__), 'tabletone-desktop', 'dist', 'Tabletone Setup 1.0.0.exe')
+    if _os.path.exists(exe_path):
+        from flask import send_file
+        return send_file(exe_path, as_attachment=True, download_name='Tabletone Setup 1.0.0.exe')
+    return jsonify({'error': 'Файл не найден'}), 404
+
+@app.route('/download/android')
+def download_android():
+    import os as _os
+    apk_path = _os.path.join(_os.path.dirname(__file__), 'tabletone-android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk')
+    if _os.path.exists(apk_path):
+        from flask import send_file
+        return send_file(apk_path, as_attachment=True, download_name='Tabletone.apk')
+    return jsonify({'error': 'Файл не найден'}), 404
+
 @app.route('/admin/test_cf_image')
 def test_cf_image():
     """Debug: test Cloudflare image generation directly"""

@@ -380,14 +380,89 @@ footer {
     margin: 0 60px;
 }
 
+/* ── MOBILE NAV MENU ── */
+.nav-burger {
+    display: none; flex-direction: column; gap: 5px; cursor: pointer;
+    padding: 6px; background: none; border: none;
+}
+.nav-burger span {
+    display: block; width: 22px; height: 2px;
+    background: rgba(255,255,255,0.8); border-radius: 2px;
+    transition: all 0.3s;
+}
+.nav-mobile-menu {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(7,7,26,0.97); backdrop-filter: blur(20px);
+    z-index: 200; flex-direction: column; align-items: center; justify-content: center;
+    gap: 28px;
+}
+.nav-mobile-menu.open { display: flex; }
+.nav-mobile-menu a {
+    font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.85);
+    text-decoration: none; transition: color 0.2s;
+}
+.nav-mobile-menu a:hover { color: #fff; }
+.nav-mobile-close {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.1); border: none; color: #fff;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
 @media (max-width: 768px) {
-    nav { padding: 14px 20px; }
+    /* Nav */
+    nav { padding: 12px 20px; }
     .nav-links { display: none; }
-    .section, .premium-section, .download-section { padding: 60px 20px; }
-    .premium-card { flex-direction: column; padding: 36px 24px; gap: 36px; }
-    .premium-right { width: 100%; flex-direction: row; flex-wrap: wrap; }
-    footer { padding: 30px 20px; flex-direction: column; text-align: center; }
-    .stats-row { gap: 30px; }
+    .nav-cta .btn-nav-ghost { display: none; }
+    .nav-burger { display: flex; }
+
+    /* Hero */
+    .hero { padding: 100px 20px 60px; }
+    .hero-title { letter-spacing: -1px; }
+    .hero-btns { flex-direction: column; align-items: stretch; }
+    .btn-hero-primary, .btn-hero-secondary { justify-content: center; padding: 15px 24px; font-size: 15px; }
+
+    /* Mockup — показываем только чат, скрываем сайдбар */
+    .mockup-sidebar { display: none; }
+    .mockup-body { height: 260px; }
+    .mockup-msg { max-width: 85%; }
+
+    /* Stats */
+    .stats-row { gap: 20px; padding: 40px 20px; }
+    .stat-num { font-size: 32px; }
+    .stat-label { font-size: 12px; }
+
+    /* Sections */
+    .section, .premium-section, .download-section { padding: 50px 20px; }
+    .section-title { font-size: 26px; }
+    .section-sub { font-size: 14px; margin-bottom: 36px; }
+    .divider { margin: 0 20px; }
+
+    /* Features grid — 1 колонка */
+    .features-grid { grid-template-columns: 1fr; gap: 14px; }
+    .feature-card { padding: 20px; }
+    .feature-title { font-size: 15px; }
+
+    /* Premium */
+    .premium-card { flex-direction: column; padding: 28px 20px; gap: 28px; }
+    .premium-title { font-size: 26px; }
+    .premium-right { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 10px; }
+    .price-card { flex: 1; min-width: 80px; padding: 14px 10px; }
+    .price-amount { font-size: 20px; }
+
+    /* Download */
+    .download-btns { flex-direction: column; align-items: stretch; }
+    .btn-download { justify-content: flex-start; }
+
+    /* Footer */
+    footer { padding: 28px 20px; flex-direction: column; text-align: center; gap: 16px; }
+    .footer-links { flex-wrap: wrap; justify-content: center; gap: 16px; }
+}
+
+@media (max-width: 400px) {
+    .hero-title { font-size: 34px; }
+    .premium-right { flex-direction: column; }
+    .price-card { min-width: unset; }
 }
 </style>
 
@@ -411,10 +486,23 @@ footer {
         <a href="#download">Скачать</a>
     </div>
     <div class="nav-cta">
-        <a href="/login" class="btn-nav btn-nav-ghost">Войти</a>
-        <a href="/register" class="btn-nav btn-nav-primary"><i class="fas fa-bolt" style="font-size:12px;"></i> Начать бесплатно</a>
+        <a href="https://hi-ybs0.onrender.com/login" class="btn-nav btn-nav-ghost">Войти</a>
+        <a href="https://hi-ybs0.onrender.com/register" class="btn-nav btn-nav-primary"><i class="fas fa-bolt" style="font-size:12px;"></i> Начать бесплатно</a>
+        <button class="nav-burger" onclick="openMobileMenu()" aria-label="Меню">
+            <span></span><span></span><span></span>
+        </button>
     </div>
 </nav>
+
+<!-- MOBILE MENU -->
+<div class="nav-mobile-menu" id="mobile-menu">
+    <button class="nav-mobile-close" onclick="closeMobileMenu()">✕</button>
+    <a href="#features" onclick="closeMobileMenu()">Возможности</a>
+    <a href="#premium" onclick="closeMobileMenu()">Premium</a>
+    <a href="#download" onclick="closeMobileMenu()">Скачать</a>
+    <a href="https://hi-ybs0.onrender.com/login" onclick="closeMobileMenu()" style="color:#a5b4fc;">Войти</a>
+    <a href="https://hi-ybs0.onrender.com/register" onclick="closeMobileMenu()" style="background:linear-gradient(135deg,#667eea,#764ba2);padding:14px 36px;border-radius:14px;color:#fff;font-size:18px;">Начать бесплатно</a>
+</div>
 
 <!-- HERO -->
 <section class="hero">
@@ -431,7 +519,7 @@ footer {
         всё в одном красивом приложении.
     </p>
     <div class="hero-btns">
-        <a href="/register" class="btn-hero-primary">
+        <a href="https://hi-ybs0.onrender.com/register" class="btn-hero-primary">
             <i class="fas fa-rocket"></i> Начать бесплатно
         </a>
         <a href="#download" class="btn-hero-secondary">
@@ -589,7 +677,7 @@ footer {
                 <div class="premium-perk"><div class="perk-check">✓</div> Кастомный Premium-эмодзи</div>
                 <div class="premium-perk"><div class="perk-check">✓</div> Приоритетная поддержка 24/7</div>
             </div>
-            <a href="/register" class="btn-hero-primary" style="display:inline-flex;">
+            <a href="https://hi-ybs0.onrender.com/register" class="btn-hero-primary" style="display:inline-flex;">
                 <i class="fas fa-crown"></i> Попробовать Premium
             </a>
         </div>
@@ -619,21 +707,21 @@ footer {
         <h2 class="download-title">Доступен везде</h2>
         <p class="download-sub">Используй Tabletone в браузере или скачай нативное приложение.</p>
         <div class="download-btns">
-            <a href="/register" class="btn-download">
+            <a href="https://hi-ybs0.onrender.com/register" class="btn-download">
                 <div class="btn-download-icon">🌐</div>
                 <div class="btn-download-text">
                     <div class="btn-download-sub">Открыть в</div>
                     <div class="btn-download-name">Браузере</div>
                 </div>
             </a>
-            <a href="#" class="btn-download">
+            <a href="/download/windows" class="btn-download" download>
                 <div class="btn-download-icon"><i class="fab fa-windows" style="font-size:26px;color:#4facfe;"></i></div>
                 <div class="btn-download-text">
                     <div class="btn-download-sub">Скачать для</div>
                     <div class="btn-download-name">Windows</div>
                 </div>
             </a>
-            <a href="#" class="btn-download">
+            <a href="/download/android" class="btn-download" download>
                 <div class="btn-download-icon"><i class="fab fa-android" style="font-size:26px;color:#43e97b;"></i></div>
                 <div class="btn-download-text">
                     <div class="btn-download-sub">Скачать для</div>
@@ -653,12 +741,16 @@ footer {
     <div class="footer-links">
         <a href="/privacy">Конфиденциальность</a>
         <a href="/terms">Условия</a>
-        <a href="/login">Войти</a>
+        <a href="https://hi-ybs0.onrender.com/login">Войти</a>
     </div>
-    <div class="footer-copy">© 2025 Tabletone Team</div>
+    <div class="footer-copy">© 2026 Tabletone Team</div>
 </footer>
 
 <script>
+// Mobile menu
+function openMobileMenu() { document.getElementById('mobile-menu').classList.add('open'); document.body.style.overflow='hidden'; }
+function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); document.body.style.overflow=''; }
+
 // Scroll reveal
 const observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
