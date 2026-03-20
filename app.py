@@ -2358,10 +2358,20 @@ def payment_webhook():
             import urllib.request as _ur_pay
             if action == 'confirm':
                 activated = False
+                # Parse sender from username field: "recipient_sender" or "recipient"
+                sender_gift = ''
+                if key.startswith('premium') and '_' in username:
+                    u_parts = username.split('_', 1)
+                    username = u_parts[0]
+                    sender_gift = u_parts[1]
                 try:
                     if is_nft_confirm:
                         ep = f"{site_url_pay}/api/nft/give"
                         pl = json.dumps({"username": username, "nft_id": key[4:], "secret": pay_secret}).encode()
+                    elif key.startswith('premium') and sender_gift:
+                        plan = PAY_PREMIUM_PLANS[key]
+                        ep = f"{site_url_pay}/api/payment/activate-premium-gift"
+                        pl = json.dumps({"recipient": username, "sender": sender_gift, "days": plan["days"], "secret": pay_secret}).encode()
                     elif key.startswith('premium'):
                         plan = PAY_PREMIUM_PLANS[key]
                         ep = f"{site_url_pay}/api/payment/activate-premium"
@@ -2377,6 +2387,9 @@ def payment_webhook():
                     print(f"pay activate error: {e}")
                 if is_nft_confirm:
                     user_msg = f"🎉 *Оплата подтверждена!*\n\n🖼 NFT выдан для @{username}!"
+                elif key.startswith('premium') and sender_gift:
+                    plan = PAY_PREMIUM_PLANS[key]
+                    user_msg = f"🎉 *Оплата подтверждена!*\n\n👑 Premium на *{plan['days']} дней* подарен @{username}!"
                 elif key.startswith('premium'):
                     plan = PAY_PREMIUM_PLANS[key]; user_msg = f"🎉 *Оплата подтверждена!*\n\n👑 Premium на *{plan['days']} дней* активирован для @{username}!"
                 else:
@@ -2411,13 +2424,44 @@ def payment_webhook():
     if text_msg.startswith('/start'):
         try:
             ud.clear()
-            # Deep link: /start pay_KEY_USERNAME — сразу к реквизитам
             parts = text_msg.split(maxsplit=1)
             start_param = parts[1] if len(parts) > 1 else ''
+
+            # Deep link: gift_premium_<days>_<recipient>_<sender>
+            if start_param.startswith('gift_premium_'):
+                gp_parts = start_param.split('_', 3)  # ["gift","premium","<days>","<rest>"]
+                if len(gp_parts) == 4:
+                    days_str = gp_parts[2]
+                    rest_gp = gp_parts[3]
+                    plan_key_gp = f"premium_{days_str}"
+                    plan_gp = PAY_PREMIUM_PLANS.get(plan_key_gp)
+                    if plan_gp:
+                        last_sep = rest_gp.rfind('_')
+                        if last_sep > 0:
+                            recipient = rest_gp[:last_sep]
+                            sender = rest_gp[last_sep + 1:]
+                        else:
+                            recipient = rest_gp
+                            sender = ''
+                        ud['pending_key'] = plan_key_gp
+                        ud['tabletone_username'] = recipient
+                        ud['gift_sender'] = sender
+                        ud['awaiting_username'] = False
+                        ud['awaiting_screenshot'] = True
+                        sender_line = f"\n👤 От: @{sender}" if sender else ''
+                        _pay_tg_send(token, chat_id,
+                            f"🎁 *Подарок:* {plan_gp['label']} для @{recipient}{sender_line}\n\n"
+                            f"💳 *Реквизиты для оплаты:*\n\n"
+                            f"📱 Номер: `{PAY_CARD}`\n"
+                            f"🏦 по номеру телефона (СБП / любой банк)\n"
+                            f"💰 Сумма: *{plan_gp['price']}*\n\n"
+                            f"После перевода пришлите *скриншот* подтверждения оплаты.\n⏳ У вас есть *10 минут*.",
+                            {"inline_keyboard": [[{"text": "◀️ Отмена", "callback_data": "menu_main"}]]})
+                        return jsonify({'ok': True})
+
+            # Deep link: pay_KEY_USERNAME
             if start_param.startswith('pay_'):
-                # Формат: pay_premium_7_username или pay_sparks_100_username
-                rest = start_param[4:]  # убираем "pay_"
-                # Ищем ключ плана
+                rest = start_param[4:]
                 matched_key = None
                 for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()):
                     if rest.startswith(k + '_'):
@@ -2438,6 +2482,7 @@ def payment_webhook():
                         f"💰 Сумма: *{plan['price']}*\n\n"
                         f"После перевода пришлите *скриншот* подтверждения оплаты.\n⏳ У вас есть *10 минут*.")
                     return jsonify({'ok': True})
+
             # Обычный /start
             _pay_tg_send(token, chat_id,
                 "👋 Привет! Я бот оплаты *Tabletone*.\n\nВыбери что хочешь купить 👇", _pay_main_kb())
@@ -2630,15 +2675,19 @@ def payment_webhook():
             price_str = plan['price']
         photo_file_id = photos[-1]['file_id']
         user_info = f"@{tg_user.get('username')}" if tg_user.get('username') else f"id:{tg_user.get('id')}"
+        gift_sender = ud.get('gift_sender', '')
         _pay_tg_send(token, chat_id,
             "📨 Скриншот получен! Ожидайте подтверждения от администратора.\nОбычно это занимает до 15 минут.")
+        # Encode gift_sender in callback: confirm_<key>_<username>_<sender>_<chat_id>
+        sender_part = f"_{gift_sender}" if gift_sender else "_"
         confirm_kb = {"inline_keyboard": [[
-            {"text": "✅ Подтвердить", "callback_data": f"confirm_{key}_{username}_{chat_id}"},
+            {"text": "✅ Подтвердить", "callback_data": f"confirm_{key}_{username}{sender_part}{chat_id}"},
             {"text": "❌ Отклонить",   "callback_data": f"reject_{key}_{username}_{chat_id}"},
         ]]}
+        gift_note = f"\n🎁 Подарок от: @{gift_sender}" if gift_sender else ''
         _pay_tg_send_photo(token, owner_tg_id, photo_file_id,
             f"⚠️ *Новая заявка на оплату!*\n\n"
-            f"👤 TG: {user_info}\n🎮 Tabletone: @{username}\n"
+            f"👤 TG: {user_info}\n🎮 Tabletone: @{username}{gift_note}\n"
             f"🛒 Товар: {label}\n💰 Сумма: {price_str}\n\nПодтвердить перевод?",
             confirm_kb)
 
