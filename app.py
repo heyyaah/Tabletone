@@ -9738,6 +9738,20 @@ def owner_command():
             pass
         return jsonify({'success': True, 'msg': f'✅ Premium {days} дн. подарен @{target.username} до {target.premium_until.strftime("%d.%m.%Y")}'})
 
+    elif cmd == 'fixgiftmsgs':
+        # Расшифровывает старые gift_premium сообщения в БД
+        msgs = Message.query.filter_by(message_type='gift_premium').all()
+        fixed = 0
+        for m in msgs:
+            if not m.content:
+                continue
+            decrypted = m.decrypted_content
+            if decrypted and decrypted != m.content:
+                m.content = decrypted
+                fixed += 1
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'✅ Исправлено {fixed} из {len(msgs)} gift_premium сообщений.'})
+
     elif cmd == 'giftlist':
         gifts = GiftType.query.filter_by(is_active=True).all()
         if not gifts:
@@ -9816,7 +9830,7 @@ def _do_activate_premium_gift(recipient_username, sender_username, days):
             gift_msg = Message(
                 sender_id=sender.id,
                 receiver_id=recipient.id,
-                content=encrypt_msg(gift_text),
+                content=gift_text,
                 message_type='gift_premium',
             )
             db.session.add(gift_msg)
