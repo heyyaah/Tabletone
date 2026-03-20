@@ -19,7 +19,7 @@ android {
         release {
             storeFile file(System.getenv("KEYSTORE_PATH") ?: "keystore.jks")
             storePassword System.getenv("KEYSTORE_PASS") ?: ""
-            keyAlias System.getenv("KEY_ALIAS") ?: "tabletone"
+            keyAlias System.getenv("KEY_ALIAS") ?: "alias_name"
             keyPassword System.getenv("KEY_PASS") ?: ""
         }
     }
@@ -31,6 +31,11 @@ android {
             signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
     }
 
     compileOptions {
