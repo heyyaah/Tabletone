@@ -5,6 +5,8 @@ instance/
 .env
 tabletone-desktop/node_modules/
 tabletone-desktop/dist/
+tabletone-desktop/installer/node_modules/
+tabletone-desktop/installer/dist/
 tabletone-android/.gradle/
 tabletone-android/build/
 tabletone-android/app/build/
