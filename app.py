@@ -248,14 +248,15 @@ class User(db.Model):
 @app.context_processor
 def inject_twofa_banner():
     if 'user_id' not in session:
-        return {'show_twofa_banner': False}
+        return {'show_twofa_banner': False, 'show_onboarding': False}
     try:
         u = User.query.get(session['user_id'])
         if u:
             session['user_role'] = u.admin_role or ''
-        return {'show_twofa_banner': u is not None and not u.two_fa_enabled}
+        show_onboarding = session.pop('show_onboarding', False)
+        return {'show_twofa_banner': u is not None and not u.two_fa_enabled, 'show_onboarding': show_onboarding}
     except Exception:
-        return {'show_twofa_banner': False}
+        return {'show_twofa_banner': False, 'show_onboarding': False}
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -2836,6 +2837,9 @@ def register():
             db.session.commit()
 
         session['user_id'] = user.id
+        session['show_onboarding'] = True  # Флаг для показа онбординга
+        import threading
+        threading.Thread(target=_send_tabletone_welcome, args=(user.id,), daemon=True).start()
         return redirect(url_for('index'))
 
     a, b = _random.randint(1, 9), _random.randint(1, 9)
@@ -7924,28 +7928,62 @@ def _bot_auto_reply(bot, sender_id, text):
 # ── Вспомогательные функции для системных ботов ─────────────────────────────
 
 def _send_tabletone_welcome(user_id):
-    """Отправляет приветственное сообщение от @tabletonebot новому пользователю."""
-    bot_user = User.query.filter_by(username='tabletonebot').first()
-    if not bot_user:
-        return
-    welcome = (
-        "👋 Добро пожаловать в Tabletone!\n\n"
-        "Я официальный бот мессенджера. Вот что тебя ждёт:\n\n"
-        "💬 Личные чаты и групповые беседы\n"
-        "📢 Каналы для публикаций\n"
-        "🤖 Боты — создавай своих или используй готовых\n"
-        "🎙 Голосовые сообщения и видео-кружочки\n"
-        "📎 Отправка файлов, фото и видео\n\n"
-        "👑 Хочешь больше возможностей? Оформи Premium:\n"
-        "• Загрузка аватара\n"
-        "• Смена обоев чата\n"
-        "• Неограниченное количество ботов\n"
-        "• Кастомный эмодзи в профиле\n\n"
-        "Напиши боту @tabletone_premiumbot чтобы узнать подробнее.\n\n"
-        "🔒 Совет по безопасности: включи двухэтапную аутентификацию в Профиле → Безопасность.\n\n"
-        "Приятного общения! 🚀"
-    )
-    _bot_send_message(bot_user.id, user_id, welcome)
+    """Отправляет серию приветственных сообщений от @tabletonebot новому пользователю."""
+    import time as _time
+    with app.app_context():
+        bot_user = User.query.filter_by(username='tabletonebot').first()
+        if not bot_user:
+            return
+
+        messages = [
+            (0, (
+                "👋 Привет! Я официальный бот Tabletone.\n\n"
+                "Рад видеть тебя здесь! Сейчас расскажу всё самое важное — "
+                "это займёт меньше минуты 😊"
+            )),
+            (3, (
+                "💬 Шаг 1 — Начни общаться\n\n"
+                "Найди друзей через поиск по username и напиши им первым. "
+                "Поддерживаются текст, фото, видео, файлы, голосовые сообщения и видео-кружочки 🎙"
+            )),
+            (6, (
+                "📢 Шаг 2 — Каналы и группы\n\n"
+                "Создай свой канал для публикаций или группу для общения с командой. "
+                "Есть темы, опросы, закреплённые сообщения и медленный режим."
+            )),
+            (9, (
+                "🤖 Шаг 3 — Боты\n\n"
+                "Создай собственного бота в разделе «Боты» — задай команды, кнопки и автоответы. "
+                "Или подключи webhook для интеграции с любым сервисом."
+            )),
+            (12, (
+                "🔒 Шаг 4 — Безопасность\n\n"
+                "Обязательно включи двухэтапную аутентификацию:\n"
+                "Профиль → Безопасность → 2FA\n\n"
+                "Это защитит аккаунт даже если кто-то узнает пароль."
+            )),
+            (15, (
+                "👑 Шаг 5 — Premium\n\n"
+                "С Premium открываются:\n"
+                "• Загрузка аватара\n"
+                "• NFT-подарки и искры\n"
+                "• Кастомный эмодзи в профиле\n"
+                "• Смена обоев чата\n\n"
+                "Оформить можно через @tabletone_premiumbot в Telegram."
+            )),
+            (18, (
+                "✅ Всё готово!\n\n"
+                "Если возникнут вопросы — пиши сюда, я всегда отвечу.\n\n"
+                "Приятного общения в Tabletone! 🚀"
+            )),
+        ]
+
+        for delay, text in messages:
+            _time.sleep(delay)
+            try:
+                _bot_send_message(bot_user.id, user_id, text)
+            except Exception as e:
+                print(f"[tabletonebot] Failed to send welcome msg: {e}")
 
 
 def _send_2fa_code(user_id, code):
