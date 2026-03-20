@@ -3,6 +3,10 @@ const path = require('path');
 const fs   = require('fs');
 const os   = require('os');
 
+// Отключаем DPI scaling чтобы окно было точно 680x480
+app.commandLine.appendSwitch('high-dpi-support', '1');
+app.commandLine.appendSwitch('force-device-scale-factor', '1');
+
 let win;
 
 app.whenReady().then(() => {
@@ -13,6 +17,7 @@ app.whenReady().then(() => {
         minHeight: 480,
         maxWidth: 680,
         maxHeight: 480,
+        useContentSize: true,
         resizable: false,
         maximizable: false,
         fullscreenable: false,
@@ -21,6 +26,8 @@ app.whenReady().then(() => {
         hasShadow: true,
         backgroundColor: '#0d0d1a',
         center: true,
+        show: false,
+        skipTaskbar: false,
         title: 'Tabletone Setup',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -30,8 +37,31 @@ app.whenReady().then(() => {
     });
     win.loadFile('index.html');
     win.once('ready-to-show', () => {
-        win.show();
-        win.setSize(680, 480);
+        win.restore();
+        win.setResizable(false);
+        win.setMaximizable(false);
+        win.setFullScreenable(false);
+        win.setBounds({ x: 0, y: 0, width: 680, height: 480 }, false);
+        win.center();
+        setTimeout(() => {
+            win.setResizable(false);
+            win.setBounds({ width: 680, height: 480 }, false);
+            win.center();
+            win.show();
+        }, 100);
+    });
+
+    // Принудительно возвращаем размер если Windows Snap изменил его
+    win.on('resize', () => {
+        const [w, h] = win.getSize();
+        if (w !== 680 || h !== 480) {
+            win.setSize(680, 480, false);
+        }
+    });
+
+    win.on('maximize', () => {
+        win.unmaximize();
+        win.setSize(680, 480, false);
         win.center();
     });
 });
@@ -43,6 +73,10 @@ ipcMain.on('drag-window', (e, { x, y }) => {
 
 ipcMain.on('close-app',    () => app.quit());
 ipcMain.on('minimize-app', () => win.minimize());
+
+ipcMain.handle('get-default-dir', () => {
+    return path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Tabletone');
+});
 
 ipcMain.handle('choose-dir', async () => {
     const res = await dialog.showOpenDialog(win, {
@@ -56,21 +90,32 @@ ipcMain.handle('choose-dir', async () => {
 function countFiles(dir) {
     let count = 0;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        if (entry.isDirectory()) count += countFiles(path.join(dir, entry.name));
-        else count++;
+        if (entry.isDirectory() && entry.name !== 'app.asar.unpacked') {
+            count += countFiles(path.join(dir, entry.name));
+        } else {
+            count++;
+        }
     }
     return count;
 }
 
 function copyDir(src, dest, onFile) {
     fs.mkdirSync(dest, { recursive: true });
-    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    // Используем оригинальный fs без asar-перехвата
+    const originalFs = process.binding ? require('original-fs') : fs;
+    const readDir = (d) => {
+        try { return require('original-fs').readdirSync(d, { withFileTypes: true }); } catch(_) { return fs.readdirSync(d, { withFileTypes: true }); }
+    };
+    const copyFile = (s, d) => {
+        try { require('original-fs').copyFileSync(s, d); } catch(_) { fs.copyFileSync(s, d); }
+    };
+    for (const entry of readDir(src)) {
         const s = path.join(src, entry.name);
         const d = path.join(dest, entry.name);
         if (entry.isDirectory()) {
             copyDir(s, d, onFile);
         } else {
-            fs.copyFileSync(s, d);
+            copyFile(s, d);
             onFile(entry.name);
         }
     }
@@ -78,8 +123,8 @@ function copyDir(src, dest, onFile) {
 
 ipcMain.handle('install', async (e, installDir) => {
     try {
-        // Папка с распакованным приложением (рядом с инсталлятором в extraResources)
-        const appSrc = process.resourcesPath
+        // Папка с распакованным приложением
+        const appSrc = app.isPackaged
             ? path.join(process.resourcesPath, 'app')
             : path.join(__dirname, '..', 'dist', 'win-unpacked');
 
@@ -106,15 +151,27 @@ ipcMain.handle('install', async (e, installDir) => {
         win.webContents.send('install-progress', { pct: 88, msg: 'Создание ярлыков...' });
         await new Promise(r => setTimeout(r, 300));
 
-        // Ярлык на рабочем столе
-        const exePath = path.join(installDir, 'Tabletone.exe');
-        const desktopDir = path.join(os.homedir(), 'Desktop');
+        // Ярлык на рабочем столе — ищем Tabletone.exe
+        const exePath = fs.existsSync(path.join(installDir, 'Tabletone.exe'))
+            ? path.join(installDir, 'Tabletone.exe')
+            : path.join(installDir, 'tabletone-desktop', 'Tabletone.exe');
+        const desktopDir = (() => {
+            try {
+                const { execSync } = require('child_process');
+                const out = execSync('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders" /v Desktop', { windowsHide: true }).toString();
+                const match = out.match(/Desktop\s+REG_SZ\s+(.+)/);
+                if (match) return match[1].trim();
+            } catch (_) {}
+            return path.join(os.homedir(), 'Desktop');
+        })();
         const shortcutPath = path.join(desktopDir, 'Tabletone.lnk');
-        try {
-            const { execSync } = require('child_process');
-            const ps = `$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('${shortcutPath.replace(/\\/g, '\\\\')}'); $s.TargetPath = '${exePath.replace(/\\/g, '\\\\')}'; $s.Save()`;
-            execSync(`powershell -Command "${ps}"`, { windowsHide: true });
-        } catch (_) {}
+        if (fs.existsSync(exePath)) {
+            try {
+                const { execSync } = require('child_process');
+                const ps = `$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('${shortcutPath.replace(/\\/g, '\\\\')}'); $s.TargetPath = '${exePath.replace(/\\/g, '\\\\')}'; $s.WorkingDirectory = '${installDir.replace(/\\/g, '\\\\')}'; $s.Save()`;
+                execSync(`powershell -Command "${ps}"`, { windowsHide: true });
+            } catch (_) {}
+        }
 
         win.webContents.send('install-progress', { pct: 95, msg: 'Запись в реестр...' });
         await new Promise(r => setTimeout(r, 300));

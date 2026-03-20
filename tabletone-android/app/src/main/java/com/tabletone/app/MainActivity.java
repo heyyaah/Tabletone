@@ -24,7 +24,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String APP_URL = "https://hi-j5rs.onrender.com";
+    private static final String APP_URL = "https://hi-ybs0.onrender.com";
     private WebView webView;
 
     @Override
@@ -103,8 +103,8 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 // Внутренние ссылки — открываем в WebView
-                if (url.startsWith("https://hi-j5rs.onrender.com") ||
-                    url.startsWith("http://hi-j5rs.onrender.com")) {
+                if (url.startsWith("https://hi-ybs0.onrender.com") ||
+                    url.startsWith("http://hi-ybs0.onrender.com")) {
                     return false;
                 }
                 // Внешние ссылки (t.me, telegram.me и др.) — открываем через Intent

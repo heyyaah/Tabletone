@@ -342,8 +342,12 @@ body {
 </div>
 
 <script>
-const DEFAULT_DIR = 'C:\\Users\\User\\AppData\\Local\\Programs\\Tabletone';
+const DEFAULT_DIR = 'C:\\Users\\' + (window.installer_username || 'User') + '\\AppData\\Local\\Programs\\Tabletone';
 document.getElementById('install-dir').value = DEFAULT_DIR;
+// Получаем реальный путь через main process
+installer.getDefaultDir().then(dir => {
+    document.getElementById('install-dir').value = dir;
+});
 
 // Перетаскивание окна
 let dragStart = null;
@@ -401,7 +405,18 @@ async function startInstall() {
             }, 500);
         }
     });
-    await installer.install(getInstallDir());
+    const result = await installer.install(getInstallDir());
+    if (result && !result.success) {
+        document.getElementById('install-icon').textContent = '❌';
+        document.getElementById('install-title').textContent = 'Ошибка установки';
+        document.getElementById('progress-bar').style.background = '#555';
+        const sub = document.querySelector('#page-4 .page-subtitle');
+        sub.textContent = result.error || 'Неизвестная ошибка';
+        sub.style.cssText = 'word-break:break-all;overflow-y:auto;max-height:80px;font-size:11px;color:#f5576c;';
+        const btns = document.getElementById('install-done-btns');
+        btns.innerHTML = '<button class="btn btn-secondary" onclick="installer.close()">Закрыть</button>';
+        btns.style.display = 'flex';
+    }
 }
 
 function launchAndClose() {
