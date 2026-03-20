@@ -11,3 +11,5 @@ tabletone-android/.gradle/
 tabletone-android/build/
 tabletone-android/app/build/
 tabletone-android/local.properties
+tabletone-android/app/google-services.json
+.env
