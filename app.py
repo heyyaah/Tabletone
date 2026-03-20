@@ -30,6 +30,9 @@ def file_hash_filter(filename):
     except Exception:
         return '0'
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me-in-production')
+# Постоянные сессии — не разлогиниваться при закрытии приложения
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 _db_url = os.environ.get('DATABASE_URL', 'sqlite:///messenger.db')
 if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
@@ -163,6 +166,8 @@ def handle_exception(e):
 # Middleware для обновления last_seen при каждом запросе
 @app.before_request
 def update_last_seen():
+    # Делаем сессию постоянной (30 дней) при каждом запросе
+    session.permanent = True
     if request.path.startswith('/socket.io') or request.path.startswith('/static'):
         return
     if 'user_id' in session and request.endpoint not in ['static', None]:
