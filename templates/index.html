@@ -567,4 +567,101 @@
     } catch(e) {}
 })();
 </script>
+
+<!-- ── Модал поиска по сообщениям ── -->
+<div id="msg-search-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:flex-start;justify-content:center;padding-top:80px;">
+    <div style="background:var(--bg-primary);border-radius:18px;width:90%;max-width:520px;box-shadow:0 24px 60px rgba(0,0,0,0.35);overflow:hidden;border:1px solid var(--border-color);">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:12px;">
+            <i class="fas fa-search" style="color:var(--text-secondary);font-size:15px;"></i>
+            <input id="msg-search-input" type="text" placeholder="Поиск по сообщениям..."
+                style="flex:1;border:none;outline:none;background:transparent;font-size:15px;color:var(--text-primary);font-family:inherit;">
+            <button onclick="closeMsgSearch()" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:18px;padding:0 4px;">✕</button>
+        </div>
+        <div id="msg-search-results" style="max-height:380px;overflow-y:auto;">
+            <div id="msg-search-empty" style="padding:40px 20px;text-align:center;color:var(--text-secondary);font-size:14px;">
+                <div style="font-size:32px;margin-bottom:10px;">🔍</div>
+                Введите запрос для поиска
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var _msgSearchTimer = null;
+
+function showSearchModal() {
+    var modal = document.getElementById('msg-search-modal');
+    modal.style.display = 'flex';
+    setTimeout(function(){ document.getElementById('msg-search-input').focus(); }, 100);
+}
+
+function closeMsgSearch() {
+    document.getElementById('msg-search-modal').style.display = 'none';
+    document.getElementById('msg-search-input').value = '';
+    document.getElementById('msg-search-results').innerHTML = '<div id="msg-search-empty" style="padding:40px 20px;text-align:center;color:var(--text-secondary);font-size:14px;"><div style="font-size:32px;margin-bottom:10px;">🔍</div>Введите запрос для поиска</div>';
+}
+
+document.getElementById('msg-search-modal').addEventListener('click', function(e){
+    if (e.target === this) closeMsgSearch();
+});
+
+document.getElementById('msg-search-input').addEventListener('input', function(){
+    clearTimeout(_msgSearchTimer);
+    var q = this.value.trim();
+    if (q.length < 2) {
+        document.getElementById('msg-search-results').innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-secondary);font-size:14px;"><div style="font-size:32px;margin-bottom:10px;">🔍</div>Введите минимум 2 символа</div>';
+        return;
+    }
+    document.getElementById('msg-search-results').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-secondary);font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Поиск...</div>';
+    _msgSearchTimer = setTimeout(function(){ doMsgSearch(q); }, 350);
+});
+
+function doMsgSearch(q) {
+    var params = new URLSearchParams({ q: q });
+    if (window.currentChatUserId) params.set('chat_id', window.currentChatUserId);
+    if (window.currentGroupId) params.set('group_id', window.currentGroupId);
+
+    fetch('/search/messages?' + params)
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            var results = data.results || [];
+            var container = document.getElementById('msg-search-results');
+            if (!results.length) {
+                container.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-secondary);font-size:14px;"><div style="font-size:32px;margin-bottom:10px;">😶</div>Ничего не найдено</div>';
+                return;
+            }
+            var html = '';
+            results.forEach(function(m){
+                var text = m.content || '';
+                var q2 = document.getElementById('msg-search-input').value.trim();
+                // Подсвечиваем совпадение
+                var re = new RegExp('(' + q2.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+                var highlighted = text.replace(re, '<mark style="background:rgba(102,126,234,0.25);color:inherit;border-radius:3px;padding:0 2px;">$1</mark>');
+                html += '<div onclick="jumpToMessage(' + m.id + ',\'' + m.type + '\')" style="padding:14px 20px;border-bottom:1px solid var(--border-color);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'var(--bg-secondary)\'" onmouseout="this.style.background=\'\'">'+
+                    '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'+
+                    '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + (m.sender || '') + '</span>'+
+                    '<span style="font-size:11px;color:var(--text-secondary);">' + (m.timestamp || '') + '</span>'+
+                    '</div>'+
+                    '<div style="font-size:13px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + highlighted + '</div>'+
+                    '</div>';
+            });
+            container.innerHTML = html;
+        })
+        .catch(function(){ });
+}
+
+function jumpToMessage(msgId, type) {
+    closeMsgSearch();
+    // Скроллим к сообщению
+    setTimeout(function(){
+        var el = document.getElementById('msg-' + msgId) || document.querySelector('[data-msg-id="' + msgId + '"]');
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.style.transition = 'background 0.3s';
+            el.style.background = 'rgba(102,126,234,0.18)';
+            setTimeout(function(){ el.style.background = ''; }, 2000);
+        }
+    }, 200);
+}
+</script>
 {% endblock %}

@@ -226,6 +226,8 @@ class User(db.Model):
     reputation = db.Column(db.Integer, default=100)  # Репутация 0-100
     auto_reply_text = db.Column(db.String(200), nullable=True)  # Автоответ
     msg_price = db.Column(db.Integer, nullable=True, default=None)  # Цена сообщения в искрах (None = бесплатно)
+    ref_code = db.Column(db.String(20), unique=True, nullable=True)   # Реферальный код
+    referred_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Кто пригласил
 
     # ── Настройки приватности ─────────────────────────────────────────────────
     # Значения: 'everyone' | 'contacts' | 'nobody' | 'premium' (только для who_can_message)
@@ -2755,7 +2757,7 @@ def index():
 
 # Регистрация
 @app.route('/register', methods=['GET', 'POST'])
-@limiter.limit("3 per hour; 1 per 30 second")
+@limiter.limit("10 per hour; 3 per minute")
 def register():
     import random as _random
     if request.method == 'POST':
@@ -2824,11 +2826,22 @@ def register():
             avatar_color=_random.choice(colors),
             timezone=request.form.get('timezone', 'Europe/Moscow'),
             email_verified=False,
-            reg_ip=ip
+            reg_ip=ip,
+            ref_code=secrets.token_urlsafe(6)  # Уникальный реф-код
         )
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
+
+        # Начисляем искры пригласившему если есть реф-код
+        ref = session.pop('ref_code', None)
+        if ref:
+            referrer = User.query.filter_by(ref_code=ref).first()
+            if referrer and referrer.id != user.id:
+                user.referred_by = referrer.id
+                _add_sparks(referrer.id, 50, reason='Реферал: @' + username)
+                _add_sparks(user.id, 25, reason='Приглашён по реф-ссылке')
+                db.session.commit()
 
         # Назначаем owner если это romancev228
         if username == 'romancev228':
@@ -11214,6 +11227,31 @@ def download_windows():
 @app.route('/download/android')
 def download_android():
     return redirect('https://github.com/heyyaah/Tabletone/releases/download/Release/Tabletone.apk')
+
+# ── Реферальная система ───────────────────────────────────────────────────────
+
+@app.route('/ref/<code>')
+def referral_redirect(code):
+    """Сохраняем реф-код в сессии и редиректим на регистрацию."""
+    session['ref_code'] = code
+    return redirect(url_for('register'))
+
+@app.route('/api/referral/my-code')
+def referral_my_code():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({'error': 'Не найден'}), 404
+    if not user.ref_code:
+        user.ref_code = secrets.token_urlsafe(6)
+        db.session.commit()
+    base = request.host_url.rstrip('/')
+    return jsonify({
+        'code': user.ref_code,
+        'link': f"{base}/ref/{user.ref_code}",
+        'invited_count': User.query.filter_by(referred_by=user.id).count()
+    })
 
 @app.route('/admin/test_cf_image')
 def test_cf_image():
