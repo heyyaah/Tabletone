@@ -52,6 +52,9 @@
         <button class="tab-btn" onclick="switchTab('nft')">
             <i class="fas fa-gem"></i> NFT
         </button>
+        <button class="tab-btn" onclick="switchTab('give')">
+            <i class="fas fa-gift"></i> Выдача
+        </button>
         {% endif %}
     </div>
     
@@ -159,6 +162,70 @@
         </div>
         <div id="nft-admin-list">
             <div style="text-align:center;padding:40px;color:#a0aec0;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+        </div>
+    </div>
+
+    <!-- Выдача (owner only) -->
+    <div id="give-tab" class="admin-tab">
+        <h2>Выдача подарков / NFT / Premium / Искр</h2>
+        <div style="max-width:480px;">
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Username пользователя</label>
+                <input id="give-username" type="text" placeholder="username (без @)"
+                    style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Тип выдачи</label>
+                <select id="give-type" onchange="onGiveTypeChange()"
+                    style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
+                    <option value="premium">👑 Premium</option>
+                    <option value="sparks">✨ Искры</option>
+                    <option value="gift">🎁 Подарок</option>
+                    <option value="nft">💎 NFT</option>
+                </select>
+            </div>
+
+            <!-- Premium -->
+            <div id="give-premium-opts" style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Дней Premium</label>
+                <select id="give-days" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
+                    <option value="7">7 дней</option>
+                    <option value="14">14 дней</option>
+                    <option value="30" selected>30 дней</option>
+                    <option value="90">90 дней</option>
+                    <option value="180">180 дней</option>
+                    <option value="365">365 дней</option>
+                </select>
+            </div>
+
+            <!-- Искры -->
+            <div id="give-sparks-opts" style="display:none;margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Количество искр</label>
+                <input id="give-sparks-amount" type="number" min="1" placeholder="100"
+                    style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;box-sizing:border-box;">
+            </div>
+
+            <!-- Подарок -->
+            <div id="give-gift-opts" style="display:none;margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Выберите подарок</label>
+                <select id="give-gift-id" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
+                    <option value="">Загрузка...</option>
+                </select>
+            </div>
+
+            <!-- NFT -->
+            <div id="give-nft-opts" style="display:none;margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Выберите коллекцию NFT</label>
+                <select id="give-nft-id" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
+                    <option value="">Загрузка...</option>
+                </select>
+            </div>
+
+            <button onclick="submitGive()"
+                style="width:100%;padding:12px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-paper-plane"></i> Выдать
+            </button>
+            <div id="give-result" style="margin-top:12px;font-size:14px;font-weight:600;text-align:center;"></div>
         </div>
     </div>
     {% endif %}
@@ -618,7 +685,56 @@ function switchTab(tabName) {
         loadDeletionRequests();
     } else if (tabName === 'nft') {
         loadNFTAdmin();
+    } else if (tabName === 'give') {
+        loadGiveCatalog();
     }
+}
+
+function onGiveTypeChange() {
+    const type = document.getElementById('give-type').value;
+    document.getElementById('give-premium-opts').style.display = type === 'premium' ? '' : 'none';
+    document.getElementById('give-sparks-opts').style.display  = type === 'sparks'  ? '' : 'none';
+    document.getElementById('give-gift-opts').style.display    = type === 'gift'    ? '' : 'none';
+    document.getElementById('give-nft-opts').style.display     = type === 'nft'     ? '' : 'none';
+}
+
+let _giveCatalogLoaded = false;
+function loadGiveCatalog() {
+    if (_giveCatalogLoaded) return;
+    fetch('/api/admin/gift-catalog')
+        .then(r => r.json())
+        .then(data => {
+            const giftSel = document.getElementById('give-gift-id');
+            const nftSel  = document.getElementById('give-nft-id');
+            giftSel.innerHTML = data.gifts.length
+                ? data.gifts.map(g => `<option value="${g.id}">${g.emoji} ${g.name} (${g.rarity})</option>`).join('')
+                : '<option value="">Нет подарков</option>';
+            nftSel.innerHTML = data.nfts.length
+                ? data.nfts.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+                : '<option value="">Нет коллекций</option>';
+            _giveCatalogLoaded = true;
+        })
+        .catch(() => {});
+}
+
+async function submitGive() {
+    const username = document.getElementById('give-username').value.trim().replace(/^@/, '');
+    const type     = document.getElementById('give-type').value;
+    const result   = document.getElementById('give-result');
+    if (!username) { result.style.color = '#e53e3e'; result.textContent = 'Введите username'; return; }
+    const payload = { username, type };
+    if (type === 'premium') payload.days = document.getElementById('give-days').value;
+    if (type === 'sparks')  payload.amount = document.getElementById('give-sparks-amount').value;
+    if (type === 'gift')    payload.gift_type_id = document.getElementById('give-gift-id').value;
+    if (type === 'nft')     payload.collection_id = document.getElementById('give-nft-id').value;
+    result.style.color = '#718096';
+    result.textContent = 'Выдаём...';
+    try {
+        const r = await fetch('/api/admin/give', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const d = await r.json();
+        if (d.success) { result.style.color = '#38a169'; result.textContent = '✓ ' + d.msg; }
+        else           { result.style.color = '#e53e3e'; result.textContent = '✗ ' + (d.error || 'Ошибка'); }
+    } catch(e) { result.style.color = '#e53e3e'; result.textContent = 'Ошибка сети'; }
 }
 
 function loadUsers() {

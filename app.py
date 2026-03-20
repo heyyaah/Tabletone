@@ -9716,6 +9716,21 @@ def owner_command():
 
 PAYMENT_SECRET = os.environ.get('PAYMENT_SECRET', 'tabletone_payment_secret')
 
+class PaymentOrder(db.Model):
+    """История покупок через Telegram-бот."""
+    __tablename__ = 'payment_order'
+    id            = db.Column(db.Integer, primary_key=True)
+    tg_user_id    = db.Column(db.String(30), nullable=False)   # Telegram user id
+    tg_username   = db.Column(db.String(100), nullable=True)   # @username в TG
+    site_username = db.Column(db.String(100), nullable=False)  # username на сайте
+    item_key      = db.Column(db.String(100), nullable=False)  # premium_30 / sparks_500 / nft_2
+    item_label    = db.Column(db.String(200), nullable=False)  # читаемое название
+    price_rub     = db.Column(db.String(30),  nullable=True)   # "149 rub"
+    status        = db.Column(db.String(20),  default='pending')  # pending/confirmed/rejected
+    created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
+    resolved_at   = db.Column(db.DateTime,    nullable=True)
+
+
 def _check_payment_secret():
     data = request.get_json() or {}
     return data.get('secret') == PAYMENT_SECRET, data
@@ -9876,6 +9891,135 @@ def api_gift_types():
         return jsonify({'error': 'Forbidden'}), 403
     gifts = GiftType.query.filter_by(is_active=True).all()
     return jsonify({'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'rarity': g.rarity, 'price_sparks': g.price_sparks} for g in gifts]})
+
+
+@app.route('/api/payment/orders/create', methods=['POST'])
+def api_orders_create():
+    """Создаёт запись о заказе (вызывается ботом при отправке скриншота)."""
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    order = PaymentOrder(
+        tg_user_id    = str(data.get('tg_user_id', '')),
+        tg_username   = data.get('tg_username', ''),
+        site_username = data.get('site_username', '').lstrip('@'),
+        item_key      = data.get('item_key', ''),
+        item_label    = data.get('item_label', ''),
+        price_rub     = data.get('price_rub', ''),
+        status        = 'pending',
+    )
+    db.session.add(order)
+    db.session.commit()
+    return jsonify({'success': True, 'order_id': order.id})
+
+
+@app.route('/api/payment/orders/resolve', methods=['POST'])
+def api_orders_resolve():
+    """Обновляет статус заказа (confirmed/rejected)."""
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    order_id = data.get('order_id')
+    status   = data.get('status', 'confirmed')
+    if order_id:
+        order = PaymentOrder.query.get(order_id)
+        if order:
+            order.status = status
+            order.resolved_at = datetime.utcnow()
+            db.session.commit()
+    return jsonify({'success': True})
+
+
+@app.route('/api/payment/orders/by-tg/<tg_user_id>', methods=['GET'])
+def api_orders_by_tg(tg_user_id):
+    """История заказов по Telegram user id (для /myorders)."""
+    secret = request.args.get('secret', '')
+    if secret != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    orders = PaymentOrder.query.filter_by(tg_user_id=str(tg_user_id))\
+        .order_by(PaymentOrder.created_at.desc()).limit(20).all()
+    return jsonify({'orders': [{
+        'id':           o.id,
+        'item_label':   o.item_label,
+        'price_rub':    o.price_rub,
+        'status':       o.status,
+        'created_at':   o.created_at.strftime('%d.%m.%Y %H:%M'),
+    } for o in orders]})
+
+
+# ── Admin: выдача подарков / NFT / Premium ────────────────────────────────────
+
+@app.route('/api/admin/give', methods=['POST'])
+def api_admin_give():
+    """Выдача подарка / NFT / Premium / Искр из админ-панели."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or admin.admin_role not in ('owner', 'senior_admin', 'admin'):
+        return jsonify({'error': 'Нет прав'}), 403
+    data = request.get_json() or {}
+    username  = data.get('username', '').strip().lstrip('@')
+    give_type = data.get('type')       # 'premium' | 'sparks' | 'gift' | 'nft'
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'Пользователь @{username} не найден'}), 404
+
+    if give_type == 'premium':
+        days = int(data.get('days', 30))
+        base = user.premium_until if (user.premium_until and user.premium_until > datetime.utcnow()) else datetime.utcnow()
+        user.is_premium = True
+        user.premium_until = base + timedelta(days=days)
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'Premium +{days} дней для @{username}'})
+
+    elif give_type == 'sparks':
+        amount = int(data.get('amount', 0))
+        if amount <= 0:
+            return jsonify({'error': 'Укажите количество > 0'}), 400
+        _add_sparks(user.id, amount, 'admin_give', admin.id)
+        return jsonify({'success': True, 'msg': f'+{amount} искр для @{username}'})
+
+    elif give_type == 'gift':
+        gift_type_id = data.get('gift_type_id')
+        gt = GiftType.query.get(gift_type_id)
+        if not gt:
+            return jsonify({'error': 'Тип подарка не найден'}), 404
+        gift = UserGift(owner_id=user.id, gift_type_id=gt.id, sender_id=admin.id, is_displayed=True)
+        db.session.add(gift)
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'Подарок «{gt.emoji} {gt.name}» выдан @{username}'})
+
+    elif give_type == 'nft':
+        collection_id = data.get('collection_id')
+        col = NFTCollection.query.get(collection_id)
+        if not col:
+            return jsonify({'error': 'Коллекция не найдена'}), 404
+        item = NFTItem.query.filter_by(collection_id=col.id, is_minted=False).first()
+        if not item:
+            return jsonify({'error': 'Все экземпляры разобраны'}), 400
+        item.is_minted = True
+        item.minted_at = datetime.utcnow()
+        db.session.add(UserNFT(owner_id=user.id, nft_item_id=item.id, is_displayed=True))
+        db.session.commit()
+        return jsonify({'success': True, 'msg': f'NFT «{col.name}» #{item.serial_number} выдан @{username}'})
+
+    return jsonify({'error': 'Неизвестный тип'}), 400
+
+
+@app.route('/api/admin/gift-catalog', methods=['GET'])
+def api_admin_gift_catalog():
+    """Каталог подарков и NFT для формы выдачи."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.admin_role:
+        return jsonify({'error': 'Нет прав'}), 403
+    gifts = GiftType.query.filter_by(is_active=True).order_by(GiftType.rarity).all()
+    nfts  = NFTCollection.query.filter_by(is_active=True).all()
+    return jsonify({
+        'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'rarity': g.rarity} for g in gifts],
+        'nfts':  [{'id': c.id, 'name': c.name, 'bg_color': c.bg_color} for c in nfts],
+    })
 
 import logging
 import warnings
