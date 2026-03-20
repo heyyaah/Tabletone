@@ -661,17 +661,51 @@ body[data-theme="liquid"] .report-item {
 
 @media (max-width: 600px) {
     .admin-container {
-        padding: 15px 12px;
+        padding: 12px 10px;
     }
 
     .admin-header {
         flex-wrap: wrap;
         gap: 10px;
-        margin-bottom: 15px;
+        margin-bottom: 14px;
+        padding-bottom: 14px;
     }
 
     .admin-header h1 {
-        font-size: 20px;
+        font-size: 18px;
+    }
+
+    .admin-header > div {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .admin-categories {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .admin-category {
+        padding: 14px 12px;
+    }
+
+    .admin-category-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+    }
+
+    .admin-category-title {
+        font-size: 15px;
+    }
+
+    .admin-category-links a {
+        font-size: 14px;
+        padding: 4px 0;
+        display: block;
+        min-height: 36px;
+        display: flex;
+        align-items: center;
     }
 
     .user-item, .verification-item, .report-item {
@@ -691,7 +725,8 @@ body[data-theme="liquid"] .report-item {
 
     .action-btn {
         flex: 1;
-        min-width: 100px;
+        min-width: 90px;
+        min-height: 44px;
         padding: 10px 12px;
         font-size: 13px;
         text-align: center;
@@ -703,6 +738,12 @@ body[data-theme="liquid"] .report-item {
 
     .report-info, .user-info {
         width: 100%;
+    }
+
+    #edit-profile-modal > div,
+    #resolve-recovery-modal > div {
+        width: 95% !important;
+        padding: 20px 16px !important;
     }
 }
 </style>
