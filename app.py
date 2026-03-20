@@ -2489,6 +2489,24 @@ def payment_webhook():
         except Exception as e:
             print(f"payment_webhook /start error: {e}")
             import traceback; traceback.print_exc()
+    elif text_msg.startswith('/commandlist'):
+        is_owner = tg_user.get('id') == owner_tg_id
+        text = (
+            "📋 Команды бота оплаты Tabletone:\n\n"
+            "/start — главное меню\n"
+            "/commandlist — список команд\n"
+        )
+        if is_owner:
+            text += (
+                "\n👑 Команды владельца:\n"
+                "/givepremium <user> <days> — выдать Premium\n"
+                "/givesparks <user> <amount> — выдать Искры\n"
+                "/givegift <user> <gift\\_id> — выдать подарок\n"
+                "/givenft <user> <nft\\_id> — выдать NFT\n"
+                "/giftlist — список подарков\n"
+                "/nftlist — список NFT коллекций\n"
+            )
+        _pay_tg_send(token, chat_id, text)
     elif text_msg.startswith('/givepremium') and tg_user.get('id') == owner_tg_id:
         parts = text_msg.split()
         if len(parts) >= 3:

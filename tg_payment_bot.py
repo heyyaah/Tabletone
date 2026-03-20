@@ -364,8 +364,29 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_confirm_reject(update, context)
     else: await update.callback_query.answer()
 
+
+async def cmd_commandlist(update, context):
+    is_owner = update.effective_user.id == OWNER_TELEGRAM_ID
+    text = (
+        "Komandy bota oplaty Tabletone:\n\n"
+        "/start - glavnoe menyu\n"
+        "/commandlist - spisok komand\n"
+    )
+    if is_owner:
+        text += (
+            "\nKomandy vladeltsa:\n"
+            "/givepremium <user> <days> - vydat Premium\n"
+            "/givesparks <user> <amount> - vydat Iskry\n"
+            "/givegift <user> <gift_id> - vydat podarok\n"
+            "/givenft <user> <nft_id> - vydat NFT\n"
+            "/giftlist - spisok podarkov\n"
+            "/nftlist - spisok NFT kollektsiy\n"
+            "/ownerhelp - spravka vladeltsa\n"
+        )
+    await update.message.reply_text(text)
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("commandlist",  cmd_commandlist))
     app.add_handler(CommandHandler("start",       cmd_start))
     app.add_handler(CommandHandler("ownerhelp",   cmd_owner_help))
     app.add_handler(CommandHandler("giftpremium", cmd_gift_premium))
@@ -382,4 +403,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
 
