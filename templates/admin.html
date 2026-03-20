@@ -17,45 +17,94 @@
         </div>
     </div>
     
-    <div class="admin-tabs">
-        <button class="tab-btn active" onclick="switchTab('users')">
-            <i class="fas fa-users"></i> Пользователи
+    <!-- Главная страница категорий -->
+    <div id="admin-home" class="admin-home">
+        <div class="admin-categories">
+
+            <!-- Пользователи -->
+            <div class="admin-category">
+                <div class="admin-category-icon" style="background:linear-gradient(135deg,#667eea,#764ba2);">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="admin-category-body">
+                    <div class="admin-category-title">Пользователи</div>
+                    <div class="admin-category-links">
+                        <a onclick="switchTab('users')">Управление пользователями</a>
+                        <a onclick="switchTab('verification')">Запросы на верификацию</a>
+                        <a onclick="switchTab('spamblock')">Спам-блок</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модерация -->
+            <div class="admin-category">
+                <div class="admin-category-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);">
+                    <i class="fas fa-flag"></i>
+                </div>
+                <div class="admin-category-body">
+                    <div class="admin-category-title">Модерация</div>
+                    <div class="admin-category-links">
+                        <a onclick="switchTab('reports')">Жалобы пользователей</a>
+                        <a onclick="switchTab('bots')" class="tab-admin-only" style="display:none;">Модерация ботов</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Безопасность -->
+            <div class="admin-category">
+                <div class="admin-category-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="admin-category-body">
+                    <div class="admin-category-title">Безопасность</div>
+                    <div class="admin-category-links">
+                        <a onclick="switchTab('recovery')" class="tab-admin-only" style="display:none;">Восстановление аккаунтов</a>
+                        {% if admin_role == 'owner' %}
+                        <a onclick="switchTab('ipbans')">Заблокированные IP</a>
+                        <a onclick="switchTab('deletions')">Заявки на удаление акк.</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if admin_role == 'owner' %}
+            <!-- Администрация -->
+            <div class="admin-category">
+                <div class="admin-category-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7);">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div class="admin-category-body">
+                    <div class="admin-category-title">Администрация</div>
+                    <div class="admin-category-links">
+                        <a onclick="switchTab('applications')">Заявки в администрацию</a>
+                        <a onclick="switchTab('channels')">Верификация каналов</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NFT и подарки -->
+            <div class="admin-category">
+                <div class="admin-category-icon" style="background:linear-gradient(135deg,#fa709a,#fee140);">
+                    <i class="fas fa-gem"></i>
+                </div>
+                <div class="admin-category-body">
+                    <div class="admin-category-title">NFT и подарки</div>
+                    <div class="admin-category-links">
+                        <a onclick="switchTab('nft')">NFT коллекции</a>
+                        <a onclick="switchTab('give')">Выдача Premium / NFT / Искр</a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Кнопка "Назад к категориям" (показывается внутри вкладок) -->
+    <div id="back-to-home" style="display:none;margin-bottom:18px;">
+        <button onclick="showAdminHome()" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;cursor:pointer;font-size:14px;color:var(--text-secondary);font-weight:500;">
+            <i class="fas fa-th-large"></i> Все разделы
         </button>
-        <button class="tab-btn" onclick="switchTab('verification')">
-            <i class="fas fa-check-circle"></i> Верификация
-        </button>
-        <button class="tab-btn" onclick="switchTab('reports')">
-            <i class="fas fa-flag"></i> Жалобы
-        </button>
-        <button class="tab-btn" onclick="switchTab('spamblock')">
-            <i class="fas fa-ban"></i> Спам-блок
-        </button>
-        <button class="tab-btn tab-admin-only" onclick="switchTab('bots')" style="display:none;">
-            <i class="fas fa-robot"></i> Боты
-        </button>
-        <button class="tab-btn tab-admin-only" onclick="switchTab('recovery')" style="display:none;">
-            <i class="fas fa-key"></i> Восстановление
-        </button>
-        {% if admin_role == 'owner' %}
-        <button class="tab-btn" onclick="switchTab('applications')">
-            <i class="fas fa-user-tie"></i> Заявки в адм.
-        </button>
-        <button class="tab-btn" onclick="switchTab('ipbans')">
-            <i class="fas fa-ban"></i> IP-баны
-        </button>
-        <button class="tab-btn" onclick="switchTab('channels')">
-            <i class="fas fa-check-circle"></i> Каналы
-        </button>
-        <button class="tab-btn" onclick="switchTab('deletions')">
-            <i class="fas fa-user-times"></i> Удаление акк.
-        </button>
-        <button class="tab-btn" onclick="switchTab('nft')">
-            <i class="fas fa-gem"></i> NFT
-        </button>
-        <button class="tab-btn" onclick="switchTab('give')">
-            <i class="fas fa-gift"></i> Выдача
-        </button>
-        {% endif %}
     </div>
     
     <!-- Вкладка пользователей -->
@@ -390,50 +439,80 @@ body[data-theme="liquid"] .report-item {
     gap: 10px;
 }
 
-.admin-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 30px;
-    margin-left: -20px;
-    margin-right: -20px;
-    padding-left: 20px;
-    padding-right: 20px;
-    border-bottom: 1px solid #e2e8f0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-}
-.admin-tabs::-webkit-scrollbar {
-    display: none;
+.admin-home {
+    animation: fadeIn 0.3s ease;
 }
 
-.tab-btn {
-    padding: 7px 10px;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    color: var(--text-secondary, #718096);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    transition: all 0.3s ease;
+.admin-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.admin-category {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    cursor: default;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.admin-category:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.admin-category-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.admin-category-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-category-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.admin-category-links {
+    display: flex;
+    flex-direction: column;
     gap: 4px;
-    white-space: nowrap;
 }
 
-.tab-btn:hover {
+.admin-category-links a {
+    font-size: 13px;
     color: #667eea;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s;
+    line-height: 1.5;
 }
 
-.tab-btn.active {
-    color: #ffffff;
-    background: #667eea;
-    border-bottom-color: #667eea;
-    border-radius: 6px;
+.admin-category-links a:hover {
+    color: #764ba2;
+    text-decoration: underline;
 }
+
+/* Убираем старые стили табов */
+.admin-tabs { display: none; }
+.tab-btn { display: none; }
 
 .admin-tab {
     display: none;
@@ -644,50 +723,32 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hasRole('admin')) {
         document.querySelectorAll('.tab-admin-only').forEach(b => b.style.display = '');
     }
-    loadUsers();
 });
 
+function showAdminHome() {
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('admin-home').style.display = '';
+    document.getElementById('back-to-home').style.display = 'none';
+}
+
 function switchTab(tabName) {
-    // Скрываем все вкладки
-    document.querySelectorAll('.admin-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    
-    // Убираем активный класс со всех кнопок
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Показываем выбранную вкладку
+    document.getElementById('admin-home').style.display = 'none';
+    document.getElementById('back-to-home').style.display = '';
+    document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
     document.getElementById(tabName + '-tab').classList.add('active');
-    event.target.closest('.tab-btn').classList.add('active');
-    
-    // Загружаем данные
-    if (tabName === 'users') {
-        loadUsers();
-    } else if (tabName === 'verification') {
-        loadVerificationRequests();
-    } else if (tabName === 'reports') {
-        loadReports();
-    } else if (tabName === 'bots') {
-        loadAdminBots();
-    } else if (tabName === 'spamblock') {
-        loadSpamblockCandidates();
-    } else if (tabName === 'recovery') {
-        loadRecoveryRequests();
-    } else if (tabName === 'applications') {
-        loadApplications();
-    } else if (tabName === 'ipbans') {
-        loadIpBans();
-    } else if (tabName === 'channels') {
-        loadChannels();
-    } else if (tabName === 'deletions') {
-        loadDeletionRequests();
-    } else if (tabName === 'nft') {
-        loadNFTAdmin();
-    } else if (tabName === 'give') {
-        loadGiveCatalog();
-    }
+
+    if (tabName === 'users') loadUsers();
+    else if (tabName === 'verification') loadVerificationRequests();
+    else if (tabName === 'reports') loadReports();
+    else if (tabName === 'bots') loadAdminBots();
+    else if (tabName === 'spamblock') loadSpamblockCandidates();
+    else if (tabName === 'recovery') loadRecoveryRequests();
+    else if (tabName === 'applications') loadApplications();
+    else if (tabName === 'ipbans') loadIpBans();
+    else if (tabName === 'channels') loadChannels();
+    else if (tabName === 'deletions') loadDeletionRequests();
+    else if (tabName === 'nft') loadNFTAdmin();
+    else if (tabName === 'give') loadGiveCatalog();
 }
 
 function onGiveTypeChange() {
