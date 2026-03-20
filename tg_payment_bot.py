@@ -365,6 +365,21 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else: await update.callback_query.answer()
 
 
+
+@owner_only
+async def cmd_cancel_premium(update, context):
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /cancelpremium <username>"); return
+    username = args[0].lstrip("@")
+    try:
+        data = await _api_post("/api/payment/cancel-premium", {"username": username})
+        if data.get("success"):
+            await update.message.reply_text(f"Premium otmenen u @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
 async def cmd_commandlist(update, context):
     is_owner = update.effective_user.id == OWNER_TELEGRAM_ID
     text = (
@@ -376,6 +391,7 @@ async def cmd_commandlist(update, context):
         text += (
             "\nKomandy vladeltsa:\n"
             "/givepremium <user> <days> - vydat Premium\n"
+            "/cancelpremium <user> - otmenit Premium\n"
             "/givesparks <user> <amount> - vydat Iskry\n"
             "/givegift <user> <gift_id> - vydat podarok\n"
             "/givenft <user> <nft_id> - vydat NFT\n"
@@ -386,6 +402,7 @@ async def cmd_commandlist(update, context):
     await update.message.reply_text(text)
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("cancelpremium", cmd_cancel_premium))
     app.add_handler(CommandHandler("commandlist",  cmd_commandlist))
     app.add_handler(CommandHandler("start",       cmd_start))
     app.add_handler(CommandHandler("ownerhelp",   cmd_owner_help))
@@ -403,6 +420,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
 
 
 

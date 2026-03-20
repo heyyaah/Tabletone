@@ -2500,6 +2500,7 @@ def payment_webhook():
             text += (
                 "\n👑 Команды владельца:\n"
                 "/givepremium <user> <days> — выдать Premium\n"
+                "/cancelpremium <user> — отменить Premium\n"
                 "/givesparks <user> <amount> — выдать Искры\n"
                 "/givegift <user> <gift\\_id> — выдать подарок\n"
                 "/givenft <user> <nft\\_id> — выдать NFT\n"
@@ -2524,6 +2525,23 @@ def payment_webhook():
                 _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
         else:
             _pay_tg_send(token, chat_id, "Использование: `/givepremium <username> <дней>`")
+    elif text_msg.startswith('/cancelpremium') and tg_user.get('id') == owner_tg_id:
+        parts = text_msg.split()
+        if len(parts) >= 2:
+            uname = parts[1].lstrip('@')
+            try:
+                import urllib.request as _ur_pay
+                pl = json.dumps({"username": uname, "secret": pay_secret}).encode()
+                req = _ur_pay.Request(f"{site_url_pay}/api/payment/cancel-premium",
+                                      data=pl, headers={'Content-Type': 'application/json'})
+                resp = json.loads(_ur_pay.urlopen(req, timeout=10).read())
+                _pay_tg_send(token, chat_id,
+                    f"✅ Premium отменён у @{uname}." if resp.get('success')
+                    else f"❌ Ошибка: {resp.get('error','?')}")
+            except Exception as e:
+                _pay_tg_send(token, chat_id, f"❌ Ошибка: {e}")
+        else:
+            _pay_tg_send(token, chat_id, "Использование: `/cancelpremium <username>`")
     elif text_msg.startswith('/givesparks') and tg_user.get('id') == owner_tg_id:
         parts = text_msg.split()
         if len(parts) >= 3:
