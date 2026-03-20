@@ -2736,20 +2736,20 @@ def payment_webhook():
 @app.route('/')
 def index():
     if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
+        return render_template('landing.html')
+
     user = User.query.get(session['user_id'])
-    
+
     # Проверяем, не забанен ли пользователь
     if user and user.is_banned:
         session.pop('user_id', None)
-        return redirect(url_for('login'))
-    
+        return render_template('landing.html')
+
     # Режим обслуживания — обычным пользователям показываем заглушку
     is_staff = user and user.admin_role in ('moderator', 'admin', 'senior_admin', 'owner')
     if MAINTENANCE_MODE and not is_staff:
         return render_template('maintenance.html')
-    
+
     return render_template('index.html', user=user)
 
 # Регистрация
