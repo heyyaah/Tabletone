@@ -11171,13 +11171,11 @@ def terms():
 
 @app.route('/download/windows')
 def download_windows():
-    # После загрузки на GitHub Releases — заменить на прямую ссылку
-    return redirect('https://github.com/heyyaah/hi/releases/latest/download/Tabletone.Setup.1.0.0.exe')
+    return redirect('https://github.com/heyyaah/Tabletone/releases/download/Release/TabletoneSetup_X64.exe')
 
 @app.route('/download/android')
 def download_android():
-    # После загрузки на GitHub Releases — заменить на прямую ссылку
-    return redirect('https://github.com/heyyaah/hi/releases/latest/download/Tabletone.apk')
+    return redirect('https://github.com/heyyaah/Tabletone/releases/download/Release/Tabletone.apk')
 
 @app.route('/admin/test_cf_image')
 def test_cf_image():
