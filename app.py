@@ -1580,6 +1580,23 @@ def _init_db():
             db.session.commit()
             print("✓ Каталог подарков создан")
 
+        # Расшифровываем старые gift_premium сообщения (одноразово)
+        try:
+            _gift_msgs = Message.query.filter_by(message_type='gift_premium').all()
+            _fixed = 0
+            for _m in _gift_msgs:
+                if not _m.content:
+                    continue
+                _dec = _m.decrypted_content
+                if _dec and _dec != _m.content:
+                    _m.content = _dec
+                    _fixed += 1
+            if _fixed:
+                db.session.commit()
+                print(f"✓ Расшифровано {_fixed} gift_premium сообщений")
+        except Exception as _e:
+            print(f"⚠ fix gift_premium: {_e}")
+
 # ── Система ролей ────────────────────────────────────────────────────────────
 ROLE_LEVELS = {'moderator': 1, 'admin': 2, 'senior_admin': 3, 'owner': 4}
 
