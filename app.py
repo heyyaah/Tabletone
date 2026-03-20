@@ -9635,6 +9635,62 @@ def payment_activate_premium():
     print(f"✅ Premium активирован для @{username} до {user.premium_until}")
     return jsonify({'success': True, 'username': username, 'days': days, 'until': user.premium_until.isoformat()})
 
+
+@app.route('/api/payment/activate-premium-gift', methods=['POST'])
+def payment_activate_premium_gift():
+    """Активирует Premium как подарок и отправляет системное сообщение в чат."""
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    recipient_username = data.get('recipient', '').strip().lstrip('@')
+    sender_username = data.get('sender', '').strip().lstrip('@')
+    days = int(data.get('days', 30))
+    if not recipient_username or days <= 0:
+        return jsonify({'error': 'Bad request'}), 400
+    recipient = User.query.filter_by(username=recipient_username).first()
+    if not recipient:
+        return jsonify({'error': f'Пользователь @{recipient_username} не найден'}), 404
+    # Активируем Premium
+    base = recipient.premium_until if (recipient.premium_until and recipient.premium_until > datetime.utcnow()) else datetime.utcnow()
+    recipient.is_premium = True
+    recipient.premium_until = base + timedelta(days=days)
+    # Системное сообщение в чат между дарителем и получателем
+    if sender_username:
+        sender = User.query.filter_by(username=sender_username).first()
+        if sender and sender.id != recipient.id:
+            gift_text = f"🎁 @{sender.username} подарил @{recipient.username} Premium на {days} дней!"
+            gift_msg = Message(
+                sender_id=sender.id,
+                receiver_id=recipient.id,
+                content=encrypt_msg(gift_text),
+                message_type='gift_premium',
+            )
+            db.session.add(gift_msg)
+            db.session.flush()
+            # Уведомляем через сокет
+            try:
+                room1 = f"user_{sender.id}"
+                room2 = f"user_{recipient.id}"
+                msg_data = {
+                    'id': gift_msg.id,
+                    'content': gift_text,
+                    'message_type': 'gift_premium',
+                    'sender_id': sender.id,
+                    'receiver_id': recipient.id,
+                    'sender_username': sender.username,
+                    'timestamp': gift_msg.timestamp.isoformat(),
+                    'is_gift': True,
+                    'gift_days': days,
+                }
+                socketio.emit('new_message', msg_data, room=room1)
+                socketio.emit('new_message', msg_data, room=room2)
+            except Exception as e:
+                print(f"Gift socket error: {e}")
+    db.session.commit()
+    print(f"✅ Premium-подарок активирован для @{recipient_username} на {days} дней")
+    return jsonify({'success': True, 'recipient': recipient_username, 'days': days, 'until': recipient.premium_until.isoformat()})
+
+
 @app.route('/api/payment/add-sparks', methods=['POST'])
 def payment_add_sparks():
     data = request.get_json() or {}

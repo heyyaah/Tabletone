@@ -1,4 +1,4 @@
-"""Telegram payment bot for Tabletone"""
+﻿"""Telegram payment bot for Tabletone"""
 import os, logging, asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -382,3 +382,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

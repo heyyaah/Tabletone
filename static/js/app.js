@@ -1712,6 +1712,8 @@ function createMessageHTML(msg) {
             setTimeout(() => loadAndShowPoll(msg.poll_id, `poll-widget-${msg.poll_id}`), 50);
         } else if (msg.message_type === 'gift' && msg.gift) {
             content = renderGiftMessage(msg);
+        } else if (msg.message_type === 'gift_premium') {
+            content = renderPremiumGiftMessage(msg);
         } else {
             content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
         }
@@ -3678,6 +3680,8 @@ function createGroupMessageHTML(msg) {
             setTimeout(() => loadAndShowPoll(msg.poll_id, `poll-widget-${msg.poll_id}`), 50);
         } else if (msg.message_type === 'gift' && msg.gift) {
             content = renderGiftMessage(msg);
+        } else if (msg.message_type === 'gift_premium') {
+            content = renderPremiumGiftMessage(msg);
         } else {
             content = `<div class="message-content">${renderBotContent(msg.content)}${editedText}</div>`;
         }
@@ -7995,6 +7999,7 @@ async function sendGift(giftTypeId, name, emoji, price) {
 async function showPremiumGiftModal() {
     if (!currentChatUserId) { showToast('Сначала откройте чат', 'error'); return; }
     const recipientName = document.getElementById('chat-username')?.textContent?.replace(/^@/, '') || '';
+    const senderName = document.body.getAttribute('data-username') || '';
     const resp = await fetch('/gifts/premium-plans');
     const data = await resp.json();
     const plans = data.plans || [];
@@ -8017,7 +8022,7 @@ async function showPremiumGiftModal() {
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
                 ${plans.map(p => `
-                <button onclick="window.open('https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}','_blank') || (window.location.href='https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}')"
+                <button onclick="window.open('https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}_${encodeURIComponent(senderName)}','_blank') || (window.location.href='https://t.me/${TG_BOT}?start=gift_premium_${p.days}_${encodeURIComponent(recipientName)}_${encodeURIComponent(senderName)}')"
                     style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.4);border-radius:14px;cursor:pointer;text-align:left;width:100%;">
                     <div>
                         <div style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(p.label)}</div>
@@ -8077,6 +8082,18 @@ async function toggleGiftDisplay(giftId, btn) {
         btn.textContent = data.displayed ? 'Убрать из профиля' : 'Добавить в профиль';
         showToast(data.displayed ? 'Добавлено в профиль' : 'Убрано из профиля', 'success');
     }
+}
+
+// Рендер подарка Premium в сообщении
+function renderPremiumGiftMessage(msg) {
+    const text = msg.content || '';
+    return `
+        <div style="text-align:center;padding:16px 20px;background:linear-gradient(135deg,rgba(246,173,85,0.15),rgba(237,137,54,0.15));border-radius:16px;border:1px solid rgba(246,173,85,0.4);min-width:200px;">
+            <div style="font-size:48px;margin-bottom:8px;">👑</div>
+            <div style="font-size:15px;font-weight:700;color:#d69e2e;margin-bottom:6px;">🎁 Подарок Premium</div>
+            <div style="font-size:13px;color:var(--text-secondary);">${escapeHtml(text)}</div>
+        </div>
+    `;
 }
 
 // Рендер подарка в сообщении
