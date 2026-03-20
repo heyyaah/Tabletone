@@ -11,7 +11,8 @@ app.whenReady().then(() => {
         height: 480,
         resizable: false,
         frame: false,
-        transparent: true,
+        transparent: false,
+        backgroundColor: '#0d0d1a',
         center: true,
         title: 'Tabletone Setup',
         webPreferences: {

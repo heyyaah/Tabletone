@@ -8,11 +8,11 @@
 body {
     font-family: 'Segoe UI', system-ui, sans-serif;
     width: 680px; height: 480px; overflow: hidden;
-    background: transparent; color: #fff; user-select: none;
+    background: #0d0d1a; color: #fff; user-select: none;
 }
 .bg {
-    position: fixed; inset: 0; border-radius: 16px; overflow: hidden;
-    background: #0d0d1a; box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    position: fixed; inset: 0; overflow: hidden;
+    background: #0d0d1a;
 }
 .bg-gradient {
     position: absolute; inset: -50%;
@@ -28,9 +28,9 @@ body {
 .bg-noise { position: absolute; inset: 0; background: rgba(10,10,25,0.72); }
 .window {
     position: relative; z-index: 1;
-    width: 680px; height: 480px; border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.12);
+    width: 680px; height: 480px;
     display: flex; flex-direction: column; overflow: hidden;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .titlebar {
     display: flex; align-items: center; justify-content: space-between;
