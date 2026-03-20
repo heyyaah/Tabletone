@@ -2773,7 +2773,7 @@ def register():
         session.pop('captcha_answer', None)
 
         # Проверка количества аккаунтов с одного IP за последние 24 часа
-        ip = request.remote_addr
+        ip = get_client_ip()
         cutoff_24h = datetime.utcnow() - timedelta(hours=24)
         recent_regs = User.query.filter(
             User.reg_ip == ip,
@@ -2785,6 +2785,24 @@ def register():
             return render_template('register.html',
                 error='С вашего IP уже зарегистрировано слишком много аккаунтов. Попробуйте позже.',
                 captcha_q=f'{a} + {b}')
+
+        # Rate limiting: 5 минут между регистрациями с одного IP
+        cooldown_minutes = 5
+        last_reg = User.query.filter(
+            User.reg_ip == ip
+        ).order_by(User.created_at.desc()).first()
+        if last_reg:
+            elapsed = (datetime.utcnow() - last_reg.created_at).total_seconds()
+            if elapsed < cooldown_minutes * 60:
+                wait_sec = int(cooldown_minutes * 60 - elapsed)
+                wait_min = (wait_sec // 60)
+                wait_s   = wait_sec % 60
+                wait_str = f'{wait_min} мин {wait_s} сек' if wait_min else f'{wait_s} сек'
+                a, b = _random.randint(1, 9), _random.randint(1, 9)
+                session['captcha_answer'] = a + b
+                return render_template('register.html',
+                    error=f'С вашего IP недавно был создан аккаунт. Повторите через {wait_str}.',
+                    captcha_q=f'{a} + {b}')
 
         # Проверка на существование пользователя
         if len(username) < 4:
