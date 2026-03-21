@@ -8091,7 +8091,7 @@ function renderPremiumGiftMessage(msg) {
         <div style="text-align:center;padding:16px 20px;background:linear-gradient(135deg,rgba(246,173,85,0.15),rgba(237,137,54,0.15));border-radius:16px;border:1px solid rgba(246,173,85,0.4);min-width:200px;">
             <div style="font-size:48px;margin-bottom:8px;">👑</div>
             <div style="font-size:15px;font-weight:700;color:#d69e2e;margin-bottom:6px;">🎁 Подарок Premium</div>
-            <div style="font-size:13px;color:var(--text-secondary);">${escapeHtml(text)}</div>
+            <div style="font-size:14px;color:var(--text-primary);line-height:1.5;">${escapeHtml(text)}</div>
         </div>
     `;
 }
