@@ -1,7 +1,7 @@
-﻿const { app, BrowserWindow, Notification, ipcMain, screen, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain, screen, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 
-const APP_URL = 'https://hi-ybs0.onrender.com';
+const APP_URL = 'https://tabletone.site';
 const ICON_PATH = path.join(__dirname, '..', 'static', 'images', 'logo.png');
 
 let mainWindow;
@@ -19,14 +19,14 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // РЎРєСЂС‹РІР°РµРј С‡С‚Рѕ СЌС‚Рѕ Electron/WebView
+      // Скрываем что это Electron/WebView
       webSecurity: true,
     },
     autoHideMenuBar: true,
     frame: true,
   });
 
-  // РњР°СЃРєРёСЂСѓРµРј User-Agent РїРѕРґ РѕР±С‹С‡РЅС‹Р№ Chrome
+  // Маскируем User-Agent под обычный Chrome
   mainWindow.webContents.setUserAgent(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
     'AppleWebKit/537.36 (KHTML, like Gecko) ' +
@@ -35,7 +35,7 @@ function createWindow() {
 
   mainWindow.loadURL(APP_URL);
 
-  // РЈР±РёСЂР°РµРј Р·Р°РіРѕР»РѕРІРѕРє Electron РёР· HTTP Р·Р°РіРѕР»РѕРІРєРѕРІ
+  // Убираем заголовок Electron из HTTP заголовков
   mainWindow.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders };
     delete headers['X-Electron-Version'];
@@ -53,15 +53,15 @@ function createTray() {
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip('Tabletone');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'РћС‚РєСЂС‹С‚СЊ', click: () => mainWindow.show() },
-    { label: 'Р’С‹С…РѕРґ', click: () => { app.exit(0); } }
+    { label: 'Открыть', click: () => mainWindow.show() },
+    { label: 'Выход', click: () => { app.exit(0); } }
   ]));
   tray.on('click', () => {
     mainWindow.isVisible() ? mainWindow.focus() : mainWindow.show();
   });
 }
 
-// РџРѕРєР°Р·С‹РІР°РµРј СѓРІРµРґРѕРјР»РµРЅРёРµ РІ РїСЂР°РІРѕРј РЅРёР¶РЅРµРј СѓРіР»Сѓ
+// Показываем уведомление в правом нижнем углу
 ipcMain.on('show-notification', (event, { title, body }) => {
   if (!Notification.isSupported()) return;
 
@@ -72,11 +72,11 @@ ipcMain.on('show-notification', (event, { title, body }) => {
     silent: false,
   });
 
-  // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РѕРєРЅРѕ СѓРІРµРґРѕРјР»РµРЅРёСЏ РІ РїСЂР°РІС‹Р№ РЅРёР¶РЅРёР№ СѓРіРѕР»
+  // Позиционируем окно уведомления в правый нижний угол
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   notif.on('show', () => {
-    // Windows СЂР°Р·РјРµС‰Р°РµС‚ СѓРІРµРґРѕРјР»РµРЅРёСЏ СЃР°Рј РІ РїСЂР°РІРѕРј РЅРёР¶РЅРµРј СѓРіР»Сѓ С‡РµСЂРµР· Action Center
-    // Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ РїРѕРєР°Р·С‹РІР°РµРј СЃРІРѕС‘ РѕРєРЅРѕ-С‚РѕСЃС‚
+    // Windows размещает уведомления сам в правом нижнем углу через Action Center
+    // Дополнительно показываем своё окно-тост
     showToast(title, body);
   });
 
@@ -148,7 +148,7 @@ function showToast(title, body) {
 </html>
   `)}`);
 
-  // РђРІС‚РѕР·Р°РєСЂС‹С‚РёРµ С‡РµСЂРµР· 4 СЃРµРєСѓРЅРґС‹
+  // Автозакрытие через 4 секунды
   setTimeout(() => {
     if (toastWindow && !toastWindow.isDestroyed()) {
       toastWindow.close();
@@ -162,7 +162,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', (e) => {
-  // РќРµ Р·Р°РєСЂС‹РІР°РµРј РїСЂРёР»РѕР¶РµРЅРёРµ вЂ” РѕРЅРѕ Р¶РёРІС‘С‚ РІ С‚СЂРµРµ
+  // Не закрываем приложение — оно живёт в трее
 });
 
 app.on('activate', () => {

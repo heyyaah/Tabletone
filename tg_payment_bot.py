@@ -1,4 +1,4 @@
-﻿"""Telegram payment bot for Tabletone"""
+"""Telegram payment bot for Tabletone"""
 import os, logging, asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -9,12 +9,12 @@ from telegram.ext import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN         = os.environ.get("PAYMENT_BOT_TOKEN", "8705438057:AAEIeyFixNBr3eH4_4NIso57GKXOFvs3E_M")
-OWNER_TELEGRAM_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "8081350794"))
-CARD_NUMBER       = "+79519603466"
-CARD_BANK         = "po nomeru telefona (SBP / lyuboy bank)"
-SITE_URL          = os.environ.get("SITE_URL", "https://hi-latest.onrender.com")
-PAYMENT_SECRET    = os.environ.get("PAYMENT_SECRET", "tabletone_payment_secret")
+BOT_TOKEN         = os.environ.get("PAYMENT_BOT_TOKEN")
+OWNER_TELEGRAM_ID = int(os.environ.get("OWNER_TELEGRAM_ID", "0"))
+CARD_NUMBER       = os.environ.get("CARD_NUMBER", "")
+CARD_BANK         = os.environ.get("CARD_BANK", "")
+SITE_URL          = os.environ.get("SITE_URL", "https://tabletone.site")
+PAYMENT_SECRET    = os.environ.get("PAYMENT_SECRET", "")
 SCREENSHOT_TIMEOUT = 600
 
 PREMIUM_PLANS = {
@@ -57,6 +57,16 @@ async def _api_post(path, payload):
         )
         return await r.json()
 
+async def _api_get(path, params=None):
+    import aiohttp
+    async with aiohttp.ClientSession() as s:
+        r = await s.get(
+            f"{SITE_URL}{path}",
+            params={**(params or {}), "secret": PAYMENT_SECRET},
+            timeout=aiohttp.ClientTimeout(total=10)
+        )
+        return await r.json()
+
 async def _get_nft_list():
     try:
         import aiohttp
@@ -68,8 +78,9 @@ async def _get_nft_list():
         logger.error(f"NFT list error: {e}")
         return []
 
+# ── Commands ──────────────────────────────────────────────────────────────────
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Deep link: /start gift_premium_7_username
     args = context.args
     if args:
         param = args[0]
@@ -86,12 +97,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     context.user_data["awaiting_username"] = False
                     context.user_data["tabletone_username"] = recipient
                     msg = (
-                        "Podarok: " + plan["label"] + " dlya @" + recipient + "\n\n"
-                        "Rekvizity oplaty:\n"
-                        "Telefon: " + CARD_NUMBER + "\n"
-                        "Bank: " + CARD_BANK + "\n"
-                        "Summa: " + plan["price"] + "\n\n"
-                        "Posle oplaty otprav skrinshot syuda. 10 minut."
+                        f"Podarok: {plan['label']} dlya @{recipient}\n\n"
+                        f"Rekvizity oplaty:\nTelefon: {CARD_NUMBER}\nBank: {CARD_BANK}\n"
+                        f"Summa: {plan['price']}\n\nPosle oplaty otprav skrinshot syuda. 10 minut."
                     )
                     await update.message.reply_text(
                         msg,
@@ -114,6 +122,28 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=main_kb()
     )
 
+async def cmd_myorders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    tg_id = str(update.effective_user.id)
+    try:
+        data = await _api_get(f"/api/payment/orders/by-tg/{tg_id}")
+        orders = data.get("orders", [])
+        if not orders:
+            await update.message.reply_text("U vas net zakazov.")
+            return
+        STATUS_LABELS = {
+            "pending":   "⏳ Ozhidaet",
+            "confirmed": "✅ Podtverzhdyon",
+            "rejected":  "❌ Otklonyon",
+        }
+        lines = []
+        for o in orders:
+            status = STATUS_LABELS.get(o.get("status", ""), o.get("status", ""))
+            date = (o.get("created_at") or "")[:10]
+            lines.append(f"{status} — {o.get('item_label', o.get('item_key', '?'))} ({date})")
+        await update.message.reply_text("Vashi zakazy:\n\n" + "\n".join(lines))
+    except Exception as e:
+        await update.message.reply_text(f"Oshibka: {e}")
+
 @owner_only
 async def cmd_owner_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -122,12 +152,47 @@ async def cmd_owner_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 @owner_only
+async def cmd_gift_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text("Usage: /giftpremium <username> <days>"); return
+    username = args[0].lstrip("@")
+    try:
+        days = int(args[1])
+    except ValueError:
+        await update.message.reply_text("Days must be a number."); return
+    try:
+        data = await _api_post("/api/payment/activate-premium", {"username": username, "days": days})
+        if data.get("success"):
+            await update.message.reply_text(f"Premium +{days}d for @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
+async def cmd_cancel_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /cancelpremium <username>"); return
+    username = args[0].lstrip("@")
+    try:
+        data = await _api_post("/api/payment/cancel-premium", {"username": username})
+        if data.get("success"):
+            await update.message.reply_text(f"Premium otmenen u @{username}.")
+        else:
+            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
+    except Exception as e:
+        await update.message.reply_text(f"Error: {e}")
+
+@owner_only
 async def cmd_give_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if len(args) < 2:
         await update.message.reply_text("Usage: /givesparks <username> <amount>"); return
     username = args[0].lstrip("@")
-    try: sparks = int(args[1])
+    try:
+        sparks = int(args[1])
     except ValueError:
         await update.message.reply_text("Amount must be a number."); return
     try:
@@ -191,31 +256,67 @@ async def cmd_nft_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = [f"{c['id']} - {c['name']} (limit: {c.get('max_supply','inf')})" for c in cols]
     await update.message.reply_text("NFT collections:\n\n" + "\n".join(lines))
 
+async def cmd_commandlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    is_owner = update.effective_user.id == OWNER_TELEGRAM_ID
+    text = (
+        "Komandy bota oplaty Tabletone:\n\n"
+        "/start - glavnoe menyu\n"
+        "/myorders - moi zakazy\n"
+        "/commandlist - spisok komand\n"
+    )
+    if is_owner:
+        text += (
+            "\nKomandy vladeltsa:\n"
+            "/giftpremium <user> <days> - vydat Premium\n"
+            "/cancelpremium <user> - otmenit Premium\n"
+            "/givesparks <user> <amount> - vydat Iskry\n"
+            "/givegift <user> <gift_id> - vydat podarok\n"
+            "/givenft <user> <nft_id> - vydat NFT\n"
+            "/giftlist - spisok podarkov\n"
+            "/nftlist - spisok NFT kollektsiy\n"
+            "/ownerhelp - spravka vladeltsa\n"
+        )
+    await update.message.reply_text(text)
+
+# ── Menu callbacks ────────────────────────────────────────────────────────────
+
 async def menu_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
-    buttons = [[InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")] for k, p in PREMIUM_PLANS.items()]
-    buttons.append([InlineKeyboardButton("Back", callback_data="menu_main")])
-    await q.edit_message_text("Choose Premium plan:", reply_markup=InlineKeyboardMarkup(buttons))
+    buttons = [
+        [InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")]
+        for k, p in PREMIUM_PLANS.items()
+    ]
+    buttons.append([InlineKeyboardButton("Nazad", callback_data="menu_main")])
+    await q.edit_message_text("Vyberi plan Premium:", reply_markup=InlineKeyboardMarkup(buttons))
 
 async def menu_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
-    buttons = [[InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")] for k, p in SPARKS_PLANS.items()]
-    buttons.append([InlineKeyboardButton("Back", callback_data="menu_main")])
-    await q.edit_message_text("Choose Sparks amount:", reply_markup=InlineKeyboardMarkup(buttons))
+    buttons = [
+        [InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")]
+        for k, p in SPARKS_PLANS.items()
+    ]
+    buttons.append([InlineKeyboardButton("Nazad", callback_data="menu_main")])
+    await q.edit_message_text("Vyberi kolichestvo Iskr:", reply_markup=InlineKeyboardMarkup(buttons))
 
 async def menu_nft(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     cols = await _get_nft_list()
     if not cols:
-        await q.edit_message_text("No NFT collections yet.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="menu_main")]]))
+        await q.edit_message_text(
+            "Poka net NFT kollektsiy.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Nazad", callback_data="menu_main")]])
+        )
         return
-    buttons = [[InlineKeyboardButton(f"{c['name']} - {c.get('price','?')} rub", callback_data=f"buy_nft_{c['id']}")] for c in cols]
-    buttons.append([InlineKeyboardButton("Back", callback_data="menu_main")])
-    await q.edit_message_text("Choose NFT:", reply_markup=InlineKeyboardMarkup(buttons))
+    buttons = [
+        [InlineKeyboardButton(f"{c['name']} - {c.get('price','?')} rub", callback_data=f"buy_nft_{c['id']}")]
+        for c in cols
+    ]
+    buttons.append([InlineKeyboardButton("Nazad", callback_data="menu_main")])
+    await q.edit_message_text("Vyberi NFT:", reply_markup=InlineKeyboardMarkup(buttons))
 
 async def menu_main_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
-    await q.edit_message_text("Choose what to buy:", reply_markup=main_kb())
+    await q.edit_message_text("Vyberi chto hochesh kupit:", reply_markup=main_kb())
 
 async def buy_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
@@ -224,77 +325,97 @@ async def buy_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_nft:
         plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
         if not plan: return
-        label, price = plan['label'], plan['price']
+        label, price = plan["label"], plan["price"]
     else:
         nft_id = key[4:]
         cols = await _get_nft_list()
-        nft = next((c for c in cols if str(c['id']) == str(nft_id)), None)
+        nft = next((c for c in cols if str(c["id"]) == str(nft_id)), None)
         if not nft: return
-        label, price = nft['name'], f"{nft.get('price','?')} rub"
+        label = nft["name"]
+        price = f"{nft.get('price','?')} rub"
     context.user_data["pending_key"] = key
     context.user_data["awaiting_username"] = True
     context.user_data["awaiting_screenshot"] = False
     await q.edit_message_text(
-        f"Selected: {label} - {price}\n\nEnter your Tabletone username (without @):",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Cancel", callback_data="menu_main")]])
+        f"Vy vybrali: {label} - {price}\n\nVvedite vash username v Tabletone (bez @):",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Otmena", callback_data="menu_main")]])
     )
 
+# ── Message handlers ──────────────────────────────────────────────────────────
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("awaiting_username"): return
+    if not context.user_data.get("awaiting_username"):
+        return
     username = update.message.text.strip().lstrip("@")
     if len(username) < 3:
-        await update.message.reply_text("Username too short."); return
+        await update.message.reply_text("Username slishkom korotkiy."); return
     key = context.user_data.get("pending_key", "")
     is_nft = key.startswith("nft_")
     if not is_nft:
         plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
         if not plan:
-            await update.message.reply_text("Error. Type /start"); return
-        price = plan['price']
+            await update.message.reply_text("Oshibka. Nazhmi /start"); return
+        price = plan["price"]
     else:
         nft_id = key[4:]
         cols = await _get_nft_list()
-        nft = next((c for c in cols if str(c['id']) == str(nft_id)), None)
+        nft = next((c for c in cols if str(c["id"]) == str(nft_id)), None)
         if not nft:
-            await update.message.reply_text("Error. Type /start"); return
+            await update.message.reply_text("Oshibka. Nazhmi /start"); return
         price = f"{nft.get('price','?')} rub"
     context.user_data["tabletone_username"] = username
     context.user_data["awaiting_username"] = False
     context.user_data["awaiting_screenshot"] = True
     await update.message.reply_text(
-        f"Payment details:\n\nPhone: {CARD_NUMBER}\nBank: {CARD_BANK}\nAmount: {price}\n\nSend screenshot after payment. 10 minutes."
+        f"Rekvizity oplaty:\n\nTelefon: {CARD_NUMBER}\nBank: {CARD_BANK}\nSumma: {price}\n\n"
+        "Posle perevoda prishli skrinshot podtverzhdeniya. Vremya: 10 minut."
     )
-    async def timeout_check():
+    async def _timeout():
         await asyncio.sleep(SCREENSHOT_TIMEOUT)
         if context.user_data.get("awaiting_screenshot"):
             context.user_data["awaiting_screenshot"] = False
-            try: await update.message.reply_text("Time is up. Type /start to retry.")
-            except Exception: pass
-    asyncio.create_task(timeout_check())
+            try:
+                await update.message.reply_text("Vremya isteklo. Nazhmi /start.")
+            except Exception:
+                pass
+    asyncio.create_task(_timeout())
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("awaiting_screenshot"): return
+    if not context.user_data.get("awaiting_screenshot"):
+        return
     context.user_data["awaiting_screenshot"] = False
-    key = context.user_data.get("pending_key", "")
+    key      = context.user_data.get("pending_key", "")
     username = context.user_data.get("tabletone_username", "?")
-    is_nft = key.startswith("nft_")
+    is_nft   = key.startswith("nft_")
     if not is_nft:
-        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
-        label = plan['label'] if plan else key
-        price = plan['price'] if plan else "?"
+        plan  = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        label = plan["label"] if plan else key
+        price = plan["price"] if plan else "?"
     else:
         nft_id = key[4:]
         cols = await _get_nft_list()
-        nft = next((c for c in cols if str(c['id']) == str(nft_id)), None)
-        label = nft['name'] if nft else key
+        nft = next((c for c in cols if str(c["id"]) == str(nft_id)), None)
+        label = nft["name"] if nft else key
         price = f"{nft.get('price','?')} rub" if nft else "?"
     user = update.effective_user
     user_info = f"@{user.username}" if user.username else f"id:{user.id}"
     photo_file_id = update.message.photo[-1].file_id
     context.user_data["pending_user_chat_id"] = update.effective_chat.id
-    await update.message.reply_text("Screenshot received! Waiting for admin confirmation.")
+    await update.message.reply_text("Skrinshot poluchen! Zhdi podtverzhdeniya.")
     if not OWNER_TELEGRAM_ID:
         logger.warning("OWNER_TELEGRAM_ID not set!"); return
+    # Создаём запись заказа
+    try:
+        await _api_post("/api/payment/orders/create", {
+            "tg_user_id":    str(user.id),
+            "tg_username":   user.username or "",
+            "site_username": username,
+            "item_key":      key,
+            "item_label":    label,
+            "price_rub":     price,
+        })
+    except Exception as e:
+        logger.warning(f"Order create error: {e}")
     confirm_kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("Confirm", callback_data=f"confirm_{key}_{username}_{update.effective_chat.id}"),
         InlineKeyboardButton("Reject",  callback_data=f"reject_{key}_{username}_{update.effective_chat.id}"),
@@ -310,7 +431,7 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
     if update.effective_user.id != OWNER_TELEGRAM_ID:
         await q.answer("No access", show_alert=True); return
     action = "confirm" if q.data.startswith("confirm_") else "reject"
-    raw = q.data[len(action)+1:]
+    raw = q.data[len(action) + 1:]
     key = None
     if raw.startswith("nft_"):
         parts = raw.split("_")
@@ -319,12 +440,14 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
     else:
         for k in list(PREMIUM_PLANS.keys()) + list(SPARKS_PLANS.keys()):
             if raw.startswith(k + "_"):
-                key = k; remainder = raw[len(k)+1:]; break
+                key = k
+                remainder = raw[len(k) + 1:]
+                break
     if not key:
         await q.edit_message_caption("Could not determine item."); return
     last_ = remainder.rfind("_")
     username = remainder[:last_]
-    user_chat_id = int(remainder[last_+1:])
+    user_chat_id = int(remainder[last_ + 1:])
     if action == "confirm":
         activated = False
         try:
@@ -341,90 +464,69 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception as e:
             logger.error(f"Activation error: {e}")
         is_nft = key.startswith("nft_")
-        if is_nft: user_msg = f"Payment confirmed! NFT given to @{username}."
+        if is_nft:
+            user_msg = f"Payment confirmed! NFT given to @{username}."
         elif key.startswith("premium"):
-            plan = PREMIUM_PLANS[key]; user_msg = f"Payment confirmed! Premium {plan['days']}d for @{username}."
+            plan = PREMIUM_PLANS[key]
+            user_msg = f"Payment confirmed! Premium {plan['days']}d for @{username}."
         else:
-            plan = SPARKS_PLANS[key]; user_msg = f"Payment confirmed! {plan['sparks']} sparks for @{username}."
-        if not activated: user_msg += " (manual activation needed)"
+            plan = SPARKS_PLANS[key]
+            user_msg = f"Payment confirmed! {plan['sparks']} sparks for @{username}."
+        if not activated:
+            user_msg += " (manual activation needed)"
         await context.bot.send_message(chat_id=user_chat_id, text=user_msg)
         await q.edit_message_caption((q.message.caption or "") + f"\n\nConfirmed! {'auto' if activated else 'manual'}")
+        try:
+            await _api_post("/api/payment/orders/resolve", {
+                "tg_user_id": str(user_chat_id), "status": "confirmed"
+            })
+        except Exception:
+            pass
     else:
         await context.bot.send_message(chat_id=user_chat_id, text="Payment rejected. Contact @kotakbaslife.")
         await q.edit_message_caption((q.message.caption or "") + "\n\nRejected.")
+        try:
+            await _api_post("/api/payment/orders/resolve", {
+                "tg_user_id": str(user_chat_id), "status": "rejected"
+            })
+        except Exception:
+            pass
 
 async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data
-    if data == "menu_premium":    await menu_premium(update, context)
-    elif data == "menu_sparks":   await menu_sparks(update, context)
-    elif data == "menu_nft":      await menu_nft(update, context)
-    elif data == "menu_main":     await menu_main_cb(update, context)
-    elif data.startswith("buy_"): await buy_item(update, context)
+    if data == "menu_premium":
+        await menu_premium(update, context)
+    elif data == "menu_sparks":
+        await menu_sparks(update, context)
+    elif data == "menu_nft":
+        await menu_nft(update, context)
+    elif data == "menu_main":
+        await menu_main_cb(update, context)
+    elif data.startswith("buy_"):
+        await buy_item(update, context)
     elif data.startswith("confirm_") or data.startswith("reject_"):
         await handle_confirm_reject(update, context)
-    else: await update.callback_query.answer()
+    else:
+        await update.callback_query.answer()
 
-
-
-@owner_only
-async def cmd_cancel_premium(update, context):
-    args = context.args
-    if not args:
-        await update.message.reply_text("Usage: /cancelpremium <username>"); return
-    username = args[0].lstrip("@")
-    try:
-        data = await _api_post("/api/payment/cancel-premium", {"username": username})
-        if data.get("success"):
-            await update.message.reply_text(f"Premium otmenen u @{username}.")
-        else:
-            await update.message.reply_text(f"Error: {data.get('error','unknown')}")
-    except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
-async def cmd_commandlist(update, context):
-    is_owner = update.effective_user.id == OWNER_TELEGRAM_ID
-    text = (
-        "Komandy bota oplaty Tabletone:\n\n"
-        "/start - glavnoe menyu\n"
-        "/commandlist - spisok komand\n"
-    )
-    if is_owner:
-        text += (
-            "\nKomandy vladeltsa:\n"
-            "/givepremium <user> <days> - vydat Premium\n"
-            "/cancelpremium <user> - otmenit Premium\n"
-            "/givesparks <user> <amount> - vydat Iskry\n"
-            "/givegift <user> <gift_id> - vydat podarok\n"
-            "/givenft <user> <nft_id> - vydat NFT\n"
-            "/giftlist - spisok podarkov\n"
-            "/nftlist - spisok NFT kollektsiy\n"
-            "/ownerhelp - spravka vladeltsa\n"
-        )
-    await update.message.reply_text(text)
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("cancelpremium", cmd_cancel_premium))
-    app.add_handler(CommandHandler("commandlist",  cmd_commandlist))
-    app.add_handler(CommandHandler("start",       cmd_start))
-    app.add_handler(CommandHandler("ownerhelp",   cmd_owner_help))
-    app.add_handler(CommandHandler("giftpremium", cmd_gift_premium))
-    app.add_handler(CommandHandler("givesparks",  cmd_give_sparks))
-    app.add_handler(CommandHandler("givegift",    cmd_give_gift))
-    app.add_handler(CommandHandler("givenft",     cmd_give_nft))
-    app.add_handler(CommandHandler("giftlist",    cmd_gift_list))
-    app.add_handler(CommandHandler("nftlist",     cmd_nft_list))
-    app.add_handler(CallbackQueryHandler(callback_router))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    application = Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("start",        cmd_start))
+    application.add_handler(CommandHandler("myorders",     cmd_myorders))
+    application.add_handler(CommandHandler("commandlist",  cmd_commandlist))
+    application.add_handler(CommandHandler("ownerhelp",    cmd_owner_help))
+    application.add_handler(CommandHandler("giftpremium",  cmd_gift_premium))
+    application.add_handler(CommandHandler("cancelpremium",cmd_cancel_premium))
+    application.add_handler(CommandHandler("givesparks",   cmd_give_sparks))
+    application.add_handler(CommandHandler("givegift",     cmd_give_gift))
+    application.add_handler(CommandHandler("givenft",      cmd_give_nft))
+    application.add_handler(CommandHandler("giftlist",     cmd_gift_list))
+    application.add_handler(CommandHandler("nftlist",      cmd_nft_list))
+    application.add_handler(CallbackQueryHandler(callback_router))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     logger.info("Bot started.")
-    app.run_polling(drop_pending_updates=True)
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-

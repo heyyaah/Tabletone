@@ -30,7 +30,7 @@ import java.util.concurrent.Executor;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String APP_URL = "https://hi-ybs0.onrender.com";
+    private static final String APP_URL = "https://tabletone.site";
     private static final String PREFS_NAME = "tabletone_prefs";
     private static final String KEY_BIOMETRIC_ENABLED = "biometric_enabled";
     private static final String KEY_HAS_SESSION = "has_session";
@@ -213,8 +213,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                if (url.startsWith("https://hi-ybs0.onrender.com") ||
-                    url.startsWith("http://hi-ybs0.onrender.com")) {
+                if (url.startsWith("https://tabletone.site") ||
+                    url.startsWith("http://tabletone.site")) {
                     return false;
                 }
                 try {
