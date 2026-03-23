@@ -245,6 +245,7 @@ class User(db.Model):
     privacy_show_last_seen  = db.Column(db.String(20), default='everyone')
     privacy_show_phone      = db.Column(db.String(20), default='nobody')
     privacy_show_profile    = db.Column(db.String(20), default='everyone')
+    warnings_count          = db.Column(db.Integer, default=0)  # Предупреждения пользователя
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -851,9 +852,20 @@ class AdminWarning(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
     issuer = db.relationship('User', foreign_keys=[issued_by])
 
-# ── Блокировка пользователей ──────────────────────────────────────────────────
-class BlockedUser(db.Model):
+# ── Предупреждения пользователей ─────────────────────────────────────────────
+class UserWarning(db.Model):
+    """Предупреждение обычному пользователю от модератора/админа."""
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    issued_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_read = db.Column(db.Boolean, default=False)
+    user = db.relationship('User', foreign_keys=[user_id])
+    issuer = db.relationship('User', foreign_keys=[issued_by])
+
+# ── Блокировка пользователей ──────────────────────────────────────────────────
+class BlockedUser(db.Model):    id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     blocked_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -961,6 +973,7 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS warnings_count INTEGER DEFAULT 0",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
@@ -1019,6 +1032,7 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_last_seen VARCHAR(20) DEFAULT 'everyone'",
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_phone VARCHAR(20) DEFAULT 'nobody'",
                 f"ALTER TABLE {user_table} ADD COLUMN privacy_show_profile VARCHAR(20) DEFAULT 'everyone'",
+                f"ALTER TABLE {user_table} ADD COLUMN warnings_count INTEGER DEFAULT 0",
                 "ALTER TABLE message ADD COLUMN reply_to_id INTEGER REFERENCES message(id)",
                 "ALTER TABLE message ADD COLUMN bot_buttons TEXT DEFAULT '[]'",
                 "ALTER TABLE message ADD COLUMN expires_at DATETIME",
@@ -3284,6 +3298,48 @@ def check_spam_block(sender):
     until_msk = (until + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M') if until else 'неизвестно'
     return True, until_msk
 
+def _ai_moderate_message(text):
+    """Проверяет сообщение через Cloudflare AI. Возвращает причину нарушения или None."""
+    try:
+        import urllib.request, json as _json, os as _os
+        account_id = _os.environ.get('CF_ACCOUNT_ID', '')
+        api_token = _os.environ.get('CF_API_TOKEN', '')
+        if not account_id or not api_token:
+            return None
+        system_prompt = (
+            "You are a content moderation AI. Analyze the message and determine if it violates rules.\n"
+            "Rules: no spam/advertising, no extremist content, no threats, no illegal content, no hate speech.\n"
+            "Reply with JSON only: {\"violation\": true/false, \"reason\": \"short reason in Russian or null\"}\n"
+            "Be strict but fair. Normal conversation is always allowed."
+        )
+        payload = _json.dumps({
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text[:500]}
+            ],
+            "max_tokens": 100
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/meta/llama-3.1-8b-instruct",
+            data=payload,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_token}"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _json.loads(resp.read().decode('utf-8'))
+        response_text = result.get('result', {}).get('response', '').strip()
+        # Извлекаем JSON из ответа
+        start = response_text.find('{')
+        end = response_text.rfind('}') + 1
+        if start >= 0 and end > start:
+            data = _json.loads(response_text[start:end])
+            if data.get('violation') and data.get('reason'):
+                return data['reason']
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"AI moderation error: {e}")
+    return None
+
 @app.route('/send', methods=['POST'])
 def send_message():
     if 'user_id' not in session:
@@ -3371,6 +3427,32 @@ def send_message():
                     'required': _msg_price
                 }), 402
 
+    # ── ИИ модерация ─────────────────────────────────────────────────────────
+    if not sender.is_admin and not sender.is_bot and len(content) > 3:
+        _ai_violation = _ai_moderate_message(content)
+        if _ai_violation:
+            _warn = UserWarning(user_id=sender.id, reason=f'ИИ модератор: {_ai_violation}', issued_by=sender.id)
+            db.session.add(_warn)
+            sender.warnings_count = (sender.warnings_count or 0) + 1
+            if sender.warnings_count >= 3:
+                from datetime import timedelta
+                sender.is_spam_blocked = True
+                block_hours = 12 if sender.is_premium else 24
+                sender.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
+            db.session.commit()
+            try:
+                support_bot = User.query.filter_by(username='tabletone_supportbot').first()
+                if support_bot:
+                    _bot_send_message(support_bot.id, sender.id,
+                        f"⚠️ *Ваше сообщение заблокировано ИИ модератором*\n\n"
+                        f"Причина: {_ai_violation}\n\n"
+                        f"Предупреждений: {sender.warnings_count}/3\n"
+                        f"{'🚫 Вы получили спам-блок за 3 предупреждения.' if sender.warnings_count >= 3 else ''}"
+                    )
+            except Exception:
+                pass
+            return jsonify({'error': 'moderated', 'message': f'Сообщение заблокировано: {_ai_violation}'}), 403
+
     message = Message(
         sender_id=session['user_id'],
         receiver_id=receiver_id,
@@ -3380,8 +3462,6 @@ def send_message():
     
     db.session.add(message)
     db.session.commit()
-    
-    # Информация об отправителе для обновления аватарок
     sender_info = {
         'id': sender.id,
         'username': sender.username,
@@ -5254,7 +5334,75 @@ def remove_spamblock(user_id):
     db.session.commit()
     return jsonify({'success': True})
 
-# Удаление пользователя
+# ── Предупреждения пользователей ─────────────────────────────────────────────
+@app.route('/admin/users/<int:user_id>/warn-user', methods=['POST'])
+def warn_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    if user.is_admin:
+        return jsonify({'error': 'Нельзя выдать предупреждение администратору'}), 400
+    data = request.get_json() or {}
+    reason = data.get('reason', '').strip()
+    if not reason:
+        return jsonify({'error': 'Укажите причину'}), 400
+    warning = UserWarning(user_id=user_id, reason=reason, issued_by=session['user_id'])
+    db.session.add(warning)
+    user.warnings_count = (user.warnings_count or 0) + 1
+    # После 3 предупреждений — спам-блок
+    if user.warnings_count >= 3:
+        from datetime import timedelta
+        user.is_spam_blocked = True
+        block_hours = 12 if user.is_premium else 24
+        user.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
+    db.session.commit()
+    # Уведомляем пользователя через supportbot
+    try:
+        support_bot = User.query.filter_by(username='tabletone_supportbot').first()
+        if support_bot:
+            warn_text = (
+                f"⚠️ *Вы получили предупреждение*\n\n"
+                f"Причина: {reason}\n\n"
+                f"Предупреждений: {user.warnings_count}/3\n"
+                f"{'🚫 Вы получили спам-блок за 3 предупреждения.' if user.warnings_count >= 3 else ''}"
+            )
+            _bot_send_message(support_bot.id, user_id, warn_text)
+    except Exception as e:
+        app.logger.warning(f"warn_user notify error: {e}")
+    return jsonify({'success': True, 'warnings_count': user.warnings_count, 'spam_blocked': user.is_spam_blocked})
+
+@app.route('/admin/users/<int:user_id>/warnings-list', methods=['GET'])
+def get_user_warnings(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    warnings = UserWarning.query.filter_by(user_id=user_id).order_by(UserWarning.created_at.desc()).all()
+    return jsonify({'warnings': [
+        {'id': w.id, 'reason': w.reason, 'issued_by': w.issuer.username if w.issuer else '?',
+         'created_at': w.created_at.strftime('%d.%m.%Y %H:%M')} for w in warnings
+    ]})
+
+@app.route('/admin/users/<int:user_id>/reset-warnings', methods=['POST'])
+def reset_user_warnings(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not _has_role(admin, 'admin'):
+        return jsonify({'error': 'Недостаточно прав'}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+    UserWarning.query.filter_by(user_id=user_id).delete()
+    user.warnings_count = 0
+    db.session.commit()
+    return jsonify({'success': True})
 @app.route('/admin/remove/<int:user_id>', methods=['POST'])
 def remove_user(user_id):
     if 'user_id' not in session:
@@ -12091,6 +12239,110 @@ if _bot_token:
     print('✓ Payment bot started in background thread')
 else:
     print('⚠ PAYMENT_BOT_TOKEN not set, payment bot not started')
+@app.route('/credits')
+def credits_page():
+    return render_template('credits.html')
+
+# ── ИИ Модератор ─────────────────────────────────────────────────────────────import requests as _requests
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+def _ai_check_message(text):
+    """Проверяет текст через Gemini. Возвращает dict {violation, category, reason}."""
+    if not GEMINI_API_KEY or not text:
+        return {'violation': False, 'category': None, 'reason': None}
+    prompt = (
+        "Ты модератор мессенджера. Проверь следующее сообщение на нарушения правил.\n"
+        "Категории нарушений: реклама, экстремизм, оскорбления, угрозы, нарушение правил площадки.\n"
+        "Ответь ТОЛЬКО в формате JSON: {\"violation\": true/false, \"category\": \"категория или null\", \"reason\": \"краткое объяснение или null\"}\n\n"
+        f"Сообщение: {text[:500]}"
+    )
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        resp = _requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
+        if resp.status_code == 200:
+            raw = resp.json()['candidates'][0]['content']['parts'][0]['text']
+            raw = raw.strip().strip('```json').strip('```').strip()
+            return json.loads(raw)
+    except Exception as e:
+        app.logger.warning(f"AI moderation error: {e}")
+    return {'violation': False, 'category': None, 'reason': None}
+
+@app.route('/admin/ai-moderation/scan', methods=['POST'])
+def ai_moderation_scan():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    if not GEMINI_API_KEY:
+        return jsonify({'error': 'GEMINI_API_KEY не настроен'}), 400
+
+    # Берём последние 50 сообщений не удалённых
+    messages = Message.query.filter_by(is_deleted=False).order_by(Message.timestamp.desc()).limit(50).all()
+    violations = []
+    for msg in messages:
+        text = msg.decrypted_content
+        if not text or msg.message_type != 'text':
+            continue
+        result = _ai_check_message(text)
+        if result.get('violation'):
+            sender = User.query.get(msg.sender_id)
+            violations.append({
+                'message_id': msg.id,
+                'sender_id': msg.sender_id,
+                'sender_username': sender.username if sender else '?',
+                'content': text[:200],
+                'category': result.get('category'),
+                'reason': result.get('reason'),
+                'timestamp': msg.timestamp.strftime('%d.%m.%Y %H:%M')
+            })
+    return jsonify({'violations': violations})
+
+@app.route('/admin/ai-moderation/delete/<int:message_id>', methods=['POST'])
+def ai_moderation_delete(message_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    msg = Message.query.get_or_404(message_id)
+    msg.is_deleted = True
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/admin/ai-moderation/warn/<int:user_id>', methods=['POST'])
+def ai_moderation_warn(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    admin = User.query.get(session['user_id'])
+    if not admin or not admin.is_admin:
+        return jsonify({'error': 'Доступ запрещен'}), 403
+    data = request.get_json() or {}
+    reason = data.get('reason', 'Нарушение правил площадки (ИИ модератор)').strip()
+    user = User.query.get_or_404(user_id)
+    warning = UserWarning(user_id=user_id, reason=reason, issued_by=session['user_id'])
+    db.session.add(warning)
+    user.warnings_count = (user.warnings_count or 0) + 1
+    if user.warnings_count >= 3:
+        user.is_spam_blocked = True
+        block_hours = 12 if user.is_premium else 24
+        user.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
+    db.session.commit()
+    try:
+        support_bot = User.query.filter_by(username='tabletone_supportbot').first()
+        if support_bot:
+            warn_text = (
+                f"⚠️ *Вы получили предупреждение от ИИ модератора*\n\n"
+                f"Причина: {reason}\n\n"
+                f"Предупреждений: {user.warnings_count}/3\n"
+                f"{'🚫 Вы получили спам-блок за 3 предупреждения.' if user.warnings_count >= 3 else ''}"
+            )
+            _bot_send_message(support_bot.id, user_id, warn_text)
+    except Exception as e:
+        app.logger.warning(f"ai_warn notify error: {e}")
+    return jsonify({'success': True, 'warnings_count': user.warnings_count})
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':

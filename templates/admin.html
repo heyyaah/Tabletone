@@ -45,6 +45,7 @@
                     <div class="admin-category-title">Модерация</div>
                     <div class="admin-category-links">
                         <a onclick="switchTab('reports')">Жалобы пользователей</a>
+                        <a onclick="switchTab('ai-moderation')">ИИ модератор</a>
                         <a onclick="switchTab('bots')" class="tab-admin-only" style="display:none;">Модерация ботов</a>
                     </div>
                 </div>
@@ -129,7 +130,6 @@
     
     <!-- Вкладка спам-блока -->
     <div id="spamblock-tab" class="admin-tab">
-        <h2>Спам-блок</h2>
         <div class="users-list" id="spamblock-list">
             <div class="loading">
                 <i class="fas fa-spinner fa-spin"></i> Загрузка...
@@ -147,8 +147,19 @@
         </div>
     </div>
 
-    <!-- Вкладка ботов -->
-    <div id="bots-tab" class="admin-tab">
+    <!-- Вкладка ИИ модератора -->
+    <div id="ai-moderation-tab" class="admin-tab">
+        <h2>🤖 ИИ Модератор</h2>
+        <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button onclick="runAiScan()" id="ai-scan-btn" style="padding:10px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-robot"></i> Запустить сканирование
+            </button>
+            <span id="ai-scan-status" style="font-size:13px;color:var(--text-secondary);"></span>
+        </div>
+        <div id="ai-violations-list"></div>
+    </div>
+
+    <!-- Вкладка ботов -->    <div id="bots-tab" class="admin-tab">
         <h2>Модерация ботов</h2>
         <div class="users-list" id="admin-bots-list">
             <div class="loading">
@@ -781,6 +792,7 @@ function switchTab(tabName) {
     if (tabName === 'users') loadUsers();
     else if (tabName === 'verification') loadVerificationRequests();
     else if (tabName === 'reports') loadReports();
+    else if (tabName === 'ai-moderation') { /* готово к сканированию */ }
     else if (tabName === 'bots') loadAdminBots();
     else if (tabName === 'spamblock') loadSpamblockCandidates();
     else if (tabName === 'recovery') loadRecoveryRequests();
@@ -2015,4 +2027,72 @@ async function deleteNFTCollection(id, name) {
 }
 {% endif %}
 </script>
+
+<script>
+// ── ИИ Модератор ──────────────────────────────────────────────────────────────
+async function runAiScan() {
+    const btn = document.getElementById('ai-scan-btn');
+    const status = document.getElementById('ai-scan-status');
+    const list = document.getElementById('ai-violations-list');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сканирование...';
+    status.textContent = '';
+    list.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Анализирую сообщения...</div>';
+    try {
+        const r = await fetch('/admin/ai-moderation/scan', {method: 'POST'});
+        const d = await r.json();
+        if (d.error) { list.innerHTML = `<div style="color:#e53e3e;">${d.error}</div>`; return; }
+        const v = d.violations;
+        status.textContent = `Найдено нарушений: ${v.length}`;
+        if (v.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);"><i class="fas fa-check-circle" style="font-size:40px;color:#38a169;margin-bottom:12px;display:block;"></i>Нарушений не обнаружено</div>';
+            return;
+        }
+        list.innerHTML = v.map(item => `
+            <div id="viol-${item.message_id}" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:16px;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <span style="font-weight:600;">@${item.sender_username}</span>
+                        <span style="margin-left:8px;padding:2px 8px;background:#fed7d7;color:#c53030;border-radius:6px;font-size:12px;">${item.category || 'нарушение'}</span>
+                        <span style="margin-left:8px;font-size:12px;color:var(--text-secondary);">${item.timestamp}</span>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="aiWarnUser(${item.sender_id}, '${(item.reason||'').replace(/'/g,"\\'")}', ${item.message_id})" style="padding:6px 12px;background:#ed8936;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;"><i class="fas fa-exclamation-triangle"></i> Предупредить</button>
+                        <button onclick="aiDeleteMsg(${item.message_id})" style="padding:6px 12px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;"><i class="fas fa-trash"></i> Удалить</button>
+                        <button onclick="document.getElementById('viol-${item.message_id}').remove()" style="padding:6px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;font-size:12px;cursor:pointer;">Игнорировать</button>
+                    </div>
+                </div>
+                <div style="margin-top:10px;padding:10px;background:var(--bg-primary);border-radius:8px;font-size:13px;">${item.content}</div>
+                <div style="margin-top:6px;font-size:12px;color:var(--text-secondary);"><i class="fas fa-robot"></i> ${item.reason || ''}</div>
+            </div>
+        `).join('');
+    } catch(e) {
+        list.innerHTML = '<div style="color:#e53e3e;">Ошибка сети</div>';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-robot"></i> Запустить сканирование';
+    }
+}
+
+async function aiDeleteMsg(msgId) {
+    const r = await fetch(`/admin/ai-moderation/delete/${msgId}`, {method: 'POST'});
+    const d = await r.json();
+    if (d.success) document.getElementById(`viol-${msgId}`)?.remove();
+    else alert(d.error || 'Ошибка');
+}
+
+async function aiWarnUser(userId, reason, msgId) {
+    const r = await fetch(`/admin/ai-moderation/warn/${userId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reason})
+    });
+    const d = await r.json();
+    if (d.success) {
+        showToast(`Предупреждение выдано (${d.warnings_count}/3)`);
+        document.getElementById(`viol-${msgId}`)?.remove();
+    } else alert(d.error || 'Ошибка');
+}
+</script>
+
 {% endblock %}
