@@ -1712,7 +1712,8 @@ def check_ip_ban():
     if request.path.startswith('/socket.io') or request.path.startswith('/static'):
         return
     global _banned_ip_cache, _banned_ip_cache_time
-    ip = request.remote_addr
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    ip = forwarded.split(',')[0].strip() if forwarded else request.remote_addr
     if not ip:
         return
     now = time.time()
@@ -1725,7 +1726,12 @@ def check_ip_ban():
         except Exception:
             pass
     if ip in _banned_ip_cache:
-        return jsonify({'error': 'Ваш IP заблокирован.'}), 403
+        # Для API запросов возвращаем JSON, для страниц — красивую страницу
+        if request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Ваш IP заблокирован.'}), 403
+        ban = BannedIP.query.filter_by(ip_address=ip).first()
+        reason = ban.reason if ban else None
+        return render_template('ip_banned.html', reason=reason), 403
 
 
 _init_db()
@@ -2851,7 +2857,7 @@ def index():
     # Проверяем, не забанен ли пользователь
     if user and user.is_banned:
         session.pop('user_id', None)
-        return render_template('landing.html')
+        return render_template('banned.html', reason=None), 403
 
     # Режим обслуживания — обычным пользователям показываем заглушку
     is_staff = user and user.admin_role in ('moderator', 'admin', 'senior_admin', 'owner')
@@ -2970,7 +2976,7 @@ def login():
             app.logger.warning(f"[LOGIN] password ok for {username}")
             # Проверяем, не забанен ли пользователь
             if user.is_banned:
-                return render_template('login.html', error='Ваш аккаунт заблокирован администратором')
+                return render_template('banned.html', reason=None), 403
             
             # Trusted IP bypass
             import time as _time

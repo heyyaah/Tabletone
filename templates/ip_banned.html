@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доступ заблокирован — Tabletone</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            background: #0a0a0f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: drift 8s ease-in-out infinite;
+        }
+        .bg-orb:nth-child(1) {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, #e53e3e, transparent);
+            top: -100px; left: -100px;
+            animation-delay: 0s;
+        }
+        .bg-orb:nth-child(2) {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, #7c3aed, transparent);
+            bottom: -80px; right: -80px;
+            animation-delay: -3s;
+        }
+        .bg-orb:nth-child(3) {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, #c53030, transparent);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -5s;
+        }
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.05); }
+            66% { transform: translate(-20px, 30px) scale(0.95); }
+        }
+
+        /* Grid lines */
+        .grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(229,62,62,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(229,62,62,0.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+        }
+
+        /* Card */
+        .card {
+            position: relative;
+            z-index: 1;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(229,62,62,0.2);
+            border-radius: 24px;
+            padding: 52px 44px;
+            max-width: 460px;
+            width: 90%;
+            text-align: center;
+            backdrop-filter: blur(20px);
+            box-shadow:
+                0 0 0 1px rgba(229,62,62,0.1),
+                0 32px 64px rgba(0,0,0,0.5),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            animation: cardIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(40px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Icon */
+        .icon-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 96px;
+            height: 96px;
+            margin-bottom: 28px;
+        }
+        .icon-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2px solid rgba(229,62,62,0.4);
+            animation: ringPulse 2s ease-in-out infinite;
+        }
+        .icon-ring:nth-child(2) {
+            inset: -12px;
+            border-color: rgba(229,62,62,0.2);
+            animation-delay: 0.3s;
+        }
+        .icon-ring:nth-child(3) {
+            inset: -24px;
+            border-color: rgba(229,62,62,0.1);
+            animation-delay: 0.6s;
+        }
+        @keyframes ringPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.05); }
+        }
+        .icon-inner {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(229,62,62,0.2), rgba(197,48,48,0.1));
+            border: 1px solid rgba(229,62,62,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 15px;
+            color: rgba(255,255,255,0.45);
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .reason-box {
+            background: rgba(229,62,62,0.08);
+            border: 1px solid rgba(229,62,62,0.2);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 32px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            text-align: left;
+            display: {{ 'block' if reason else 'none' }};
+        }
+        .reason-box span {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(229,62,62,0.7);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        .btn-ghost {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .btn-tg {
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(33,150,243,0.3);
+        }
+        .btn-tg:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(33,150,243,0.4);
+        }
+
+        .footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.2);
+        }
+
+        /* Particles */
+        .particles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: rgba(229,62,62,0.6);
+            animation: floatUp linear infinite;
+        }
+        @keyframes floatUp {
+            0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 0.5; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg">
+        <div class="bg-orb"></div>
+        <div class="bg-orb"></div>
+        <div class="bg-orb"></div>
+    </div>
+    <div class="grid"></div>
+    <div class="particles" id="particles"></div>
+
+    <div class="card">
+        <div class="icon-wrap">
+            <div class="icon-ring"></div>
+            <div class="icon-ring"></div>
+            <div class="icon-ring"></div>
+            <div class="icon-inner">🚫</div>
+        </div>
+
+        <h1>Доступ заблокирован</h1>
+        <p class="subtitle">
+            Ваш IP-адрес был заблокирован администрацией Tabletone.<br>
+            Если вы считаете, что это ошибка — обратитесь в поддержку.
+        </p>
+
+        {% if reason %}
+        <div class="reason-box">
+            <span>Причина</span>
+            {{ reason }}
+        </div>
+        {% endif %}
+
+        <div class="buttons">
+            <a href="/logout" class="btn btn-ghost">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Выйти
+            </a>
+            <a href="https://t.me/tabletone_official" target="_blank" class="btn btn-tg">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.32 13.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.942z"/></svg>
+                Поддержка
+            </a>
+        </div>
+
+        <div class="footer">Tabletone &copy; {{ 2025 }}</div>
+    </div>
+
+    <script>
+        // Generate floating particles
+        const container = document.getElementById('particles');
+        for (let i = 0; i < 20; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.animationDuration = (6 + Math.random() * 10) + 's';
+            p.style.animationDelay = (-Math.random() * 16) + 's';
+            p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
+            p.style.opacity = (0.3 + Math.random() * 0.7).toString();
+            container.appendChild(p);
+        }
+    </script>
+</body>
+</html>

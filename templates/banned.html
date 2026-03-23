@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аккаунт заблокирован — Tabletone</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            background: #0a0a0f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.12;
+            animation: drift 9s ease-in-out infinite;
+        }
+        .bg-orb:nth-child(1) {
+            width: 550px; height: 550px;
+            background: radial-gradient(circle, #744210, transparent);
+            top: -120px; left: -120px;
+            animation-delay: 0s;
+        }
+        .bg-orb:nth-child(2) {
+            width: 420px; height: 420px;
+            background: radial-gradient(circle, #92400e, transparent);
+            bottom: -100px; right: -100px;
+            animation-delay: -4s;
+        }
+        .bg-orb:nth-child(3) {
+            width: 320px; height: 320px;
+            background: radial-gradient(circle, #78350f, transparent);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -7s;
+        }
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33%  { transform: translate(25px, -18px) scale(1.04); }
+            66%  { transform: translate(-18px, 25px) scale(0.96); }
+        }
+
+        .grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(217,119,6,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(217,119,6,0.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(217,119,6,0.2);
+            border-radius: 24px;
+            padding: 52px 44px;
+            max-width: 460px;
+            width: 90%;
+            text-align: center;
+            backdrop-filter: blur(20px);
+            box-shadow:
+                0 0 0 1px rgba(217,119,6,0.08),
+                0 32px 64px rgba(0,0,0,0.5),
+                inset 0 1px 0 rgba(255,255,255,0.05);
+            animation: cardIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(40px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .icon-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 96px;
+            height: 96px;
+            margin-bottom: 28px;
+        }
+        .icon-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 2px solid rgba(217,119,6,0.4);
+            animation: ringPulse 2.2s ease-in-out infinite;
+        }
+        .icon-ring:nth-child(2) {
+            inset: -12px;
+            border-color: rgba(217,119,6,0.2);
+            animation-delay: 0.35s;
+        }
+        .icon-ring:nth-child(3) {
+            inset: -24px;
+            border-color: rgba(217,119,6,0.1);
+            animation-delay: 0.7s;
+        }
+        @keyframes ringPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.35; transform: scale(1.06); }
+        }
+        .icon-inner {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(217,119,6,0.18), rgba(180,83,9,0.08));
+            border: 1px solid rgba(217,119,6,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 15px;
+            color: rgba(255,255,255,0.45);
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .reason-box {
+            background: rgba(217,119,6,0.08);
+            border: 1px solid rgba(217,119,6,0.2);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 32px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+            text-align: left;
+        }
+        .reason-box span {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(217,119,6,0.8);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        .btn-ghost {
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .btn-tg {
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(33,150,243,0.3);
+        }
+        .btn-tg:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(33,150,243,0.4);
+        }
+
+        .footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.2);
+        }
+
+        .particles {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(217,119,6,0.5);
+            animation: floatUp linear infinite;
+        }
+        @keyframes floatUp {
+            0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 0.4; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg">
+        <div class="bg-orb"></div>
+        <div class="bg-orb"></div>
+        <div class="bg-orb"></div>
+    </div>
+    <div class="grid"></div>
+    <div class="particles" id="particles"></div>
+
+    <div class="card">
+        <div class="icon-wrap">
+            <div class="icon-ring"></div>
+            <div class="icon-ring"></div>
+            <div class="icon-ring"></div>
+            <div class="icon-inner">⛔</div>
+        </div>
+
+        <h1>Аккаунт заблокирован</h1>
+        <p class="subtitle">
+            Ваш аккаунт был заблокирован администрацией Tabletone.<br>
+            Если вы считаете, что это ошибка — обратитесь в поддержку.
+        </p>
+
+        {% if reason %}
+        <div class="reason-box">
+            <span>Причина</span>
+            {{ reason }}
+        </div>
+        {% endif %}
+
+        <div class="buttons">
+            <a href="/logout" class="btn btn-ghost">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Выйти
+            </a>
+            <a href="https://t.me/tabletone_official" target="_blank" class="btn btn-tg">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L8.32 13.617l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.828.942z"/></svg>
+                Поддержка
+            </a>
+        </div>
+
+        <div class="footer">Tabletone &copy; 2025</div>
+    </div>
+
+    <script>
+        const container = document.getElementById('particles');
+        for (let i = 0; i < 20; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 100 + 'vw';
+            p.style.animationDuration = (7 + Math.random() * 10) + 's';
+            p.style.animationDelay = (-Math.random() * 17) + 's';
+            const size = (2 + Math.random() * 3) + 'px';
+            p.style.width = p.style.height = size;
+            container.appendChild(p);
+        }
+    </script>
+</body>
+</html>

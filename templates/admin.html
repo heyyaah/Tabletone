@@ -1662,7 +1662,6 @@ function adminDeleteGroup(groupId) {
         .then(d => { if (d.success) loadChannels(); else alert(d.error || 'Ошибка'); });
 }
 
-// ── IP-баны ───────────────────────────────────────────────────────────────
 function loadIpBans() {
     fetch('/admin/ip-bans')
         .then(r => r.json())
@@ -1675,12 +1674,12 @@ function loadIpBans() {
             list.innerHTML = data.bans.map(ban => `
                 <div class="user-item">
                     <div class="user-info">
-                        <h3>${ban.ip}</h3>
+                        <h3>${ban.ip_address}</h3>
                         <p>${ban.reason || 'Без причины'}</p>
                         <p>Добавлен: ${ban.created_at || ''}</p>
                     </div>
                     <div class="user-actions">
-                        <button class="action-btn unban" onclick="removeIpBan('${ban.ip}')">Разблокировать</button>
+                        <button class="action-btn unban" onclick="removeIpBan(${ban.id})">Разблокировать</button>
                     </div>
                 </div>`).join('');
         })
@@ -1709,12 +1708,11 @@ function addIpBan() {
     });
 }
 
-function removeIpBan(ip) {
-    if (!confirm(`Разблокировать IP ${ip}?`)) return;
-    fetch('/admin/ip-bans/remove', {
+function removeIpBan(banId) {
+    if (!confirm('Разблокировать этот IP?')) return;
+    fetch(`/admin/ip-bans/${banId}/remove`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip })
+        headers: { 'Content-Type': 'application/json' }
     })
     .then(r => r.json())
     .then(d => { if (d.success) loadIpBans(); else alert(d.error || 'Ошибка'); });
