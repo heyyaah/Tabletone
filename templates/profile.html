@@ -1,1359 +1,2717 @@
-{% extends "base.html" %}
-
-{% block title %}Профиль - {{ user.display_name or user.username }}{% endblock %}
-
-{% block content %}
-<div class="profile-container">
-    <div class="profile-card">
-        <div class="profile-header">
-            <a href="/" class="back-link">
-                <i class="fas fa-arrow-left"></i> Назад к чатам
-            </a>
-            <h1><i class="fas fa-user-circle"></i> Мой профиль</h1>
-        </div>
-        
-        <div class="profile-content">
-            <div class="profile-avatar-section">
-                <div class="profile-avatar-large" id="profile-avatar" style="background: {{ user.avatar_color }}{% if user.avatar_url %}; background-image: url('{{ user.avatar_url }}'); background-size: cover; background-position: center;{% endif %}">
-                    {% if not user.avatar_url %}{{ user.get_avatar_letter() }}{% endif %}
-                </div>
-                <p class="profile-username">@{{ user.username }}</p>
-                
-                <!-- Кнопки управления аватаркой -->
-                <div class="avatar-controls">
-                    <label for="avatar-upload" class="btn btn-primary" style="cursor: pointer; margin: 5px;">
-                        <i class="fas fa-upload"></i> Загрузить фото
-                    </label>
-                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
-                    
-                    {% if user.avatar_url %}
-                    <button type="button" class="btn" onclick="deleteAvatar()" style="background: #e53e3e; color: white; margin: 5px;">
-                        <i class="fas fa-trash"></i> Удалить фото
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <form id="profile-form" class="profile-form">
-                <div class="form-group">
-                    <label for="display_name">
-                        <i class="fas fa-signature"></i> Отображаемое имя
-                    </label>
-                    <input type="text" id="display_name" name="display_name" 
-                           value="{{ user.display_name or user.username }}" 
-                           placeholder="Ваше имя" maxlength="100">
-                </div>
-                
-                <div class="form-group">
-                    <label for="bio">
-                        <i class="fas fa-info-circle"></i> О себе
-                    </label>
-                    <textarea id="bio" name="bio" rows="3" 
-                              placeholder="Расскажите о себе..." maxlength="200">{{ user.bio or '' }}</textarea>
-                    <small class="char-count"><span id="bio-count">{{ (user.bio or '')|length }}</span>/200</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <i class="fas fa-palette"></i> Цвет аватара
-                    </label>
-                    <div class="color-picker">
-                        <div class="color-option" data-color="#4f6ef7" style="background: #4f6ef7"></div>
-                        <div class="color-option" data-color="#7c3aed" style="background: #7c3aed"></div>
-                        <div class="color-option" data-color="#f093fb" style="background: #f093fb"></div>
-                        <div class="color-option" data-color="#4facfe" style="background: #4facfe"></div>
-                        <div class="color-option" data-color="#22c55e" style="background: #22c55e"></div>
-                        <div class="color-option" data-color="#fa709a" style="background: #fa709a"></div>
-                        <div class="color-option" data-color="#f59e0b" style="background: #f59e0b"></div>
-                        <div class="color-option" data-color="#06b6d4" style="background: #06b6d4"></div>
-                    </div>
-                    <input type="hidden" id="avatar_color" name="avatar_color" value="{{ user.avatar_color }}">
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <i class="fas fa-moon"></i> Тема оформления
-                    </label>
-                    <div class="theme-selector">
-                        <button type="button" class="theme-btn {% if user.theme == 'light' %}active{% endif %}" data-theme="light" onclick="selectTheme('light')">
-                            <i class="fas fa-sun"></i> Светлая
-                        </button>
-                        <button type="button" class="theme-btn {% if user.theme == 'dark' %}active{% endif %}" data-theme="dark" onclick="selectTheme('dark')">
-                            <i class="fas fa-moon"></i> Тёмная
-                        </button>
-                        <button type="button" class="theme-btn {% if user.theme == 'liquid' %}active{% endif %}" data-theme="liquid" onclick="selectTheme('liquid')">
-                            <i class="fas fa-water"></i> Liquid
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="form-group wallpaper-selector">
-                    <div class="wallpaper-grid">
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'default' %}selected{% endif %}"
-                             data-wallpaper="default"
-                             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
-                             onclick="selectWallpaper('default')"></div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back1' %}selected{% endif %}"
-                             data-wallpaper="back1"
-                             style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
-                             onclick="selectWallpaper('back1')"></div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back2' %}selected{% endif %}"
-                             data-wallpaper="back2"
-                             style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"
-                             onclick="selectWallpaper('back2')"></div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back3' %}selected{% endif %}"
-                             data-wallpaper="back3"
-                             style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"
-                             onclick="selectWallpaper('back3')"></div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back4' %}selected{% endif %}"
-                             data-wallpaper="back4"
-                             style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"
-                             onclick="selectWallpaper('back4')"></div>
-                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back5' %}selected{% endif %}"
-                             data-wallpaper="back5"
-                             style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"
-                             onclick="selectWallpaper('back5')"></div>
-                    </div>
-                    <input type="hidden" id="chat_wallpaper" name="chat_wallpaper" value="{{ user.chat_wallpaper or 'default' }}">
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <i class="fas fa-clock"></i> Часовой пояс
-                    </label>
-                    <select id="timezone" name="timezone" class="form-control" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;">
-                        <option value="Europe/Moscow" {% if user.timezone == 'Europe/Moscow' %}selected{% endif %}>Москва (UTC+3)</option>
-                        <option value="Europe/Kaliningrad" {% if user.timezone == 'Europe/Kaliningrad' %}selected{% endif %}>Калининград (UTC+2)</option>
-                        <option value="Europe/Samara" {% if user.timezone == 'Europe/Samara' %}selected{% endif %}>Самара (UTC+4)</option>
-                        <option value="Asia/Yekaterinburg" {% if user.timezone == 'Asia/Yekaterinburg' %}selected{% endif %}>Екатеринбург (UTC+5)</option>
-                        <option value="Asia/Omsk" {% if user.timezone == 'Asia/Omsk' %}selected{% endif %}>Омск (UTC+6)</option>
-                        <option value="Asia/Krasnoyarsk" {% if user.timezone == 'Asia/Krasnoyarsk' %}selected{% endif %}>Красноярск (UTC+7)</option>
-                        <option value="Asia/Irkutsk" {% if user.timezone == 'Asia/Irkutsk' %}selected{% endif %}>Иркутск (UTC+8)</option>
-                        <option value="Asia/Yakutsk" {% if user.timezone == 'Asia/Yakutsk' %}selected{% endif %}>Якутск (UTC+9)</option>
-                        <option value="Asia/Vladivostok" {% if user.timezone == 'Asia/Vladivostok' %}selected{% endif %}>Владивосток (UTC+10)</option>
-                        <option value="Asia/Magadan" {% if user.timezone == 'Asia/Magadan' %}selected{% endif %}>Магадан (UTC+11)</option>
-                        <option value="Asia/Kamchatka" {% if user.timezone == 'Asia/Kamchatka' %}selected{% endif %}>Камчатка (UTC+12)</option>
-                        <option value="Europe/Kiev" {% if user.timezone == 'Europe/Kiev' %}selected{% endif %}>Киев (UTC+2)</option>
-                        <option value="Europe/Minsk" {% if user.timezone == 'Europe/Minsk' %}selected{% endif %}>Минск (UTC+3)</option>
-                        <option value="Asia/Almaty" {% if user.timezone == 'Asia/Almaty' %}selected{% endif %}>Алматы (UTC+6)</option>
-                        <option value="Asia/Tashkent" {% if user.timezone == 'Asia/Tashkent' %}selected{% endif %}>Ташкент (UTC+5)</option>
-                        <option value="Europe/London" {% if user.timezone == 'Europe/London' %}selected{% endif %}>Лондон (UTC+0)</option>
-                        <option value="Europe/Berlin" {% if user.timezone == 'Europe/Berlin' %}selected{% endif %}>Берлин (UTC+1)</option>
-                        <option value="America/New_York" {% if user.timezone == 'America/New_York' %}selected{% endif %}>Нью-Йорк (UTC-5)</option>
-                        <option value="America/Los_Angeles" {% if user.timezone == 'America/Los_Angeles' %}selected{% endif %}>Лос-Анджелес (UTC-8)</option>
-                        <option value="Asia/Tokyo" {% if user.timezone == 'Asia/Tokyo' %}selected{% endif %}>Токио (UTC+9)</option>
-                        <option value="Asia/Shanghai" {% if user.timezone == 'Asia/Shanghai' %}selected{% endif %}>Шанхай (UTC+8)</option>
-                        <option value="Asia/Dubai" {% if user.timezone == 'Asia/Dubai' %}selected{% endif %}>Дубай (UTC+4)</option>
-                    </select>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fas fa-save"></i> Сохранить изменения
-                </button>
-            </form>
-            
-            <!-- Верификация аккаунта -->
-            {% if not user.is_verified %}
-            <div class="profile-section">
-                <h3><i class="fas fa-check-circle"></i> Верификация аккаунта</h3>
-                {% set pending_req = verification_request %}
-                {% if pending_req and pending_req.status == 'pending' %}
-                    <p style="color: #718096; margin-bottom: 10px;">Ваша заявка на верификацию ожидает рассмотрения.</p>
-                    <button class="btn" disabled style="background: #e2e8f0; color: #718096; width: 100%;">
-                        <i class="fas fa-clock"></i> Заявка на рассмотрении
-                    </button>
-                {% elif pending_req and pending_req.status == 'rejected' %}
-                    <p style="color: #e53e3e; margin-bottom: 10px;">Ваша предыдущая заявка была отклонена. Вы можете подать новую.</p>
-                    <button class="btn btn-primary btn-block" onclick="showVerificationModal()">
-                        <i class="fas fa-paper-plane"></i> Подать заявку повторно
-                    </button>
-                {% else %}
-                    <p style="color: #718096; margin-bottom: 10px;">Подайте заявку на получение галочки верификации.</p>
-                    <button class="btn btn-primary btn-block" onclick="showVerificationModal()">
-                        <i class="fas fa-paper-plane"></i> Подать заявку
-                    </button>
-                {% endif %}
-            </div>
-            {% else %}
-            <div class="profile-section">
-                <h3><i class="fas fa-check-circle" style="color: #667eea;"></i> Аккаунт верифицирован</h3>
-                <p style="color: #718096;">Ваш аккаунт подтверждён.</p>
-            </div>
-            {% endif %}
-
-            <!-- Искры -->
-            <div class="profile-section">
-                <h3><i class="fas fa-fire" style="color:#f6ad55;"></i> Искры</h3>
-                <div style="display:flex;align-items:center;gap:16px;padding:12px 0;">
-                    <div style="font-size:36px;">?</div>
-                    <div>
-                        <div style="font-size:24px;font-weight:700;color:#f6ad55;">{{ spark_balance }}</div>
-                        <div style="color:#718096;font-size:13px;">Ваш баланс искр</div>
-                    </div>
-                    <button class="btn btn-primary" onclick="showSparkHistory()" style="margin-left:auto;padding:8px 16px;font-size:13px;">
-                        <i class="fas fa-history"></i> История
-                    </button>
-                </div>
-                <p style="color:#718096;font-size:13px;line-height:1.6;">
-                    Искры — валюта Tabletone. Отправляйте искорные реакции на посты каналов, покупайте подарки и платный контент.
-                </p>
-            </div>
-
-            <!-- QR-код профиля -->
-            <div class="profile-section">
-                <h3><i class="fas fa-qrcode"></i> QR-код профиля</h3>
-                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                    <img id="profile-qr-img" src="/profile/qr" alt="QR-код" style="width:120px;height:120px;border-radius:8px;border:2px solid #e2e8f0;">
-                    <div>
-                        <p style="color:#718096;font-size:13px;line-height:1.6;">Поделитесь QR-кодом, чтобы другие могли найти вас в Tabletone.</p>
-                        <a href="/profile/qr" download="tabletone_qr.png" class="btn btn-primary" style="display:inline-block;padding:8px 16px;font-size:13px;text-decoration:none;margin-top:8px;">
-                            <i class="fas fa-download"></i> Скачать
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Текстовый статус -->
-            <div class="profile-section">
-                <h3><i class="fas fa-comment-dots"></i> Текстовый статус</h3>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="status-text-input" value="{{ user.status_text or '' }}" placeholder="Что у вас происходит?" maxlength="100"
-                           style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
-                    <button class="btn btn-primary" onclick="saveStatusText()" style="padding:10px 16px;font-size:13px;white-space:nowrap;">
-                        <i class="fas fa-save"></i> Сохранить
-                    </button>
-                </div>
-                <small style="color:#a0aec0;font-size:12px;margin-top:4px;display:block;">Отображается рядом с вашим именем</small>
-            </div>
-
-            <!-- Тема по расписанию -->
-            <div class="profile-section">
-                <h3><i class="fas fa-clock"></i> Тема по расписанию</h3>
-                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Автоматически переключать тему в заданное время</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-                    <div>
-                        <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;"><i class="fas fa-sun"></i> Светлая с</label>
-                        <input type="time" id="schedule-light" value="08:00"
-                               style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
-                    </div>
-                    <div>
-                        <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;"><i class="fas fa-moon"></i> Тёмная с</label>
-                        <input type="time" id="schedule-dark" value="22:00"
-                               style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
-                    </div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn btn-primary" onclick="saveThemeSchedule()" style="padding:8px 16px;font-size:13px;">
-                        <i class="fas fa-save"></i> Сохранить расписание
-                    </button>
-                    <button class="btn" onclick="clearThemeSchedule()" style="padding:8px 16px;font-size:13px;background:#e2e8f0;color:#4a5568;">
-                        <i class="fas fa-times"></i> Отключить
-                    </button>
-                </div>
-            </div>
-
-            <!-- Автоответ -->
-            <div class="profile-section">
-                <h3><i class="fas fa-robot"></i> Автоответ</h3>
-                <p style="font-size:13px;color:#718096;margin-bottom:12px;">Автоматически отвечает на входящие сообщения когда вы недоступны.</p>
-                <button class="btn btn-primary" onclick="showAutoReplySettings()" style="padding:10px 20px;font-size:14px;">
-                    <i class="fas fa-cog"></i> Настроить автоответ
-                </button>
-            </div>
-
-            <!-- PIN скрытых чатов -->
-            <div class="profile-section">
-                <h3><i class="fas fa-lock"></i> Скрытые чаты</h3>
-                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Установите PIN для доступа к скрытым чатам</p>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <input type="password" id="hidden-pin-input" placeholder="4-6 цифр" maxlength="6" pattern="\d{4,6}"
-                           style="flex:1;min-width:120px;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
-                    <button class="btn btn-primary" onclick="saveHiddenPin()" style="padding:10px 16px;font-size:13px;white-space:nowrap;flex-shrink:0;">
-                        <i class="fas fa-save"></i> Установить PIN
-                    </button>
-                </div>
-                {% if user.hidden_chat_pin %}
-                <p style="color:#38a169;font-size:12px;margin-top:6px;"><i class="fas fa-check-circle"></i> PIN установлен</p>
-                {% endif %}
-            </div>
-
-            <!-- Подарки -->
-            <div class="profile-section">
-                <h3><i class="fas fa-gift" style="color:#667eea;"></i> Подарки</h3>
-                {% if displayed_gifts %}
-                <div id="profile-gifts-display" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-                    {% for g in displayed_gifts %}
-                    <div class="gift-badge gift-{{ g.gift_type.rarity }}" title="{{ g.gift_type.name }}{% if g.sender %} — от {{ g.sender.display_name or g.sender.username }}{% endif %}">
-                        {{ g.gift_type.emoji }}
-                        {% if g.sender %}
-                        <div style="font-size:9px;color:#a0aec0;margin-top:2px;">от {{ g.sender.display_name or g.sender.username }}</div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p style="color:#a0aec0;font-size:13px;margin-bottom:12px;">Нет отображаемых подарков.</p>
-                {% endif %}
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="showMyGifts()" style="padding:8px 16px;font-size:13px;">
-                        <i class="fas fa-box-open"></i> Мои подарки
-                    </button>
-                    <button class="btn btn-primary" onclick="showGiftCatalog()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#f6ad55,#ed8936);">
-                        <i class="fas fa-store"></i> Магазин подарков
-                    </button>
-                </div>
-            </div>
-
-            <!-- NFT коллекция -->
-            <div class="profile-section">
-                <h3><i class="fas fa-gem" style="color:#667eea;"></i> NFT коллекция</h3>
-                <div id="my-nft-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;"></div>
-                <p id="my-nft-empty" style="color:#a0aec0;font-size:13px;margin-bottom:12px;display:none;">У вас пока нет NFT.</p>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button class="btn btn-primary" onclick="showNFTShop()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#667eea,#764ba2);">
-                        <i class="fas fa-store"></i> Магазин NFT
-                    </button>
-                </div>
-            </div>
-
-            <!-- Безопасность: 2FA -->
-            <div class="profile-section" id="2fa-section">
-                <h3><i class="fas fa-shield-alt"></i> Безопасность</h3>
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0;">
-                    <div>
-                        <strong>Двухэтапная аутентификация</strong>
-                        <p style="color:#718096; font-size:13px; margin:4px 0 0;">
-                            При входе потребуется код из бота @tabletonebot
-                        </p>
-                    </div>
-                    <label class="toggle-switch" style="flex-shrink:0; margin-left:16px;">
-                        <input type="checkbox" id="twofa-toggle" {% if user.two_fa_enabled %}checked{% endif %} onchange="toggle2FA(this)">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div id="twofa-status" style="font-size:13px; color:#718096; margin-top:4px;">
-                    {% if user.two_fa_enabled %}
-                    <i class="fas fa-check-circle" style="color:#38a169;"></i> Включена
-                    {% else %}
-                    <i class="fas fa-times-circle" style="color:#e53e3e;"></i> Отключена
-                    {% endif %}
-                </div>
-
-                <!-- 2FA Banner -->
-                {% if not user.two_fa_enabled %}
-                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
-                    <div style="background:linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1)); border:1px solid rgba(102,126,234,0.3); border-radius:12px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px;">
-                        <i class="fas fa-shield-alt" style="color:#667eea; font-size:22px; margin-top:2px; flex-shrink:0;"></i>
-                        <div>
-                            <strong style="color:#553c9a;">Включите двухфакторную аутентификацию</strong>
-                            <p style="color:#718096; font-size:13px; margin:5px 0 0;">Защитите аккаунт — включите переключатель выше и привяжите Telegram.</p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- Привязка Telegram для 2FA -->
-                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
-                    <strong>Telegram для 2FA кодов</strong>
-                    {% if user.telegram_chat_id %}
-                    <p style="color:#38a169; font-size:13px; margin:6px 0;">
-                        <i class="fas fa-check-circle"></i> Telegram привязан
-                    </p>
-                    <button type="button" class="btn" onclick="unlinkTelegram()" style="font-size:12px; padding:6px 12px; background:#e53e3e; color:white; margin-top:4px;">
-                        <i class="fab fa-telegram"></i> Отвязать
-                    </button>
-                    {% else %}
-                    <p style="color:#718096; font-size:13px; margin:6px 0;">Привяжите Telegram чтобы получать коды входа там.</p>
-                    <button type="button" class="btn btn-primary" onclick="linkTelegram()" style="font-size:13px; padding:8px 16px; margin-top:4px;">
-                        <i class="fab fa-telegram"></i> Привязать Telegram
-                    </button>
-                    {% endif %}
-                    <div id="tg-link-status" style="margin-top:8px; font-size:13px;"></div>
-                </div>
-            </div>
-
-            <!-- Активные сессии -->
-            <div class="profile-section">
-                <h3><i class="fas fa-devices"></i> Активные сессии</h3>
-                <div id="sessions-list" class="sessions-list">
-                    <div class="loading-sessions">
-                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
-                    </div>
-                </div>
-                <button type="button" class="btn btn-danger btn-block" onclick="terminateAllSessions()" style="margin-top: 10px;">
-                    <i class="fas fa-sign-out-alt"></i> Завершить все сессии кроме текущей
-                </button>
-            </div>
-
-            <!-- Платные сообщения -->
-            <div class="profile-section">
-                <h3><i class="fas fa-bolt" style="color:#d69e2e;"></i> Платные сообщения</h3>
-                <p style="color:#718096;font-size:14px;margin-bottom:12px;">
-                    Установите цену в искрах за первое сообщение от незнакомцев. Повторные сообщения бесплатны.
-                </p>
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                    <input type="number" id="msg-price-input" min="0" max="15000" placeholder="0 = бесплатно"
-                        style="flex:1;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
-                    <span style="color:#d69e2e;font-size:18px;">?</span>
-                </div>
-                <small style="color:#a0aec0;font-size:12px;display:block;margin-bottom:10px;">
-                    Текущая цена: <span id="msg-price-current">загрузка...</span>
-                </small>
-                <button type="button" class="btn btn-primary" onclick="saveMsgPrice()" style="padding:8px 20px;font-size:14px;">
-                    <i class="fas fa-save"></i> Сохранить
-                </button>
-            </div>
-
-            <!-- Premium статус -->
-            {% if user.is_premium %}
-            <div class="profile-section" style="background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.3);border-radius:12px;padding:16px;">
-                <h3 style="color:#c05621;"><i class="fas fa-crown" style="color:#f6ad55;"></i> Premium активен</h3>
-                {% if user.premium_until %}
-                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Действует до: <strong>{{ user.premium_until.strftime('%d.%m.%Y') }}</strong></p>
-                {% endif %}
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Загрузка аватара</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> 100 искр/мес.</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Неограниченные боты</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Истории</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Кастомные реакции</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Premium Support</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Кастомный эмодзи</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Приоритет в поиске</div>
-                </div>
-            </div>
-            {% else %}
-            <div class="profile-section" style="background:var(--bg-secondary);border-radius:12px;padding:16px;">
-                <h3><i class="fas fa-crown" style="color:#a0aec0;"></i> Получить Premium</h3>
-                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Разблокируйте все возможности Tabletone</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:14px;">
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Загрузка аватара</div>
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> 100 искр/мес.</div>
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Неограниченные боты</div>
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Premium Support</div>
-                </div>
-                <button onclick="buyPremium()" class="btn btn-primary" style="background:linear-gradient(135deg,#f6ad55,#ed8936);border:none;cursor:pointer;">
-                    <i class="fas fa-crown"></i> Купить Premium
-                </button>
-            </div>
-            {% endif %}
-
-                        <!-- Business статус -->
-            {% if user.is_business %}
-            <div class="profile-section" style="background:linear-gradient(135deg,rgba(49,130,206,0.1),rgba(66,153,225,0.1));border:1px solid rgba(49,130,206,0.3);border-radius:12px;padding:16px;">
-                <h3 style="color:#2b6cb0;"><i class="fas fa-briefcase" style="color:#4299e1;"></i> Business активен</h3>
-                {% if user.business_until %}
-                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Действует до: <strong>{{ user.business_until.strftime('%d.%m.%Y') }}</strong></p>
-                {% endif %}
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Бизнес-профиль</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Аналитика</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Приоритетная поддержка</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Значок ??</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Расширенные боты</div>
-                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Реклама каналов</div>
-                </div>
-            </div>
-            {% else %}
-            <div class="profile-section" style="background:var(--bg-secondary);border-radius:12px;padding:16px;">
-                <h3><i class="fas fa-briefcase" style="color:#a0aec0;"></i> Получить Business</h3>
-                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Инструменты для бизнеса и продвижения — от 229 ?/мес.</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:14px;">
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Бизнес-профиль</div>
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Аналитика</div>
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Приоритетная поддержка</div>
-                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Значок ??</div>
-                </div>
-                <button onclick="buyBusiness()" class="btn btn-primary" style="background:linear-gradient(135deg,#4299e1,#3182ce);border:none;cursor:pointer;">
-                    <i class="fas fa-briefcase"></i> Купить Business
-                </button>
-            </div>
-            {% endif %}
-
-            <!-- Настройки приватности -->
-            <div class="profile-section">
-                <h3><i class="fas fa-user-shield" style="color:#667eea;"></i> Приватность</h3>
-                <p style="color:#718096;font-size:13px;margin-bottom:16px;">Управляйте тем, кто может взаимодействовать с вами.</p>
-                <div style="display:flex;flex-direction:column;gap:14px;">
-                    <div>
-                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
-                            <i class="fas fa-comment" style="color:#667eea;margin-right:6px;"></i>Кто может писать тебе
-                        </label>
-                        <select id="priv-message" class="priv-select">
-                            <option value="everyone" {% if user.privacy_who_can_message == 'everyone' %}selected{% endif %}>Все</option>
-                            <option value="contacts" {% if user.privacy_who_can_message == 'contacts' %}selected{% endif %}>Только контакты</option>
-                            <option value="premium" {% if user.privacy_who_can_message == 'premium' %}selected{% endif %}>Только Premium пользователи</option>
-                            <option value="nobody" {% if user.privacy_who_can_message == 'nobody' %}selected{% endif %}>Никто</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
-                            <i class="fas fa-phone" style="color:#38a169;margin-right:6px;"></i>Кто может звонить тебе
-                        </label>
-                        <select id="priv-call" class="priv-select">
-                            <option value="everyone" {% if user.privacy_who_can_call == 'everyone' %}selected{% endif %}>Все</option>
-                            <option value="contacts" {% if user.privacy_who_can_call == 'contacts' %}selected{% endif %}>Только контакты</option>
-                            <option value="nobody" {% if user.privacy_who_can_call == 'nobody' %}selected{% endif %}>Никто</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
-                            <i class="fas fa-users" style="color:#d69e2e;margin-right:6px;"></i>Кто может добавлять в группы
-                        </label>
-                        <select id="priv-groups" class="priv-select">
-                            <option value="everyone" {% if user.privacy_who_can_add_to_groups == 'everyone' %}selected{% endif %}>Все</option>
-                            <option value="contacts" {% if user.privacy_who_can_add_to_groups == 'contacts' %}selected{% endif %}>Только контакты</option>
-                            <option value="nobody" {% if user.privacy_who_can_add_to_groups == 'nobody' %}selected{% endif %}>Никто</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
-                            <i class="fas fa-clock" style="color:#718096;margin-right:6px;"></i>Кто видит время последнего визита
-                        </label>
-                        <select id="priv-last-seen" class="priv-select">
-                            <option value="everyone" {% if user.privacy_show_last_seen == 'everyone' %}selected{% endif %}>Все</option>
-                            <option value="contacts" {% if user.privacy_show_last_seen == 'contacts' %}selected{% endif %}>Только контакты</option>
-                            <option value="nobody" {% if user.privacy_show_last_seen == 'nobody' %}selected{% endif %}>Никто</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
-                            <i class="fas fa-phone-alt" style="color:#e53e3e;margin-right:6px;"></i>Кто видит номер телефона
-                        </label>
-                        <select id="priv-phone" class="priv-select">
-                            <option value="nobody" {% if user.privacy_show_phone == 'nobody' %}selected{% endif %}>Никто</option>
-                            <option value="contacts" {% if user.privacy_show_phone == 'contacts' %}selected{% endif %}>Только контакты</option>
-                            <option value="everyone" {% if user.privacy_show_phone == 'everyone' %}selected{% endif %}>Все</option>
-                        </select>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="savePrivacySettings()" style="margin-top:16px;padding:10px 20px;font-size:14px;">
-                    <i class="fas fa-save"></i> Сохранить настройки приватности
-                </button>
-                <div id="priv-save-status" style="margin-top:8px;font-size:13px;"></div>
-            </div>
-
-            <!-- Сменить аккаунт -->
-            <div class="profile-section">
-                <h3><i class="fas fa-exchange-alt"></i> Сменить аккаунт</h3>
-                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Войдите в другой аккаунт. Ваш профиль останется в списке для быстрого переключения.</p>
-                <a href="/logout" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:14px;">
-                    <i class="fas fa-sign-out-alt"></i> Войти в другой аккаунт
-                </a>
-            </div>
-
-            <!-- Удаление аккаунта -->
-            <div class="profile-section">
-                <h3><i class="fas fa-user-times" style="color:#e53e3e;"></i> Удаление аккаунта</h3>
-                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Подайте заявку на удаление аккаунта. Администратор рассмотрит её в течение нескольких дней.</p>
-                <div id="deletion-status"></div>
-                <button type="button" class="btn" onclick="showDeletionModal()" style="background:#e53e3e;color:white;padding:10px 20px;font-size:14px;">
-                    <i class="fas fa-trash-alt"></i> Подать заявку на удаление
-                </button>
-            </div>
-
-            {% if not user.is_admin %}
-            <!-- Заявка на вступление в администрацию -->
-            <div class="profile-section">
-                <h3><i class="fas fa-user-tie"></i> Стать администратором</h3>
-                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Хотите помогать развивать Tabletone? Подайте заявку — её рассмотрит владелец мессенджера.</p>
-                <div id="admin-apply-status"></div>
-                <textarea id="admin-apply-reason" placeholder="Почему вы хотите стать администратором?" rows="3" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
-                <textarea id="admin-apply-exp" placeholder="Опыт модерации / администрирования (необязательно)" rows="2" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;margin-bottom:12px;"></textarea>
-                <button type="button" class="btn btn-primary" onclick="submitAdminApplication()">
-                    <i class="fas fa-paper-plane"></i> Подать заявку
-                </button>
-            </div>
-            {% endif %}
-            
-            <div class="profile-info">
-                <p><i class="fas fa-calendar"></i> Зарегистрирован: {{ user.created_at.strftime('%d.%m.%Y') }}</p>
-                <p><i class="fas fa-clock"></i> Последний визит: {{ user.last_seen.strftime('%d.%m.%Y %H:%M') if user.last_seen else 'Никогда' }}</p>
-                {% if not user.is_bot %}
-                <div class="reputation-bar-wrap" style="margin-top:10px;">
-                    {% set rep = user.reputation if user.reputation is not none else 100 %}
-                    {% if rep >= 80 %}{% set rep_color = '#38a169' %}{% set rep_level = 'Отличная' %}
-                    {% elif rep >= 60 %}{% set rep_color = '#667eea' %}{% set rep_level = 'Хорошая' %}
-                    {% elif rep >= 40 %}{% set rep_color = '#d69e2e' %}{% set rep_level = 'Средняя' %}
-                    {% elif rep >= 20 %}{% set rep_color = '#e53e3e' %}{% set rep_level = 'Плохая' %}
-                    {% else %}{% set rep_color = '#742a2a' %}{% set rep_level = 'Критическая' %}
-                    {% endif %}
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                        <span style="font-size:13px;font-weight:600;"><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Репутация</span>
-                        <span style="font-size:13px;font-weight:700;color:{{ rep_color }};">{{ rep }}%</span>
-                    </div>
-                    <div class="reputation-bar-bg">
-                        <div class="reputation-bar-fill" style="width:{{ rep }}%;background:{{ rep_color }};"></div>
-                    </div>
-                    <div class="reputation-label" style="color:{{ rep_color }};">{{ rep_level }}</div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="success-message" class="success-toast" style="display: none;">
-    <i class="fas fa-check-circle"></i> Профиль успешно обновлен!
-</div>
-
-<!-- Модальное окно заявки на удаление аккаунта -->
-<div id="deletion-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
-    <div style="background:var(--bg-primary, white); color:var(--text-primary, #2d3748); border-radius:12px; padding:30px; max-width:480px; width:100%;">
-        <h3 style="margin-bottom:15px; color:#e53e3e;"><i class="fas fa-trash-alt"></i> Заявка на удаление аккаунта</h3>
-        <p style="color:#718096; margin-bottom:15px; font-size:14px;">Укажите причину удаления. Ваш аккаунт не будет удалён сразу — заявку рассмотрит администратор.</p>
-        <textarea id="deletion-reason" rows="4" placeholder="Причина удаления аккаунта..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
-        <div style="display:flex; gap:10px; margin-top:15px;">
-            <button class="btn" onclick="submitDeletionRequest()" style="flex:1; background:#e53e3e; color:white;">
-                <i class="fas fa-paper-plane"></i> Отправить заявку
-            </button>
-            <button class="btn btn-secondary" onclick="closeDeletionModal()" style="flex:1;">Отмена</button>
-        </div>
-    </div>
-</div>
-
-<!-- Модальное окно заявки на верификацию -->
-<div id="verification-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
-    <div style="background:var(--bg-primary, white); color:var(--text-primary, #2d3748); border-radius:12px; padding:30px; max-width:480px; width:100%;">
-        <h3 style="margin-bottom:15px;"><i class="fas fa-check-circle"></i> Заявка на верификацию</h3>
-        <p style="color:#718096; margin-bottom:15px;">Опишите, почему вы хотите получить верификацию (публичная личность, бизнес, и т.д.)</p>
-        <textarea id="verification-reason" rows="4" placeholder="Причина верификации..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
-        <div style="display:flex; gap:10px; margin-top:15px;">
-            <button class="btn btn-primary" onclick="submitVerificationRequest()" style="flex:1;">
-                <i class="fas fa-paper-plane"></i> Отправить
-            </button>
-            <button class="btn btn-secondary" onclick="closeVerificationModal()" style="flex:1;">Отмена</button>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<style>
-.priv-select {
-    width: 100%;
-    padding: 10px 12px;
-    border: 2px solid var(--border-color, #e2e8f0);
-    border-radius: 10px;
-    font-size: 14px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23718096' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 36px;
-    cursor: pointer;
-}
-@keyframes nftSlideUp {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
-}
-
-/* -- Фиксы цветов для тёмной темы -- */
-.profile-section p,
-.profile-section small,
-.profile-section label,
-.profile-section .char-count {
-    color: var(--text-secondary);
-}
-.profile-section h3 {
-    color: var(--text-primary);
-}
-.profile-section strong {
-    color: var(--text-primary);
-}
-/* Инпуты и textarea */
-.profile-section input[type="text"],
-.profile-section input[type="number"],
-.profile-section input[type="password"],
-.profile-section input[type="time"],
-.profile-section textarea,
-.profile-section select {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border-color: var(--border-color);
-}
-/* Кнопка "Отключить" расписание */
-.profile-section .btn:not(.btn-primary):not(.btn-danger) {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-}
-/* Разделитель */
-.profile-section [style*="border-top:1px solid #e2e8f0"] {
-    border-top-color: var(--border-color) !important;
-}
-/* Текст внутри модалок (spark history, gifts) */
-.profile-modal [style*="color:#4a5568"],
-.profile-modal [style*="color:#718096"],
-.profile-modal [style*="color:#a0aec0"] {
-    color: var(--text-secondary) !important;
-}
-.profile-modal [style*="border-bottom:1px solid #e2e8f0"] {
-    border-bottom-color: var(--border-color) !important;
-}
-/* Premium features list */
-[style*="color:#4a5568"] { color: var(--text-primary) !important; }
-/* QR border */
-#profile-qr-img { border-color: var(--border-color) !important; }
-/* tg-link-status code color */
-#tg-link-status [style*="color:#2d3748"] { color: var(--text-primary) !important; }
-</style>
-<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
-<script>
-function buyPremium() {
-    localStorage.setItem('open_chat_on_load', JSON.stringify({id: 'tabletone_premiumbot', byUsername: true}));
-    window.location.href = '/';
-}
-
-// Сохраняем текущий аккаунт в localStorage для быстрого переключения
-(function() {
-    const acc = {
-        username: {{ user.username | tojson }},
-        display_name: {{ (user.display_name or user.username) | tojson }},
-        avatar_color: {{ user.avatar_color | tojson }},
-        avatar_url: {{ (user.avatar_url or '') | tojson }}
-    };
-    try {
-        let accounts = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
-        accounts = accounts.filter(a => a.username !== acc.username);
-        accounts.unshift(acc); // текущий аккаунт — первым
-        if (accounts.length > 5) accounts = accounts.slice(0, 5); // максимум 5
-        localStorage.setItem('saved_accounts', JSON.stringify(accounts));
-    } catch(e) {}
-})();
-function showDeletionModal() {
-    document.getElementById('deletion-modal').style.display = 'flex';
-}
-function closeDeletionModal() {
-    document.getElementById('deletion-modal').style.display = 'none';
-    document.getElementById('deletion-reason').value = '';
-}
-function submitDeletionRequest() {
-    const reason = document.getElementById('deletion-reason').value.trim();
-    if (!reason) { alert('Пожалуйста, укажите причину'); return; }
-    fetch('/profile/request-deletion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            closeDeletionModal();
-            document.getElementById('deletion-status').innerHTML = '<p style="color:#38a169;font-size:13px;"><i class="fas fa-check-circle"></i> Заявка отправлена. Администратор рассмотрит её в ближайшее время.</p>';
-        } else {
-            alert(data.error || 'Ошибка при отправке заявки');
-        }
-    });
-}
-
-function showVerificationModal() {
-    const modal = document.getElementById('verification-modal');
-    modal.style.display = 'flex';
-}
-function closeVerificationModal() {
-    document.getElementById('verification-modal').style.display = 'none';
-    document.getElementById('verification-reason').value = '';
-}
-function submitVerificationRequest() {
-    const reason = document.getElementById('verification-reason').value.trim();
-    if (!reason) { alert('Пожалуйста, укажите причину'); return; }
-
-    fetch('/profile/request-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            closeVerificationModal();
-            location.reload();
-        } else {
-            alert(data.error || 'Ошибка при отправке заявки');
-        }
-    });
-}
-window.onclick = function(e) {
-    const modal = document.getElementById('verification-modal');
-    if (e.target === modal) closeVerificationModal();
-}
-
-function toggle2FA(checkbox) {
-    const url = checkbox.checked ? '/profile/2fa/enable' : '/profile/2fa/disable';
-    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-    .then(r => r.json())
-    .then(data => {
-        const status = document.getElementById('twofa-status');
-        if (data.success) {
-            if (checkbox.checked) {
-                status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Включена — код отправлен через @tabletonebot';
-            } else {
-                status.innerHTML = '<i class="fas fa-times-circle" style="color:#e53e3e;"></i> Отключена';
-            }
-        } else {
-            checkbox.checked = !checkbox.checked;
-            alert(data.error || 'Ошибка');
-        }
-    });
-}
-
-function linkTelegram() {
-    const statusEl = document.getElementById('tg-link-status');
-    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Генерируем код...';
-    fetch('/profile/telegram-link-code', {method:'POST', headers:{'Content-Type':'application/json'}})
-    .then(r => r.json())
-    .then(data => {
-        if (data.code) {
-            const botUrl = data.bot_username ? `https://t.me/${data.bot_username}?start=${data.code}` : '';
-            statusEl.innerHTML = `
-                <p style="color:var(--text-primary);margin:8px 0 4px;">Твой код привязки: <b style="font-size:18px;letter-spacing:2px;">${data.code}</b></p>
-                <p style="color:var(--text-secondary);font-size:12px;margin-bottom:8px;">Код действителен 10 минут</p>
-                ${botUrl ? `<a href="${botUrl}" target="_blank" class="btn btn-primary" style="font-size:13px;padding:8px 16px;display:inline-block;text-decoration:none;">
-                    <i class="fab fa-telegram"></i> Открыть бота и привязать
-                </a>` : `<p style="color:#718096;font-size:12px;">Напиши боту: <b>/start ${data.code}</b></p>`}
-            `;
-        } else {
-            statusEl.innerHTML = '<p style="color:#e53e3e;">Ошибка генерации кода</p>';
-        }
-    });
-}
-
-function unlinkTelegram() {
-    if (!confirm('Отвязать Telegram от 2FA?')) return;
-    fetch('/profile/telegram-unlink', {method:'POST', headers:{'Content-Type':'application/json'}})
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) location.reload();
-    });
-}
-
-function submitAdminApplication() {
-    const reason = document.getElementById('admin-apply-reason').value.trim();
-    const experience = document.getElementById('admin-apply-exp').value.trim();
-    const statusEl = document.getElementById('admin-apply-status');
-    if (!reason) {
-        statusEl.innerHTML = '<p style="color:#e53e3e;font-size:13px;">Укажите причину</p>';
-        return;
-    }
-    fetch('/admin/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, experience })
-    }).then(r => r.json()).then(d => {
-        if (d.success) {
-            statusEl.innerHTML = '<p style="color:#38a169;font-size:13px;"><i class="fas fa-check-circle"></i> Заявка отправлена! Ожидайте решения.</p>';
-            document.getElementById('admin-apply-reason').value = '';
-            document.getElementById('admin-apply-exp').value = '';
-        } else {
-            statusEl.innerHTML = `<p style="color:#e53e3e;font-size:13px;">${d.error || 'Ошибка'}</p>`;
-        }
-    });
-}
-
-// -- Статус, расписание темы, PIN --------------------------------------------
-async function saveStatusText() {
-    const text = document.getElementById('status-text-input').value.trim();
-    const r = await fetch('/profile/status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status_text: text }) });
-    const d = await r.json();
-    if (d.success) showToast('Статус сохранён');
-    else alert(d.error || 'Ошибка');
-}
-
-async function saveThemeSchedule() {
-    const light_from = document.getElementById('schedule-light').value;
-    const dark_from = document.getElementById('schedule-dark').value;
-    const r = await fetch('/profile/theme-schedule', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ light_from, dark_from }) });
-    const d = await r.json();
-    if (d.success) showToast('Расписание сохранено');
-    else alert(d.error || 'Ошибка');
-}
-
-async function clearThemeSchedule() {
-    const r = await fetch('/profile/theme-schedule', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ clear: true }) });
-    const d = await r.json();
-    if (d.success) showToast('Расписание отключено');
-}
-
-async function saveHiddenPin() {
-    const pin = document.getElementById('hidden-pin-input').value.trim();
-    if (!/^\d{4,6}$/.test(pin)) { alert('PIN должен быть 4-6 цифр'); return; }
-    const r = await fetch('/profile/hidden-chat-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin }) });
-    const d = await r.json();
-    if (d.success) showToast('PIN установлен');
-    else alert(d.error || 'Ошибка');
-}
-
-function showToast(msg) {
-    const t = document.getElementById('success-message');
-    if (t) { t.querySelector ? (t.innerHTML = `<i class="fas fa-check-circle"></i> ${msg}`) : null; t.style.display = 'flex'; setTimeout(() => t.style.display = 'none', 3000); }
-}
-
-// -- Искры ------------------------------------------------------------------
-async function showSparkHistory() {
-    const r = await fetch('/sparks/history');
-    const d = await r.json();
-    const modal = _createModal('История искр ?', d.transactions.length ? d.transactions.map(t => {
-        const sign = t.amount > 0 ? '+' : '';
-        const color = t.amount > 0 ? '#38a169' : '#e53e3e';
-        const labels = {spark_reaction:'Искорная реакция', gift_buy:'Покупка подарка', gift_sell:'Продажа подарка', post_pay:'Покупка поста', post_income:'Доход с поста', spark_received:'Получено искр', withdraw:'Вывод'};
-        return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;">
-            <span style="color:#4a5568;">${labels[t.reason] || t.reason}</span>
-            <span style="font-weight:700;color:${color};">${sign}${t.amount} ?</span>
-        </div>`;
-    }).join('') : '<p style="color:#a0aec0;text-align:center;padding:20px;">История пуста</p>');
-    document.body.appendChild(modal);
-}
-
-async function showMyGifts() {
-    const r = await fetch('/gifts/my');
-    const d = await r.json();
-    const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
-    const rarityLabels = {common:'Обычный', rare:'Редкий', epic:'Эпический', legendary:'Легендарный'};
-    const content = d.gifts && d.gifts.length ? `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
-            ${d.gifts.map(g => `
-            <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
-                <div style="font-size:36px;margin-bottom:6px;">${g.emoji}</div>
-                <div style="font-weight:600;font-size:13px;">${g.name}</div>
-                <div style="font-size:11px;color:${rarityColors[g.rarity]};font-weight:600;margin:4px 0;">${rarityLabels[g.rarity]||g.rarity}</div>
-                ${g.sender_name ? `<div style="font-size:11px;color:#a0aec0;margin-bottom:2px;">от <b>${g.sender_name}</b></div>` : ''}
-                ${g.received_at ? `<div style="font-size:10px;color:#cbd5e0;margin-bottom:6px;">${g.received_at}</div>` : ''}
-                <div style="display:flex;gap:6px;margin-top:8px;justify-content:center;flex-wrap:wrap;">
-                    <button onclick="toggleGiftDisplay(${g.id},this)" style="font-size:11px;padding:4px 8px;border:1px solid #667eea;border-radius:6px;background:${g.is_displayed?'#667eea':'transparent'};color:${g.is_displayed?'#fff':'#667eea'};cursor:pointer;">
-                        ${g.is_displayed ? '?? Скрыть' : '?? Показать'}
-                    </button>
-                    <button onclick="sellGift(${g.id},${Math.floor((g.price_sparks||0)*0.8)},this)" style="font-size:11px;padding:4px 8px;border:1px solid #e53e3e;border-radius:6px;background:transparent;color:#e53e3e;cursor:pointer;">
-                        ?? ${Math.floor((g.price_sparks||0)*0.8)} ?
-                    </button>
-                </div>
-            </div>`).join('')}
-        </div>` : '<p style="color:#a0aec0;text-align:center;padding:20px;">У вас нет подарков</p>';
-    const modal = _createModal('Мои подарки ??', content);
-    document.body.appendChild(modal);
-}
-
-async function showGiftCatalog() {
-    const [catR, balR, plansR] = await Promise.all([
-        fetch('/gifts/catalog'),
-        fetch('/sparks/balance'),
-        fetch('/gifts/premium-plans')
-    ]);
-    const cat = await catR.json();
-    const bal = await balR.json();
-    const plansData = await plansR.json();
-    const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
-
-    // Premium планы
-    const premiumPlans = plansData.plans || [];
-    const premiumHtml = premiumPlans.length ? `
-        <div style="margin-bottom:20px;">
-            <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#f6ad55;">?? Подарить Premium</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;">
-                ${premiumPlans.map(p => `
-                <div style="border:2px solid #f6ad55;border-radius:12px;padding:12px;text-align:center;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));">
-                    ${p.discount ? `<div style="font-size:10px;background:#e53e3e;color:#fff;border-radius:6px;padding:2px 6px;margin-bottom:4px;display:inline-block;">-${p.discount}%</div>` : ''}
-                    <div style="font-size:28px;margin-bottom:4px;">??</div>
-                    <div style="font-weight:700;font-size:12px;">${p.label}</div>
-                    <div style="font-size:13px;color:#f6ad55;font-weight:700;margin:4px 0;">${p.price_sparks} ?</div>
-                    <div style="font-size:10px;color:#718096;margin-bottom:6px;">${p.price_rub} ?</div>
-                    <button onclick="sendPremiumGift('${p.plan_key}')" style="font-size:11px;padding:5px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#f6ad55,#ed8936);color:#fff;cursor:pointer;width:100%;">
-                        Подарить
-                    </button>
-                </div>`).join('')}
-            </div>
-        </div>
-        <hr style="border:none;border-top:1px solid rgba(0,0,0,0.1);margin:16px 0;">
-    ` : '';
-
-    // Обычные подарки
-    const giftsHtml = `
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">?? Подарки</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
-            ${cat.gifts.map(g => `
-            <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
-                <div style="font-size:32px;margin-bottom:6px;">${g.emoji}</div>
-                <div style="font-weight:600;font-size:13px;">${g.name}</div>
-                <div style="font-size:11px;color:${rarityColors[g.rarity]};text-transform:uppercase;margin:4px 0;">${g.rarity}</div>
-                <div style="font-size:12px;color:#f6ad55;font-weight:700;margin:4px 0;">${g.price_sparks} ?</div>
-                <button onclick="sendGiftFromCatalog(${g.id})" style="font-size:12px;padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;margin-top:4px;width:100%;">
-                    Подарить
-                </button>
-            </div>`).join('')}
-        </div>`;
-
-    const content = `
-        <p style="text-align:center;margin-bottom:16px;font-size:15px;">Ваш баланс: <b style="color:#f6ad55;">${bal.balance} ?</b></p>
-        ${premiumHtml}
-        ${giftsHtml}`;
-    const modal = _createModal('Магазин подарков ??', content);
-    document.body.appendChild(modal);
-}
-
-async function sendPremiumGift(planKey) {
-    // Показываем красивый модал для ввода юзернейма
-    document.querySelectorAll('.gift-username-modal').forEach(m => m.remove());
-    const overlay = document.createElement('div');
-    overlay.className = 'gift-username-modal';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
-    overlay.innerHTML = `
-        <div style="background:var(--bg-primary);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;">
-            <div style="font-size:48px;margin-bottom:12px;">??</div>
-            <h3 style="margin:0 0 8px;font-size:18px;">Подарить Premium</h3>
-            <p style="color:#718096;font-size:13px;margin:0 0 18px;">Введите username получателя в Tabletone</p>
-            <input id="gift-recipient-input" type="text" placeholder="@username"
-                style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;text-align:center;box-sizing:border-box;margin-bottom:14px;background:var(--bg-secondary);color:var(--text-primary);">
-            <div style="display:flex;gap:10px;">
-                <button onclick="this.closest('.gift-username-modal').remove()"
-                    style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;cursor:pointer;font-size:14px;">Отмена</button>
-                <button onclick="_confirmPremiumGift('${planKey}')"
-                    style="flex:2;padding:12px;background:linear-gradient(135deg,#f6ad55,#ed8936);color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;">Далее ></button>
-            </div>
-        </div>`;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-    setTimeout(() => document.getElementById('gift-recipient-input').focus(), 100);
-}
-
-async function _confirmPremiumGift(planKey) {
-    const input = document.getElementById('gift-recipient-input');
-    const username = input.value.trim().replace('@', '');
-    if (!username) { input.style.borderColor = '#e53e3e'; return; }
-    // Проверяем что пользователь существует
-    const r = await fetch(`/api/user-by-username/${username}`);
-    if (!r.ok) { input.style.borderColor = '#e53e3e'; input.placeholder = 'Пользователь не найден'; return; }
-    // Закрываем модал и открываем Telegram бота
-    document.querySelectorAll('.gift-username-modal').forEach(m => m.remove());
-    document.querySelectorAll('.profile-modal').forEach(m => m.remove());
-    const startParam = `gift_${planKey}_${username}`;
-    window.open(`https://t.me/TabletonePay_bot?start=${startParam}`, '_blank');
-}
-
-async function sendGiftFromCatalog(giftTypeId) {
-    const username = prompt('Введите @username получателя:');
-    if (!username) return;
-    const clean = username.replace('@','');
-    const r = await fetch(`/api/user-by-username/${clean}`);
-    if (!r.ok) { alert('Пользователь не найден'); return; }
-    const d = await r.json();
-    const res = await fetch('/gifts/send', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({gift_type_id: giftTypeId, recipient_id: d.id})});
-    const rd = await res.json();
-    if (rd.success) { alert('Подарок отправлен! ??'); document.querySelectorAll('.profile-modal').forEach(m=>m.remove()); }
-    else alert(rd.error || 'Ошибка');
-}
-
-async function toggleGiftDisplay(giftId, btn) {
-    const r = await fetch(`/gifts/${giftId}/display`, {method:'POST'});
-    const d = await r.json();
-    if (d.success) {
-        btn.textContent = d.is_displayed ? '?? Скрыть' : '?? Показать';
-        btn.style.background = d.is_displayed ? '#667eea' : 'transparent';
-        btn.style.color = d.is_displayed ? '#fff' : '#667eea';
-    }
-}
-
-async function sellGift(giftId, price, btn) {
-    if (!confirm(`Продать подарок за ${price} ?? (комиссия 20%)`)) return;
-    const r = await fetch(`/gifts/${giftId}/sell`, {method:'POST'});
-    const d = await r.json();
-    if (d.success) { alert(`Продано за ${d.earned} ?`); btn.closest('div[style*="border"]').remove(); }
-    else alert(d.error || 'Ошибка');
-}
-
-function _createModal(title, content) {
-    const m = document.createElement('div');
-    m.className = 'profile-modal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-    m.innerHTML = `<div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="font-size:18px;font-weight:700;">${title}</h3>
-            <button onclick="this.closest('.profile-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#718096;">&times;</button>
-        </div>
-        ${content}
-    </div>`;
-    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
-    return m;
-}
-
-// -- NFT ----------------------------------------------------------------------
-const _NFT_EMOJIS_P = ['??','??','??','??','??','??','??','?','??','??'];
-
-(async function loadMyNFTs() {
-    try {
-        const r = await fetch('/nft/my');
-        const d = await r.json();
-        const grid = document.getElementById('my-nft-grid');
-        const empty = document.getElementById('my-nft-empty');
-        if (!d.nfts || d.nfts.length === 0) {
-            empty.style.display = '';
-            return;
-        }
-        d.nfts.forEach(nft => {
-            const emoji = _NFT_EMOJIS_P[nft.collection_id % _NFT_EMOJIS_P.length];
-            const total = nft.total_supply >= 1000
-                ? (nft.total_supply/1000).toFixed(1).replace('.0','')+'K'
-                : nft.total_supply;
-            const card = document.createElement('div');
-            card.style.cssText = `border-radius:14px;overflow:hidden;cursor:pointer;position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:${nft.bg_color||'#2d3748'};`;
-            card.innerHTML = `
-                <div style="position:absolute;top:0;right:0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:3px 6px 3px 10px;border-radius:0 14px 0 14px;backdrop-filter:blur(4px);">${nft.serial_number} из ${total}</div>
-                <div style="font-size:40px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));">${emoji}</div>
-            `;
-            card.addEventListener('click', () => _showNFTModalProfile(nft, emoji));
-            grid.appendChild(card);
-        });
-    } catch(e) {}
-})();
-
-function _showNFTModalProfile(nft, emoji) {
-    document.querySelectorAll('.nft-modal-overlay').forEach(m => m.remove());
-    const total = nft.total_supply >= 1000
-        ? (nft.total_supply/1000).toFixed(1).replace('.0','')+'K'
-        : nft.total_supply;
-    const attrs = nft.attributes || {};
-    let attrRows = '';
-    for (const [k, v] of Object.entries(attrs)) {
-        attrRows += `<tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${k}</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${v}</td></tr>`;
-    }
-    const overlay = document.createElement('div');
-    overlay.className = 'nft-modal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
-    overlay.innerHTML = `
-        <div style="background:var(--bg-primary);border-radius:20px 20px 0 0;width:100%;max-width:480px;overflow:hidden;animation:nftSlideUp .25s ease;">
-            <div style="padding:28px 20px 20px;text-align:center;background:${nft.bg_color||'#2d3748'};position:relative;">
-                <button onclick="this.closest('.nft-modal-overlay').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:32px;height:32px;color:#fff;font-size:15px;cursor:pointer;">?</button>
-                <div style="width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:56px;">${emoji}</div>
-                <div style="font-size:22px;font-weight:700;color:#fff;margin:0 0 4px;">${nft.collection_name}</div>
-                <div style="font-size:13px;color:rgba(255,255,255,.7);">Коллекционный предмет #${nft.serial_number}</div>
-            </div>
-            <div style="padding:20px;">
-                <table style="width:100%;border-collapse:collapse;">${attrRows}
-                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">Количество</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${nft.serial_number}, выпущено ${nft.total_supply.toLocaleString('ru')}</td></tr>
-                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;font-size:14px;">Ценность</td><td style="padding:10px 0;font-size:14px;">${nft.value_sparks ? nft.value_sparks+' ?' : '—'}</td></tr>
-                </table>
-            </div>
-            <div style="display:flex;gap:10px;padding:0 20px 20px;">
-                <button onclick="toggleNFTDisplay(${nft.user_nft_id}, this)" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;font-size:14px;cursor:pointer;">${nft.is_displayed ? '?? Скрыть' : '?? Показать'}</button>
-                <button onclick="this.closest('.nft-modal-overlay').remove()" style="flex:2;padding:12px;background:#4299e1;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;">OK</button>
-            </div>
-        </div>
-    `;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-}
-
-async function toggleNFTDisplay(userNftId, btn) {
-    const r = await fetch(`/nft/${userNftId}/toggle-display`, {method:'POST'});
-    const d = await r.json();
-    if (d.success) btn.textContent = d.is_displayed ? '?? Скрыть' : '?? Показать';
-}
-
-async function showNFTShop() {
-    try {
-        const [colR, balR] = await Promise.all([fetch('/nft/collections'), fetch('/sparks/balance')]);
-        const colD = await colR.json();
-        const balD = await balR.json();
-        const balance = balD.balance || 0;
-        const cols = colD.collections || [];
-        if (!cols.length) { alert('Магазин NFT пуст'); return; }
-        let html = `<div style="margin-bottom:14px;font-size:13px;color:#718096;">Ваш баланс: <strong>${balance} ?</strong></div><div style="display:flex;flex-direction:column;gap:12px;">`;
-        cols.forEach(c => {
-            const emoji = _NFT_EMOJIS_P[c.id % _NFT_EMOJIS_P.length];
-            const left = c.total_supply - c.minted;
-            html += `<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg-secondary);border-radius:14px;border:1px solid var(--border-color);">
-                <div style="width:60px;height:60px;border-radius:12px;background:${c.bg_color};display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;">${emoji}</div>
-                <div style="flex:1;">
-                    <div style="font-weight:700;font-size:15px;">${c.name}</div>
-                    <div style="font-size:12px;color:#718096;margin:2px 0;">${c.description}</div>
-                    <div style="font-size:12px;color:#a0aec0;">Осталось: ${left} из ${c.total_supply}</div>
-                </div>
-                <button onclick="buyNFT(${c.id}, this)" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">${c.price_sparks} ?</button>
-            </div>`;
-        });
-        html += '</div>';
-        const m = _createModal('Магазин NFT ??', html);
-        document.body.appendChild(m);
-    } catch(e) { alert('Ошибка загрузки'); }
-}
-
-async function buyNFT(collectionId, btn) {
-    btn.disabled = true; btn.textContent = '...';
-    try {
-        const r = await fetch(`/nft/buy/${collectionId}`, {method:'POST'});
-        const d = await r.json();
-        if (d.success) {
-            document.querySelectorAll('.profile-modal').forEach(m => m.remove());
-            alert(`NFT получен! ${d.nft.collection_name} #${d.nft.serial_number}`);
-            location.reload();
-        } else {
-            alert(d.error || 'Ошибка');
-            btn.disabled = false; btn.textContent = 'Купить';
-        }
-    } catch(e) { btn.disabled = false; btn.textContent = 'Купить'; }
-}
-
-// -- Платные сообщения ---------------------------------------------------------
-(async function loadMsgPrice() {    try {
-        const r = await fetch('/user/msg-price');
-        const d = await r.json();
-        const el = document.getElementById('msg-price-current');
-        const inp = document.getElementById('msg-price-input');
-        if (el) el.textContent = d.price ? `${d.price} ?` : 'бесплатно';
-        if (inp && d.price) inp.value = d.price;
-    } catch(e) {}
-})();
-
-async function saveMsgPrice() {
-    const inp = document.getElementById('msg-price-input');
-    const price = inp ? parseInt(inp.value) || 0 : 0;
-    if (price > 15000) {
-        alert('Максимальная цена — 15 000 ?');
-        inp.value = 15000;
-        return;
-    }
-    const r = await fetch('/user/msg-price', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({price})
-    });
-    const d = await r.json();
-    if (d.success) {
-        const el = document.getElementById('msg-price-current');
-        if (el) el.textContent = d.price ? `${d.price} ?` : 'бесплатно';
-        if (inp) inp.value = d.price || '';
-        alert(d.price ? `Цена установлена: ${d.price} ?` : 'Платные сообщения отключены');
-    }
-}
-
-async function showAutoReplySettings() {
-    const r = await fetch('/user/auto-reply');
-    const d = await r.json();
-    const current = d.text || '';
-    const modal = _createModal('Настройки автоответа ??', `
-        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
-            Автоответ отправляется автоматически на первое сообщение от пользователя.
-        </p>
-        <textarea id="auto-reply-text" rows="4" maxlength="200" placeholder="Например: Сейчас недоступен, отвечу позже..."
-            style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;resize:vertical;box-sizing:border-box;">${current}</textarea>
-        <small style="color:var(--text-secondary);font-size:12px;display:block;margin:6px 0 14px;">Максимум 200 символов. Оставьте пустым чтобы отключить.</small>
-        <div style="display:flex;gap:8px;">
-            <button onclick="saveAutoReply()" class="btn btn-primary" style="flex:1;padding:10px;">
-                <i class="fas fa-save"></i> Сохранить
-            </button>
-            <button onclick="this.closest('.profile-modal').remove()" class="btn" style="padding:10px 16px;">
-                Отмена
-            </button>
-        </div>
-    `);
-    document.body.appendChild(modal);
-}
-
-async function saveAutoReply() {
-    const text = document.getElementById('auto-reply-text').value.trim();
-    const r = await fetch('/user/auto-reply', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({text})
-    });
-    const d = await r.json();
-    if (d.success) {
-        document.querySelectorAll('.profile-modal').forEach(m => m.remove());
-        showToast(text ? 'Автоответ сохранён' : 'Автоответ отключён');
-    } else {
-        alert(d.error || 'Ошибка');
-    }
-}
-
-async function saveEmail() {
-    const input = document.getElementById('email-input');
-    const status = document.getElementById('email-save-status');
-    const email = input.value.trim();
-    try {
-        const r = await fetch('/profile/email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        const d = await r.json();
-        if (d.success && d.need_verify) {
-            const hint = d.via_telegram
-                ? `<i class="fab fa-telegram"></i> Код отправлен в <strong>Telegram</strong>`
-                : `<i class="fas fa-envelope"></i> Код отправлен на <strong>${email}</strong>`;
-            status.innerHTML = `
-                <div style="margin-top:10px;">
-                    <p style="color:#667eea;font-size:13px;margin-bottom:8px;">${hint}</p>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <input type="text" id="email-code-input" placeholder="000000" maxlength="6"
-                               style="width:110px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;text-align:center;letter-spacing:4px;">
-                        <button type="button" class="btn btn-primary" onclick="verifyEmailCode()" style="padding:8px 14px;font-size:13px;">
-                            <i class="fas fa-check"></i> Подтвердить
-                        </button>
-                    </div>
-                    <div id="email-verify-status" style="margin-top:6px;font-size:13px;"></div>
-                </div>`;
-        } else if (d.success) {
-            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Email сохранён';
-            const banner = document.getElementById('email-warning-banner');
-            if (banner && email) banner.style.display = 'none';
-            setTimeout(() => { status.innerHTML = ''; }, 3000);
-        } else {
-            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
-        }
-    } catch(e) {
-        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
-    }
-}
-
-async function verifyEmailCode() {
-    const code = document.getElementById('email-code-input').value.trim();
-    const vstatus = document.getElementById('email-verify-status');
-    try {
-        const r = await fetch('/profile/email/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code })
-        });
-        const d = await r.json();
-        if (d.success) {
-            document.getElementById('email-save-status').innerHTML =
-                '<i class="fas fa-check-circle" style="color:#38a169;"></i> Email подтверждён';
-            const banner = document.getElementById('email-warning-banner');
-            if (banner) banner.style.display = 'none';
-        } else {
-            vstatus.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Неверный код'}</span>`;
-        }
-    } catch(e) {
-        vstatus.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
-    }
-}
-
-async function savePrivacySettings() {
-    const payload = {
-        privacy_who_can_message:       document.getElementById('priv-message').value,
-        privacy_who_can_call:          document.getElementById('priv-call').value,
-        privacy_who_can_add_to_groups: document.getElementById('priv-groups').value,
-        privacy_show_last_seen:        document.getElementById('priv-last-seen').value,
-        privacy_show_phone:            document.getElementById('priv-phone').value,
-    };
-    const status = document.getElementById('priv-save-status');
-    try {
-        const r = await fetch('/profile/privacy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const d = await r.json();
-        if (d.success) {
-            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Сохранено';
-            setTimeout(() => { status.innerHTML = ''; }, 3000);
-        } else {
-            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
-        }
-    } catch(e) {
-        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
-    }
-}
-</script>
+{% extends "base.html" %}
+
+
+
+{% block title %}Профиль - {{ user.display_name or user.username }}{% endblock %}
+
+
+
+{% block content %}
+
+<div class="profile-container">
+
+    <div class="profile-card">
+
+        <div class="profile-header">
+
+            <a href="/" class="back-link">
+
+                <i class="fas fa-arrow-left"></i> Назад к чатам
+
+            </a>
+
+            <h1><i class="fas fa-user-circle"></i> Мой профиль</h1>
+
+        </div>
+
+        
+
+        <div class="profile-content">
+
+            <div class="profile-avatar-section">
+
+                <div class="profile-avatar-large" id="profile-avatar" style="background: {{ user.avatar_color }}{% if user.avatar_url %}; background-image: url('{{ user.avatar_url }}'); background-size: cover; background-position: center;{% endif %}">
+
+                    {% if not user.avatar_url %}{{ user.get_avatar_letter() }}{% endif %}
+
+                </div>
+
+                <p class="profile-username">@{{ user.username }}</p>
+
+                
+
+                <!-- Кнопки управления аватаркой -->
+
+                <div class="avatar-controls">
+
+                    <label for="avatar-upload" class="btn btn-primary" style="cursor: pointer; margin: 5px;">
+
+                        <i class="fas fa-upload"></i> Загрузить фото
+
+                    </label>
+
+                    <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
+
+                    
+
+                    {% if user.avatar_url %}
+
+                    <button type="button" class="btn" onclick="deleteAvatar()" style="background: #e53e3e; color: white; margin: 5px;">
+
+                        <i class="fas fa-trash"></i> Удалить фото
+
+                    </button>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            
+
+            <form id="profile-form" class="profile-form">
+
+                <div class="form-group">
+
+                    <label for="display_name">
+
+                        <i class="fas fa-signature"></i> Отображаемое имя
+
+                    </label>
+
+                    <input type="text" id="display_name" name="display_name" 
+
+                           value="{{ user.display_name or user.username }}" 
+
+                           placeholder="Ваше имя" maxlength="100">
+
+                </div>
+
+                
+
+                <div class="form-group">
+
+                    <label for="bio">
+
+                        <i class="fas fa-info-circle"></i> О себе
+
+                    </label>
+
+                    <textarea id="bio" name="bio" rows="3" 
+
+                              placeholder="Расскажите о себе..." maxlength="200">{{ user.bio or '' }}</textarea>
+
+                    <small class="char-count"><span id="bio-count">{{ (user.bio or '')|length }}</span>/200</small>
+
+                </div>
+
+                
+
+                <div class="form-group">
+
+                    <label>
+
+                        <i class="fas fa-palette"></i> Цвет аватара
+
+                    </label>
+
+                    <div class="color-picker">
+
+                        <div class="color-option" data-color="#4f6ef7" style="background: #4f6ef7"></div>
+
+                        <div class="color-option" data-color="#7c3aed" style="background: #7c3aed"></div>
+
+                        <div class="color-option" data-color="#f093fb" style="background: #f093fb"></div>
+
+                        <div class="color-option" data-color="#4facfe" style="background: #4facfe"></div>
+
+                        <div class="color-option" data-color="#22c55e" style="background: #22c55e"></div>
+
+                        <div class="color-option" data-color="#fa709a" style="background: #fa709a"></div>
+
+                        <div class="color-option" data-color="#f59e0b" style="background: #f59e0b"></div>
+
+                        <div class="color-option" data-color="#06b6d4" style="background: #06b6d4"></div>
+
+                    </div>
+
+                    <input type="hidden" id="avatar_color" name="avatar_color" value="{{ user.avatar_color }}">
+
+                </div>
+
+                
+
+                <div class="form-group">
+
+                    <label>
+
+                        <i class="fas fa-moon"></i> Тема оформления
+
+                    </label>
+
+                    <div class="theme-selector">
+
+                        <button type="button" class="theme-btn {% if user.theme == 'light' %}active{% endif %}" data-theme="light" onclick="selectTheme('light')">
+
+                            <i class="fas fa-sun"></i> Светлая
+
+                        </button>
+
+                        <button type="button" class="theme-btn {% if user.theme == 'dark' %}active{% endif %}" data-theme="dark" onclick="selectTheme('dark')">
+
+                            <i class="fas fa-moon"></i> Тёмная
+
+                        </button>
+
+                        <button type="button" class="theme-btn {% if user.theme == 'liquid' %}active{% endif %}" data-theme="liquid" onclick="selectTheme('liquid')">
+
+                            <i class="fas fa-water"></i> Liquid
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+                
+
+                <div class="form-group wallpaper-selector">
+
+                    <div class="wallpaper-grid">
+
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'default' %}selected{% endif %}"
+
+                             data-wallpaper="default"
+
+                             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
+
+                             onclick="selectWallpaper('default')"></div>
+
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back1' %}selected{% endif %}"
+
+                             data-wallpaper="back1"
+
+                             style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
+
+                             onclick="selectWallpaper('back1')"></div>
+
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back2' %}selected{% endif %}"
+
+                             data-wallpaper="back2"
+
+                             style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"
+
+                             onclick="selectWallpaper('back2')"></div>
+
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back3' %}selected{% endif %}"
+
+                             data-wallpaper="back3"
+
+                             style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"
+
+                             onclick="selectWallpaper('back3')"></div>
+
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back4' %}selected{% endif %}"
+
+                             data-wallpaper="back4"
+
+                             style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"
+
+                             onclick="selectWallpaper('back4')"></div>
+
+                        <div class="wallpaper-option {% if user.chat_wallpaper == 'back5' %}selected{% endif %}"
+
+                             data-wallpaper="back5"
+
+                             style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"
+
+                             onclick="selectWallpaper('back5')"></div>
+
+                    </div>
+
+                    <input type="hidden" id="chat_wallpaper" name="chat_wallpaper" value="{{ user.chat_wallpaper or 'default' }}">
+
+                </div>
+
+                
+
+                <div class="form-group">
+
+                    <label>
+
+                        <i class="fas fa-clock"></i> Часовой пояс
+
+                    </label>
+
+                    <select id="timezone" name="timezone" class="form-control" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;">
+
+                        <option value="Europe/Moscow" {% if user.timezone == 'Europe/Moscow' %}selected{% endif %}>Москва (UTC+3)</option>
+
+                        <option value="Europe/Kaliningrad" {% if user.timezone == 'Europe/Kaliningrad' %}selected{% endif %}>Калининград (UTC+2)</option>
+
+                        <option value="Europe/Samara" {% if user.timezone == 'Europe/Samara' %}selected{% endif %}>Самара (UTC+4)</option>
+
+                        <option value="Asia/Yekaterinburg" {% if user.timezone == 'Asia/Yekaterinburg' %}selected{% endif %}>Екатеринбург (UTC+5)</option>
+
+                        <option value="Asia/Omsk" {% if user.timezone == 'Asia/Omsk' %}selected{% endif %}>Омск (UTC+6)</option>
+
+                        <option value="Asia/Krasnoyarsk" {% if user.timezone == 'Asia/Krasnoyarsk' %}selected{% endif %}>Красноярск (UTC+7)</option>
+
+                        <option value="Asia/Irkutsk" {% if user.timezone == 'Asia/Irkutsk' %}selected{% endif %}>Иркутск (UTC+8)</option>
+
+                        <option value="Asia/Yakutsk" {% if user.timezone == 'Asia/Yakutsk' %}selected{% endif %}>Якутск (UTC+9)</option>
+
+                        <option value="Asia/Vladivostok" {% if user.timezone == 'Asia/Vladivostok' %}selected{% endif %}>Владивосток (UTC+10)</option>
+
+                        <option value="Asia/Magadan" {% if user.timezone == 'Asia/Magadan' %}selected{% endif %}>Магадан (UTC+11)</option>
+
+                        <option value="Asia/Kamchatka" {% if user.timezone == 'Asia/Kamchatka' %}selected{% endif %}>Камчатка (UTC+12)</option>
+
+                        <option value="Europe/Kiev" {% if user.timezone == 'Europe/Kiev' %}selected{% endif %}>Киев (UTC+2)</option>
+
+                        <option value="Europe/Minsk" {% if user.timezone == 'Europe/Minsk' %}selected{% endif %}>Минск (UTC+3)</option>
+
+                        <option value="Asia/Almaty" {% if user.timezone == 'Asia/Almaty' %}selected{% endif %}>Алматы (UTC+6)</option>
+
+                        <option value="Asia/Tashkent" {% if user.timezone == 'Asia/Tashkent' %}selected{% endif %}>Ташкент (UTC+5)</option>
+
+                        <option value="Europe/London" {% if user.timezone == 'Europe/London' %}selected{% endif %}>Лондон (UTC+0)</option>
+
+                        <option value="Europe/Berlin" {% if user.timezone == 'Europe/Berlin' %}selected{% endif %}>Берлин (UTC+1)</option>
+
+                        <option value="America/New_York" {% if user.timezone == 'America/New_York' %}selected{% endif %}>Нью-Йорк (UTC-5)</option>
+
+                        <option value="America/Los_Angeles" {% if user.timezone == 'America/Los_Angeles' %}selected{% endif %}>Лос-Анджелес (UTC-8)</option>
+
+                        <option value="Asia/Tokyo" {% if user.timezone == 'Asia/Tokyo' %}selected{% endif %}>Токио (UTC+9)</option>
+
+                        <option value="Asia/Shanghai" {% if user.timezone == 'Asia/Shanghai' %}selected{% endif %}>Шанхай (UTC+8)</option>
+
+                        <option value="Asia/Dubai" {% if user.timezone == 'Asia/Dubai' %}selected{% endif %}>Дубай (UTC+4)</option>
+
+                    </select>
+
+                </div>
+
+
+
+                <button type="submit" class="btn btn-primary btn-block">
+
+                    <i class="fas fa-save"></i> Сохранить изменения
+
+                </button>
+
+            </form>
+
+            
+
+            <!-- Верификация аккаунта -->
+
+            {% if not user.is_verified %}
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-check-circle"></i> Верификация аккаунта</h3>
+
+                {% set pending_req = verification_request %}
+
+                {% if pending_req and pending_req.status == 'pending' %}
+
+                    <p style="color: #718096; margin-bottom: 10px;">Ваша заявка на верификацию ожидает рассмотрения.</p>
+
+                    <button class="btn" disabled style="background: #e2e8f0; color: #718096; width: 100%;">
+
+                        <i class="fas fa-clock"></i> Заявка на рассмотрении
+
+                    </button>
+
+                {% elif pending_req and pending_req.status == 'rejected' %}
+
+                    <p style="color: #e53e3e; margin-bottom: 10px;">Ваша предыдущая заявка была отклонена. Вы можете подать новую.</p>
+
+                    <button class="btn btn-primary btn-block" onclick="showVerificationModal()">
+
+                        <i class="fas fa-paper-plane"></i> Подать заявку повторно
+
+                    </button>
+
+                {% else %}
+
+                    <p style="color: #718096; margin-bottom: 10px;">Подайте заявку на получение галочки верификации.</p>
+
+                    <button class="btn btn-primary btn-block" onclick="showVerificationModal()">
+
+                        <i class="fas fa-paper-plane"></i> Подать заявку
+
+                    </button>
+
+                {% endif %}
+
+            </div>
+
+            {% else %}
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-check-circle" style="color: #667eea;"></i> Аккаунт верифицирован</h3>
+
+                <p style="color: #718096;">Ваш аккаунт подтверждён.</p>
+
+            </div>
+
+            {% endif %}
+
+
+
+            <!-- Искры -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-fire" style="color:#f6ad55;"></i> Искры</h3>
+
+                <div style="display:flex;align-items:center;gap:16px;padding:12px 0;">
+
+                    <div style="font-size:36px;">✨</div>
+
+                    <div>
+
+                        <div style="font-size:24px;font-weight:700;color:#f6ad55;">{{ spark_balance }}</div>
+
+                        <div style="color:#718096;font-size:13px;">Ваш баланс искр</div>
+
+                    </div>
+
+                    <button class="btn btn-primary" onclick="showSparkHistory()" style="margin-left:auto;padding:8px 16px;font-size:13px;">
+
+                        <i class="fas fa-history"></i> История
+
+                    </button>
+
+                </div>
+
+                <p style="color:#718096;font-size:13px;line-height:1.6;">
+
+                    Искры — валюта Tabletone. Отправляйте искорные реакции на посты каналов, покупайте подарки и платный контент.
+
+                </p>
+
+            </div>
+
+
+
+            <!-- QR-код профиля -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-qrcode"></i> QR-код профиля</h3>
+
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+
+                    <img id="profile-qr-img" src="/profile/qr" alt="QR-код" style="width:120px;height:120px;border-radius:8px;border:2px solid #e2e8f0;">
+
+                    <div>
+
+                        <p style="color:#718096;font-size:13px;line-height:1.6;">Поделитесь QR-кодом, чтобы другие могли найти вас в Tabletone.</p>
+
+                        <a href="/profile/qr" download="tabletone_qr.png" class="btn btn-primary" style="display:inline-block;padding:8px 16px;font-size:13px;text-decoration:none;margin-top:8px;">
+
+                            <i class="fas fa-download"></i> Скачать
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Текстовый статус -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-comment-dots"></i> Текстовый статус</h3>
+
+                <div style="display:flex;gap:8px;align-items:center;">
+
+                    <input type="text" id="status-text-input" value="{{ user.status_text or '' }}" placeholder="Что у вас происходит?" maxlength="100"
+
+                           style="flex:1;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+
+                    <button class="btn btn-primary" onclick="saveStatusText()" style="padding:10px 16px;font-size:13px;white-space:nowrap;">
+
+                        <i class="fas fa-save"></i> Сохранить
+
+                    </button>
+
+                </div>
+
+                <small style="color:#a0aec0;font-size:12px;margin-top:4px;display:block;">Отображается рядом с вашим именем</small>
+
+            </div>
+
+
+
+            <!-- Тема по расписанию -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-clock"></i> Тема по расписанию</h3>
+
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Автоматически переключать тему в заданное время</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+
+                    <div>
+
+                        <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;"><i class="fas fa-sun"></i> Светлая с</label>
+
+                        <input type="time" id="schedule-light" value="08:00"
+
+                               style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+
+                    </div>
+
+                    <div>
+
+                        <label style="font-size:12px;color:#718096;display:block;margin-bottom:4px;"><i class="fas fa-moon"></i> Тёмная с</label>
+
+                        <input type="time" id="schedule-dark" value="22:00"
+
+                               style="width:100%;padding:8px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;">
+
+                    </div>
+
+                </div>
+
+                <div style="display:flex;gap:8px;">
+
+                    <button class="btn btn-primary" onclick="saveThemeSchedule()" style="padding:8px 16px;font-size:13px;">
+
+                        <i class="fas fa-save"></i> Сохранить расписание
+
+                    </button>
+
+                    <button class="btn" onclick="clearThemeSchedule()" style="padding:8px 16px;font-size:13px;background:#e2e8f0;color:#4a5568;">
+
+                        <i class="fas fa-times"></i> Отключить
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Автоответ -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-robot"></i> Автоответ</h3>
+
+                <p style="font-size:13px;color:#718096;margin-bottom:12px;">Автоматически отвечает на входящие сообщения когда вы недоступны.</p>
+
+                <button class="btn btn-primary" onclick="showAutoReplySettings()" style="padding:10px 20px;font-size:14px;">
+
+                    <i class="fas fa-cog"></i> Настроить автоответ
+
+                </button>
+
+            </div>
+
+
+
+            <!-- PIN скрытых чатов -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-lock"></i> Скрытые чаты</h3>
+
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Установите PIN для доступа к скрытым чатам</p>
+
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+
+                    <input type="password" id="hidden-pin-input" placeholder="4-6 цифр" maxlength="6" pattern="\d{4,6}"
+
+                           style="flex:1;min-width:120px;padding:10px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;">
+
+                    <button class="btn btn-primary" onclick="saveHiddenPin()" style="padding:10px 16px;font-size:13px;white-space:nowrap;flex-shrink:0;">
+
+                        <i class="fas fa-save"></i> Установить PIN
+
+                    </button>
+
+                </div>
+
+                {% if user.hidden_chat_pin %}
+
+                <p style="color:#38a169;font-size:12px;margin-top:6px;"><i class="fas fa-check-circle"></i> PIN установлен</p>
+
+                {% endif %}
+
+            </div>
+
+
+
+            <!-- Подарки -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-gift" style="color:#667eea;"></i> Подарки</h3>
+
+                {% if displayed_gifts %}
+
+                <div id="profile-gifts-display" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+
+                    {% for g in displayed_gifts %}
+
+                    <div class="gift-badge gift-{{ g.gift_type.rarity }}" title="{{ g.gift_type.name }}{% if g.sender %} — от {{ g.sender.display_name or g.sender.username }}{% endif %}">
+
+                        {{ g.gift_type.emoji }}
+
+                        {% if g.sender %}
+
+                        <div style="font-size:9px;color:#a0aec0;margin-top:2px;">от {{ g.sender.display_name or g.sender.username }}</div>
+
+                        {% endif %}
+
+                    </div>
+
+                    {% endfor %}
+
+                </div>
+
+                {% else %}
+
+                <p style="color:#a0aec0;font-size:13px;margin-bottom:12px;">Нет отображаемых подарков.</p>
+
+                {% endif %}
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+
+                    <button class="btn btn-primary" onclick="showMyGifts()" style="padding:8px 16px;font-size:13px;">
+
+                        <i class="fas fa-box-open"></i> Мои подарки
+
+                    </button>
+
+                    <button class="btn btn-primary" onclick="showGiftCatalog()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#f6ad55,#ed8936);">
+
+                        <i class="fas fa-store"></i> Магазин подарков
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- NFT коллекция -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-gem" style="color:#667eea;"></i> NFT коллекция</h3>
+
+                <div id="my-nft-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;"></div>
+
+                <p id="my-nft-empty" style="color:#a0aec0;font-size:13px;margin-bottom:12px;display:none;">У вас пока нет NFT.</p>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+
+                    <button class="btn btn-primary" onclick="showNFTShop()" style="padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#667eea,#764ba2);">
+
+                        <i class="fas fa-store"></i> Магазин NFT
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Безопасность: 2FA -->
+
+            <div class="profile-section" id="2fa-section">
+
+                <h3><i class="fas fa-shield-alt"></i> Безопасность</h3>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 0;">
+
+                    <div>
+
+                        <strong>Двухэтапная аутентификация</strong>
+
+                        <p style="color:#718096; font-size:13px; margin:4px 0 0;">
+
+                            При входе потребуется код из бота @tabletonebot
+
+                        </p>
+
+                    </div>
+
+                    <label class="toggle-switch" style="flex-shrink:0; margin-left:16px;">
+
+                        <input type="checkbox" id="twofa-toggle" {% if user.two_fa_enabled %}checked{% endif %} onchange="toggle2FA(this)">
+
+                        <span class="toggle-slider"></span>
+
+                    </label>
+
+                </div>
+
+                <div id="twofa-status" style="font-size:13px; color:#718096; margin-top:4px;">
+
+                    {% if user.two_fa_enabled %}
+
+                    <i class="fas fa-check-circle" style="color:#38a169;"></i> Включена
+
+                    {% else %}
+
+                    <i class="fas fa-times-circle" style="color:#e53e3e;"></i> Отключена
+
+                    {% endif %}
+
+                </div>
+
+
+
+                <!-- 2FA Banner -->
+
+                {% if not user.two_fa_enabled %}
+
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
+
+                    <div style="background:linear-gradient(135deg,rgba(102,126,234,0.1),rgba(118,75,162,0.1)); border:1px solid rgba(102,126,234,0.3); border-radius:12px; padding:14px 16px; display:flex; align-items:flex-start; gap:12px;">
+
+                        <i class="fas fa-shield-alt" style="color:#667eea; font-size:22px; margin-top:2px; flex-shrink:0;"></i>
+
+                        <div>
+
+                            <strong style="color:#553c9a;">Включите двухфакторную аутентификацию</strong>
+
+                            <p style="color:#718096; font-size:13px; margin:5px 0 0;">Защитите аккаунт — включите переключатель выше и привяжите Telegram.</p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                {% endif %}
+
+
+
+                <!-- Привязка Telegram для 2FA -->
+
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0;">
+
+                    <strong>Telegram для 2FA кодов</strong>
+
+                    {% if user.telegram_chat_id %}
+
+                    <p style="color:#38a169; font-size:13px; margin:6px 0;">
+
+                        <i class="fas fa-check-circle"></i> Telegram привязан
+
+                    </p>
+
+                    <button type="button" class="btn" onclick="unlinkTelegram()" style="font-size:12px; padding:6px 12px; background:#e53e3e; color:white; margin-top:4px;">
+
+                        <i class="fab fa-telegram"></i> Отвязать
+
+                    </button>
+
+                    {% else %}
+
+                    <p style="color:#718096; font-size:13px; margin:6px 0;">Привяжите Telegram чтобы получать коды входа там.</p>
+
+                    <button type="button" class="btn btn-primary" onclick="linkTelegram()" style="font-size:13px; padding:8px 16px; margin-top:4px;">
+
+                        <i class="fab fa-telegram"></i> Привязать Telegram
+
+                    </button>
+
+                    {% endif %}
+
+                    <div id="tg-link-status" style="margin-top:8px; font-size:13px;"></div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- Активные сессии -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-devices"></i> Активные сессии</h3>
+
+                <div id="sessions-list" class="sessions-list">
+
+                    <div class="loading-sessions">
+
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+
+                    </div>
+
+                </div>
+
+                <button type="button" class="btn btn-danger btn-block" onclick="terminateAllSessions()" style="margin-top: 10px;">
+
+                    <i class="fas fa-sign-out-alt"></i> Завершить все сессии кроме текущей
+
+                </button>
+
+            </div>
+
+
+
+            <!-- Платные сообщения -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-bolt" style="color:#d69e2e;"></i> Платные сообщения</h3>
+
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">
+
+                    Установите цену в искрах за первое сообщение от незнакомцев. Повторные сообщения бесплатны.
+
+                </p>
+
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+
+                    <input type="number" id="msg-price-input" min="0" max="15000" placeholder="0 = бесплатно"
+
+                        style="flex:1;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;">
+
+                    <span style="color:#d69e2e;font-size:18px;">✨</span>
+
+                </div>
+
+                <small style="color:#a0aec0;font-size:12px;display:block;margin-bottom:10px;">
+
+                    Текущая цена: <span id="msg-price-current">загрузка...</span>
+
+                </small>
+
+                <button type="button" class="btn btn-primary" onclick="saveMsgPrice()" style="padding:8px 20px;font-size:14px;">
+
+                    <i class="fas fa-save"></i> Сохранить
+
+                </button>
+
+            </div>
+
+
+
+            <!-- Premium статус -->
+
+            {% if user.is_premium %}
+
+            <div class="profile-section" style="background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));border:1px solid rgba(246,173,85,0.3);border-radius:12px;padding:16px;">
+
+                <h3 style="color:#c05621;"><i class="fas fa-crown" style="color:#f6ad55;"></i> Premium активен</h3>
+
+                {% if user.premium_until %}
+
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Действует до: <strong>{{ user.premium_until.strftime('%d.%m.%Y') }}</strong></p>
+
+                {% endif %}
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Загрузка аватара</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> 100 искр/мес.</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Неограниченные боты</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Истории</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Кастомные реакции</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Premium Support</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Кастомный эмодзи</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Приоритет в поиске</div>
+
+                </div>
+
+            </div>
+
+            {% else %}
+
+            <div class="profile-section" style="background:var(--bg-secondary);border-radius:12px;padding:16px;">
+
+                <h3><i class="fas fa-crown" style="color:#a0aec0;"></i> Получить Premium</h3>
+
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Разблокируйте все возможности Tabletone</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:14px;">
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Загрузка аватара</div>
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> 100 искр/мес.</div>
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Неограниченные боты</div>
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Premium Support</div>
+
+                </div>
+
+                <button onclick="buyPremium()" class="btn btn-primary" style="background:linear-gradient(135deg,#f6ad55,#ed8936);border:none;cursor:pointer;">
+
+                    <i class="fas fa-crown"></i> Купить Premium
+
+                </button>
+
+            </div>
+
+            {% endif %}
+
+
+
+                        <!-- Business статус -->
+
+            {% if user.is_business %}
+
+            <div class="profile-section" style="background:linear-gradient(135deg,rgba(49,130,206,0.1),rgba(66,153,225,0.1));border:1px solid rgba(49,130,206,0.3);border-radius:12px;padding:16px;">
+
+                <h3 style="color:#2b6cb0;"><i class="fas fa-briefcase" style="color:#4299e1;"></i> Business активен</h3>
+
+                {% if user.business_until %}
+
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Действует до: <strong>{{ user.business_until.strftime('%d.%m.%Y') }}</strong></p>
+
+                {% endif %}
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Бизнес-профиль</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Аналитика</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Приоритетная поддержка</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Значок 💼</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Расширенные боты</div>
+
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Реклама каналов</div>
+
+                </div>
+
+            </div>
+
+            {% else %}
+
+            <div class="profile-section" style="background:var(--bg-secondary);border-radius:12px;padding:16px;">
+
+                <h3><i class="fas fa-briefcase" style="color:#a0aec0;"></i> Получить Business</h3>
+
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Инструменты для бизнеса и продвижения — от 229 ✨/мес.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:14px;">
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Бизнес-профиль</div>
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Аналитика</div>
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Приоритетная поддержка</div>
+
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Значок 💼</div>
+
+                </div>
+
+                <button onclick="buyBusiness()" class="btn btn-primary" style="background:linear-gradient(135deg,#4299e1,#3182ce);border:none;cursor:pointer;">
+
+                    <i class="fas fa-briefcase"></i> Купить Business
+
+                </button>
+
+            </div>
+
+            {% endif %}
+
+
+
+            <!-- Настройки приватности -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-user-shield" style="color:#667eea;"></i> Приватность</h3>
+
+                <p style="color:#718096;font-size:13px;margin-bottom:16px;">Управляйте тем, кто может взаимодействовать с вами.</p>
+
+                <div style="display:flex;flex-direction:column;gap:14px;">
+
+                    <div>
+
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+
+                            <i class="fas fa-comment" style="color:#667eea;margin-right:6px;"></i>Кто может писать тебе
+
+                        </label>
+
+                        <select id="priv-message" class="priv-select">
+
+                            <option value="everyone" {% if user.privacy_who_can_message == 'everyone' %}selected{% endif %}>Все</option>
+
+                            <option value="contacts" {% if user.privacy_who_can_message == 'contacts' %}selected{% endif %}>Только контакты</option>
+
+                            <option value="premium" {% if user.privacy_who_can_message == 'premium' %}selected{% endif %}>Только Premium пользователи</option>
+
+                            <option value="nobody" {% if user.privacy_who_can_message == 'nobody' %}selected{% endif %}>Никто</option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+
+                            <i class="fas fa-phone" style="color:#38a169;margin-right:6px;"></i>Кто может звонить тебе
+
+                        </label>
+
+                        <select id="priv-call" class="priv-select">
+
+                            <option value="everyone" {% if user.privacy_who_can_call == 'everyone' %}selected{% endif %}>Все</option>
+
+                            <option value="contacts" {% if user.privacy_who_can_call == 'contacts' %}selected{% endif %}>Только контакты</option>
+
+                            <option value="nobody" {% if user.privacy_who_can_call == 'nobody' %}selected{% endif %}>Никто</option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+
+                            <i class="fas fa-users" style="color:#d69e2e;margin-right:6px;"></i>Кто может добавлять в группы
+
+                        </label>
+
+                        <select id="priv-groups" class="priv-select">
+
+                            <option value="everyone" {% if user.privacy_who_can_add_to_groups == 'everyone' %}selected{% endif %}>Все</option>
+
+                            <option value="contacts" {% if user.privacy_who_can_add_to_groups == 'contacts' %}selected{% endif %}>Только контакты</option>
+
+                            <option value="nobody" {% if user.privacy_who_can_add_to_groups == 'nobody' %}selected{% endif %}>Никто</option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+
+                            <i class="fas fa-clock" style="color:#718096;margin-right:6px;"></i>Кто видит время последнего визита
+
+                        </label>
+
+                        <select id="priv-last-seen" class="priv-select">
+
+                            <option value="everyone" {% if user.privacy_show_last_seen == 'everyone' %}selected{% endif %}>Все</option>
+
+                            <option value="contacts" {% if user.privacy_show_last_seen == 'contacts' %}selected{% endif %}>Только контакты</option>
+
+                            <option value="nobody" {% if user.privacy_show_last_seen == 'nobody' %}selected{% endif %}>Никто</option>
+
+                        </select>
+
+                    </div>
+
+                    <div>
+
+                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);display:block;margin-bottom:6px;">
+
+                            <i class="fas fa-phone-alt" style="color:#e53e3e;margin-right:6px;"></i>Кто видит номер телефона
+
+                        </label>
+
+                        <select id="priv-phone" class="priv-select">
+
+                            <option value="nobody" {% if user.privacy_show_phone == 'nobody' %}selected{% endif %}>Никто</option>
+
+                            <option value="contacts" {% if user.privacy_show_phone == 'contacts' %}selected{% endif %}>Только контакты</option>
+
+                            <option value="everyone" {% if user.privacy_show_phone == 'everyone' %}selected{% endif %}>Все</option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+                <button type="button" class="btn btn-primary" onclick="savePrivacySettings()" style="margin-top:16px;padding:10px 20px;font-size:14px;">
+
+                    <i class="fas fa-save"></i> Сохранить настройки приватности
+
+                </button>
+
+                <div id="priv-save-status" style="margin-top:8px;font-size:13px;"></div>
+
+            </div>
+
+
+
+            <!-- Сменить аккаунт -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-exchange-alt"></i> Сменить аккаунт</h3>
+
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Войдите в другой аккаунт. Ваш профиль останется в списке для быстрого переключения.</p>
+
+                <a href="/logout" class="btn btn-primary" style="display:inline-block;text-decoration:none;padding:10px 20px;font-size:14px;">
+
+                    <i class="fas fa-sign-out-alt"></i> Войти в другой аккаунт
+
+                </a>
+
+            </div>
+
+
+
+            <!-- Удаление аккаунта -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-user-times" style="color:#e53e3e;"></i> Удаление аккаунта</h3>
+
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Подайте заявку на удаление аккаунта. Администратор рассмотрит её в течение нескольких дней.</p>
+
+                <div id="deletion-status"></div>
+
+                <button type="button" class="btn" onclick="showDeletionModal()" style="background:#e53e3e;color:white;padding:10px 20px;font-size:14px;">
+
+                    <i class="fas fa-trash-alt"></i> Подать заявку на удаление
+
+                </button>
+
+            </div>
+
+
+
+            {% if not user.is_admin %}
+
+            <!-- Заявка на вступление в администрацию -->
+
+            <div class="profile-section">
+
+                <h3><i class="fas fa-user-tie"></i> Стать администратором</h3>
+
+                <p style="color:#718096;font-size:14px;margin-bottom:12px;">Хотите помогать развивать Tabletone? Подайте заявку — её рассмотрит владелец мессенджера.</p>
+
+                <div id="admin-apply-status"></div>
+
+                <textarea id="admin-apply-reason" placeholder="Почему вы хотите стать администратором?" rows="3" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
+
+                <textarea id="admin-apply-exp" placeholder="Опыт модерации / администрирования (необязательно)" rows="2" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;margin-bottom:12px;"></textarea>
+
+                <button type="button" class="btn btn-primary" onclick="submitAdminApplication()">
+
+                    <i class="fas fa-paper-plane"></i> Подать заявку
+
+                </button>
+
+            </div>
+
+            {% endif %}
+
+            
+
+            <div class="profile-info">
+
+                <p><i class="fas fa-calendar"></i> Зарегистрирован: {{ user.created_at.strftime('%d.%m.%Y') }}</p>
+
+                <p><i class="fas fa-clock"></i> Последний визит: {{ user.last_seen.strftime('%d.%m.%Y %H:%M') if user.last_seen else 'Никогда' }}</p>
+
+                {% if not user.is_bot %}
+
+                <div class="reputation-bar-wrap" style="margin-top:10px;">
+
+                    {% set rep = user.reputation if user.reputation is not none else 100 %}
+
+                    {% if rep >= 80 %}{% set rep_color = '#38a169' %}{% set rep_level = 'Отличная' %}
+
+                    {% elif rep >= 60 %}{% set rep_color = '#667eea' %}{% set rep_level = 'Хорошая' %}
+
+                    {% elif rep >= 40 %}{% set rep_color = '#d69e2e' %}{% set rep_level = 'Средняя' %}
+
+                    {% elif rep >= 20 %}{% set rep_color = '#e53e3e' %}{% set rep_level = 'Плохая' %}
+
+                    {% else %}{% set rep_color = '#742a2a' %}{% set rep_level = 'Критическая' %}
+
+                    {% endif %}
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+
+                        <span style="font-size:13px;font-weight:600;"><i class="fas fa-star" style="color:#d69e2e;margin-right:4px;"></i>Репутация</span>
+
+                        <span style="font-size:13px;font-weight:700;color:{{ rep_color }};">{{ rep }}%</span>
+
+                    </div>
+
+                    <div class="reputation-bar-bg">
+
+                        <div class="reputation-bar-fill" style="width:{{ rep }}%;background:{{ rep_color }};"></div>
+
+                    </div>
+
+                    <div class="reputation-label" style="color:{{ rep_color }};">{{ rep_level }}</div>
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<div id="success-message" class="success-toast" style="display: none;">
+
+    <i class="fas fa-check-circle"></i> Профиль успешно обновлен!
+
+</div>
+
+
+
+<!-- Модальное окно заявки на удаление аккаунта -->
+
+<div id="deletion-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+
+    <div style="background:var(--bg-primary, white); color:var(--text-primary, #2d3748); border-radius:12px; padding:30px; max-width:480px; width:100%;">
+
+        <h3 style="margin-bottom:15px; color:#e53e3e;"><i class="fas fa-trash-alt"></i> Заявка на удаление аккаунта</h3>
+
+        <p style="color:#718096; margin-bottom:15px; font-size:14px;">Укажите причину удаления. Ваш аккаунт не будет удалён сразу — заявку рассмотрит администратор.</p>
+
+        <textarea id="deletion-reason" rows="4" placeholder="Причина удаления аккаунта..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:15px;">
+
+            <button class="btn" onclick="submitDeletionRequest()" style="flex:1; background:#e53e3e; color:white;">
+
+                <i class="fas fa-paper-plane"></i> Отправить заявку
+
+            </button>
+
+            <button class="btn btn-secondary" onclick="closeDeletionModal()" style="flex:1;">Отмена</button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- Модальное окно заявки на верификацию -->
+
+<div id="verification-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+
+    <div style="background:var(--bg-primary, white); color:var(--text-primary, #2d3748); border-radius:12px; padding:30px; max-width:480px; width:100%;">
+
+        <h3 style="margin-bottom:15px;"><i class="fas fa-check-circle"></i> Заявка на верификацию</h3>
+
+        <p style="color:#718096; margin-bottom:15px;">Опишите, почему вы хотите получить верификацию (публичная личность, бизнес, и т.д.)</p>
+
+        <textarea id="verification-reason" rows="4" placeholder="Причина верификации..." style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+
+        <div style="display:flex; gap:10px; margin-top:15px;">
+
+            <button class="btn btn-primary" onclick="submitVerificationRequest()" style="flex:1;">
+
+                <i class="fas fa-paper-plane"></i> Отправить
+
+            </button>
+
+            <button class="btn btn-secondary" onclick="closeVerificationModal()" style="flex:1;">Отмена</button>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+<style>
+
+.priv-select {
+
+    width: 100%;
+
+    padding: 10px 12px;
+
+    border: 2px solid var(--border-color, #e2e8f0);
+
+    border-radius: 10px;
+
+    font-size: 14px;
+
+    background: var(--bg-primary);
+
+    color: var(--text-primary);
+
+    appearance: none;
+
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23718096' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+
+    background-repeat: no-repeat;
+
+    background-position: right 12px center;
+
+    padding-right: 36px;
+
+    cursor: pointer;
+
+}
+
+@keyframes nftSlideUp {
+
+    from { transform: translateY(100%); }
+
+    to   { transform: translateY(0); }
+
+}
+
+
+
+/* -- Фиксы цветов для тёмной темы -- */
+
+.profile-section p,
+
+.profile-section small,
+
+.profile-section label,
+
+.profile-section .char-count {
+
+    color: var(--text-secondary);
+
+}
+
+.profile-section h3 {
+
+    color: var(--text-primary);
+
+}
+
+.profile-section strong {
+
+    color: var(--text-primary);
+
+}
+
+/* Инпуты и textarea */
+
+.profile-section input[type="text"],
+
+.profile-section input[type="number"],
+
+.profile-section input[type="password"],
+
+.profile-section input[type="time"],
+
+.profile-section textarea,
+
+.profile-section select {
+
+    background: var(--bg-secondary);
+
+    color: var(--text-primary);
+
+    border-color: var(--border-color);
+
+}
+
+/* Кнопка "Отключить" расписание */
+
+.profile-section .btn:not(.btn-primary):not(.btn-danger) {
+
+    background: var(--bg-secondary);
+
+    color: var(--text-primary);
+
+    border: 1px solid var(--border-color);
+
+}
+
+/* Разделитель */
+
+.profile-section [style*="border-top:1px solid #e2e8f0"] {
+
+    border-top-color: var(--border-color) !important;
+
+}
+
+/* Текст внутри модалок (spark history, gifts) */
+
+.profile-modal [style*="color:#4a5568"],
+
+.profile-modal [style*="color:#718096"],
+
+.profile-modal [style*="color:#a0aec0"] {
+
+    color: var(--text-secondary) !important;
+
+}
+
+.profile-modal [style*="border-bottom:1px solid #e2e8f0"] {
+
+    border-bottom-color: var(--border-color) !important;
+
+}
+
+/* Premium features list */
+
+[style*="color:#4a5568"] { color: var(--text-primary) !important; }
+
+/* QR border */
+
+#profile-qr-img { border-color: var(--border-color) !important; }
+
+/* tg-link-status code color */
+
+#tg-link-status [style*="color:#2d3748"] { color: var(--text-primary) !important; }
+
+</style>
+
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+
+<script>
+
+function buyPremium() {
+
+    localStorage.setItem('open_chat_on_load', JSON.stringify({id: 'tabletone_premiumbot', byUsername: true}));
+
+    window.location.href = '/';
+
+}
+
+
+
+// Сохраняем текущий аккаунт в localStorage для быстрого переключения
+
+(function() {
+
+    const acc = {
+
+        username: {{ user.username | tojson }},
+
+        display_name: {{ (user.display_name or user.username) | tojson }},
+
+        avatar_color: {{ user.avatar_color | tojson }},
+
+        avatar_url: {{ (user.avatar_url or '') | tojson }}
+
+    };
+
+    try {
+
+        let accounts = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+
+        accounts = accounts.filter(a => a.username !== acc.username);
+
+        accounts.unshift(acc); // текущий аккаунт — первым
+
+        if (accounts.length > 5) accounts = accounts.slice(0, 5); // максимум 5
+
+        localStorage.setItem('saved_accounts', JSON.stringify(accounts));
+
+    } catch(e) {}
+
+})();
+
+function showDeletionModal() {
+
+    document.getElementById('deletion-modal').style.display = 'flex';
+
+}
+
+function closeDeletionModal() {
+
+    document.getElementById('deletion-modal').style.display = 'none';
+
+    document.getElementById('deletion-reason').value = '';
+
+}
+
+function submitDeletionRequest() {
+
+    const reason = document.getElementById('deletion-reason').value.trim();
+
+    if (!reason) { alert('Пожалуйста, укажите причину'); return; }
+
+    fetch('/profile/request-deletion', {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ reason })
+
+    })
+
+    .then(r => r.json())
+
+    .then(data => {
+
+        if (data.success) {
+
+            closeDeletionModal();
+
+            document.getElementById('deletion-status').innerHTML = '<p style="color:#38a169;font-size:13px;"><i class="fas fa-check-circle"></i> Заявка отправлена. Администратор рассмотрит её в ближайшее время.</p>';
+
+        } else {
+
+            alert(data.error || 'Ошибка при отправке заявки');
+
+        }
+
+    });
+
+}
+
+
+
+function showVerificationModal() {
+
+    const modal = document.getElementById('verification-modal');
+
+    modal.style.display = 'flex';
+
+}
+
+function closeVerificationModal() {
+
+    document.getElementById('verification-modal').style.display = 'none';
+
+    document.getElementById('verification-reason').value = '';
+
+}
+
+function submitVerificationRequest() {
+
+    const reason = document.getElementById('verification-reason').value.trim();
+
+    if (!reason) { alert('Пожалуйста, укажите причину'); return; }
+
+
+
+    fetch('/profile/request-verification', {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ reason })
+
+    })
+
+    .then(r => r.json())
+
+    .then(data => {
+
+        if (data.success) {
+
+            closeVerificationModal();
+
+            location.reload();
+
+        } else {
+
+            alert(data.error || 'Ошибка при отправке заявки');
+
+        }
+
+    });
+
+}
+
+window.onclick = function(e) {
+
+    const modal = document.getElementById('verification-modal');
+
+    if (e.target === modal) closeVerificationModal();
+
+}
+
+
+
+function toggle2FA(checkbox) {
+
+    const url = checkbox.checked ? '/profile/2fa/enable' : '/profile/2fa/disable';
+
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+
+    .then(r => r.json())
+
+    .then(data => {
+
+        const status = document.getElementById('twofa-status');
+
+        if (data.success) {
+
+            if (checkbox.checked) {
+
+                status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Включена — код отправлен через @tabletonebot';
+
+            } else {
+
+                status.innerHTML = '<i class="fas fa-times-circle" style="color:#e53e3e;"></i> Отключена';
+
+            }
+
+        } else {
+
+            checkbox.checked = !checkbox.checked;
+
+            alert(data.error || 'Ошибка');
+
+        }
+
+    });
+
+}
+
+
+
+function linkTelegram() {
+
+    const statusEl = document.getElementById('tg-link-status');
+
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Генерируем код...';
+
+    fetch('/profile/telegram-link-code', {method:'POST', headers:{'Content-Type':'application/json'}})
+
+    .then(r => r.json())
+
+    .then(data => {
+
+        if (data.code) {
+
+            const botUrl = data.bot_username ? `https://t.me/${data.bot_username}?start=${data.code}` : '';
+
+            statusEl.innerHTML = `
+
+                <p style="color:var(--text-primary);margin:8px 0 4px;">Твой код привязки: <b style="font-size:18px;letter-spacing:2px;">${data.code}</b></p>
+
+                <p style="color:var(--text-secondary);font-size:12px;margin-bottom:8px;">Код действителен 10 минут</p>
+
+                ${botUrl ? `<a href="${botUrl}" target="_blank" class="btn btn-primary" style="font-size:13px;padding:8px 16px;display:inline-block;text-decoration:none;">
+
+                    <i class="fab fa-telegram"></i> Открыть бота и привязать
+
+                </a>` : `<p style="color:#718096;font-size:12px;">Напиши боту: <b>/start ${data.code}</b></p>`}
+
+            `;
+
+        } else {
+
+            statusEl.innerHTML = '<p style="color:#e53e3e;">Ошибка генерации кода</p>';
+
+        }
+
+    });
+
+}
+
+
+
+function unlinkTelegram() {
+
+    if (!confirm('Отвязать Telegram от 2FA?')) return;
+
+    fetch('/profile/telegram-unlink', {method:'POST', headers:{'Content-Type':'application/json'}})
+
+    .then(r => r.json())
+
+    .then(data => {
+
+        if (data.success) location.reload();
+
+    });
+
+}
+
+
+
+function submitAdminApplication() {
+
+    const reason = document.getElementById('admin-apply-reason').value.trim();
+
+    const experience = document.getElementById('admin-apply-exp').value.trim();
+
+    const statusEl = document.getElementById('admin-apply-status');
+
+    if (!reason) {
+
+        statusEl.innerHTML = '<p style="color:#e53e3e;font-size:13px;">Укажите причину</p>';
+
+        return;
+
+    }
+
+    fetch('/admin/apply', {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ reason, experience })
+
+    }).then(r => r.json()).then(d => {
+
+        if (d.success) {
+
+            statusEl.innerHTML = '<p style="color:#38a169;font-size:13px;"><i class="fas fa-check-circle"></i> Заявка отправлена! Ожидайте решения.</p>';
+
+            document.getElementById('admin-apply-reason').value = '';
+
+            document.getElementById('admin-apply-exp').value = '';
+
+        } else {
+
+            statusEl.innerHTML = `<p style="color:#e53e3e;font-size:13px;">${d.error || 'Ошибка'}</p>`;
+
+        }
+
+    });
+
+}
+
+
+
+// -- Статус, расписание темы, PIN --------------------------------------------
+
+async function saveStatusText() {
+
+    const text = document.getElementById('status-text-input').value.trim();
+
+    const r = await fetch('/profile/status', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status_text: text }) });
+
+    const d = await r.json();
+
+    if (d.success) showToast('Статус сохранён');
+
+    else alert(d.error || 'Ошибка');
+
+}
+
+
+
+async function saveThemeSchedule() {
+
+    const light_from = document.getElementById('schedule-light').value;
+
+    const dark_from = document.getElementById('schedule-dark').value;
+
+    const r = await fetch('/profile/theme-schedule', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ light_from, dark_from }) });
+
+    const d = await r.json();
+
+    if (d.success) showToast('Расписание сохранено');
+
+    else alert(d.error || 'Ошибка');
+
+}
+
+
+
+async function clearThemeSchedule() {
+
+    const r = await fetch('/profile/theme-schedule', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ clear: true }) });
+
+    const d = await r.json();
+
+    if (d.success) showToast('Расписание отключено');
+
+}
+
+
+
+async function saveHiddenPin() {
+
+    const pin = document.getElementById('hidden-pin-input').value.trim();
+
+    if (!/^\d{4,6}$/.test(pin)) { alert('PIN должен быть 4-6 цифр'); return; }
+
+    const r = await fetch('/profile/hidden-chat-pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin }) });
+
+    const d = await r.json();
+
+    if (d.success) showToast('PIN установлен');
+
+    else alert(d.error || 'Ошибка');
+
+}
+
+
+
+function showToast(msg) {
+
+    const t = document.getElementById('success-message');
+
+    if (t) { t.querySelector ? (t.innerHTML = `<i class="fas fa-check-circle"></i> ${msg}`) : null; t.style.display = 'flex'; setTimeout(() => t.style.display = 'none', 3000); }
+
+}
+
+
+
+// -- Искры ------------------------------------------------------------------
+
+async function showSparkHistory() {
+
+    const r = await fetch('/sparks/history');
+
+    const d = await r.json();
+
+    const modal = _createModal('История искр ?', d.transactions.length ? d.transactions.map(t => {
+
+        const sign = t.amount > 0 ? '+' : '';
+
+        const color = t.amount > 0 ? '#38a169' : '#e53e3e';
+
+        const labels = {spark_reaction:'Искорная реакция', gift_buy:'Покупка подарка', gift_sell:'Продажа подарка', post_pay:'Покупка поста', post_income:'Доход с поста', spark_received:'Получено искр', withdraw:'Вывод'};
+
+        return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;">
+
+            <span style="color:#4a5568;">${labels[t.reason] || t.reason}</span>
+
+            <span style="font-weight:700;color:${color};">${sign}${t.amount} ?</span>
+
+        </div>`;
+
+    }).join('') : '<p style="color:#a0aec0;text-align:center;padding:20px;">История пуста</p>');
+
+    document.body.appendChild(modal);
+
+}
+
+
+
+async function showMyGifts() {
+
+    const r = await fetch('/gifts/my');
+
+    const d = await r.json();
+
+    const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
+
+    const rarityLabels = {common:'Обычный', rare:'Редкий', epic:'Эпический', legendary:'Легендарный'};
+
+    const content = d.gifts && d.gifts.length ? `
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
+
+            ${d.gifts.map(g => `
+
+            <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
+
+                <div style="font-size:36px;margin-bottom:6px;">${g.emoji}</div>
+
+                <div style="font-weight:600;font-size:13px;">${g.name}</div>
+
+                <div style="font-size:11px;color:${rarityColors[g.rarity]};font-weight:600;margin:4px 0;">${rarityLabels[g.rarity]||g.rarity}</div>
+
+                ${g.sender_name ? `<div style="font-size:11px;color:#a0aec0;margin-bottom:2px;">от <b>${g.sender_name}</b></div>` : ''}
+
+                ${g.received_at ? `<div style="font-size:10px;color:#cbd5e0;margin-bottom:6px;">${g.received_at}</div>` : ''}
+
+                <div style="display:flex;gap:6px;margin-top:8px;justify-content:center;flex-wrap:wrap;">
+
+                    <button onclick="toggleGiftDisplay(${g.id},this)" style="font-size:11px;padding:4px 8px;border:1px solid #667eea;border-radius:6px;background:${g.is_displayed?'#667eea':'transparent'};color:${g.is_displayed?'#fff':'#667eea'};cursor:pointer;">
+
+                        ${g.is_displayed ? '👁 Скрыть' : '👁 Показать'}
+
+                    </button>
+
+                    <button onclick="sellGift(${g.id},${Math.floor((g.price_sparks||0)*0.8)},this)" style="font-size:11px;padding:4px 8px;border:1px solid #e53e3e;border-radius:6px;background:transparent;color:#e53e3e;cursor:pointer;">
+
+                        ✨ ${Math.floor((g.price_sparks||0)*0.8)} ✨
+
+                    </button>
+
+                </div>
+
+            </div>`).join('')}
+
+        </div>` : '<p style="color:#a0aec0;text-align:center;padding:20px;">У вас нет подарков</p>';
+
+    const modal = _createModal('Мои подарки 🎁', content);
+
+    document.body.appendChild(modal);
+
+}
+
+
+
+async function showGiftCatalog() {
+
+    const [catR, balR, plansR] = await Promise.all([
+
+        fetch('/gifts/catalog'),
+
+        fetch('/sparks/balance'),
+
+        fetch('/gifts/premium-plans')
+
+    ]);
+
+    const cat = await catR.json();
+
+    const bal = await balR.json();
+
+    const plansData = await plansR.json();
+
+    const rarityColors = {common:'#718096', rare:'#3182ce', epic:'#805ad5', legendary:'#d69e2e'};
+
+
+
+    // Premium планы
+
+    const premiumPlans = plansData.plans || [];
+
+    const premiumHtml = premiumPlans.length ? `
+
+        <div style="margin-bottom:20px;">
+
+            <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#f6ad55;">👑 Подарить Premium</div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;">
+
+                ${premiumPlans.map(p => `
+
+                <div style="border:2px solid #f6ad55;border-radius:12px;padding:12px;text-align:center;background:linear-gradient(135deg,rgba(246,173,85,0.1),rgba(237,137,54,0.1));">
+
+                    ${p.discount ? `<div style="font-size:10px;background:#e53e3e;color:#fff;border-radius:6px;padding:2px 6px;margin-bottom:4px;display:inline-block;">-${p.discount}%</div>` : ''}
+
+                    <div style="font-size:28px;margin-bottom:4px;">👑</div>
+
+                    <div style="font-weight:700;font-size:12px;">${p.label}</div>
+
+                    <div style="font-size:13px;color:#f6ad55;font-weight:700;margin:4px 0;">${p.price_sparks} ✨</div>
+
+                    <div style="font-size:10px;color:#718096;margin-bottom:6px;">${p.price_rub} ₽</div>
+
+                    <button onclick="sendPremiumGift('${p.plan_key}')" style="font-size:11px;padding:5px 10px;border:none;border-radius:8px;background:linear-gradient(135deg,#f6ad55,#ed8936);color:#fff;cursor:pointer;width:100%;">
+
+                        Подарить
+
+                    </button>
+
+                </div>`).join('')}
+
+            </div>
+
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,0.1);margin:16px 0;">
+
+    ` : '';
+
+
+
+    // Обычные подарки
+
+    const giftsHtml = `
+
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">🎁 Подарки</div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+
+            ${cat.gifts.map(g => `
+
+            <div style="border:2px solid ${rarityColors[g.rarity]||'#e2e8f0'};border-radius:12px;padding:12px;text-align:center;">
+
+                <div style="font-size:32px;margin-bottom:6px;">${g.emoji}</div>
+
+                <div style="font-weight:600;font-size:13px;">${g.name}</div>
+
+                <div style="font-size:11px;color:${rarityColors[g.rarity]};text-transform:uppercase;margin:4px 0;">${g.rarity}</div>
+
+                <div style="font-size:12px;color:#f6ad55;font-weight:700;margin:4px 0;">${g.price_sparks} ✨</div>
+
+                <button onclick="sendGiftFromCatalog(${g.id})" style="font-size:12px;padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;margin-top:4px;width:100%;">
+
+                    Подарить
+
+                </button>
+
+            </div>`).join('')}
+
+        </div>`;
+
+
+
+    const content = `
+
+        <p style="text-align:center;margin-bottom:16px;font-size:15px;">Ваш баланс: <b style="color:#f6ad55;">${bal.balance} ✨</b></p>
+
+        ${premiumHtml}
+
+        ${giftsHtml}`;
+
+    const modal = _createModal('Магазин подарков 🎁', content);
+
+    document.body.appendChild(modal);
+
+}
+
+
+
+async function sendPremiumGift(planKey) {
+
+    // Показываем красивый модал для ввода юзернейма
+
+    document.querySelectorAll('.gift-username-modal').forEach(m => m.remove());
+
+    const overlay = document.createElement('div');
+
+    overlay.className = 'gift-username-modal';
+
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    overlay.innerHTML = `
+
+        <div style="background:var(--bg-primary);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;">
+
+            <div style="font-size:48px;margin-bottom:12px;">👑</div>
+
+            <h3 style="margin:0 0 8px;font-size:18px;">Подарить Premium</h3>
+
+            <p style="color:#718096;font-size:13px;margin:0 0 18px;">Введите username получателя в Tabletone</p>
+
+            <input id="gift-recipient-input" type="text" placeholder="@username"
+
+                style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;text-align:center;box-sizing:border-box;margin-bottom:14px;background:var(--bg-secondary);color:var(--text-primary);">
+
+            <div style="display:flex;gap:10px;">
+
+                <button onclick="this.closest('.gift-username-modal').remove()"
+
+                    style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;cursor:pointer;font-size:14px;">Отмена</button>
+
+                <button onclick="_confirmPremiumGift('${planKey}')"
+
+                    style="flex:2;padding:12px;background:linear-gradient(135deg,#f6ad55,#ed8936);color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;">Далее ></button>
+
+            </div>
+
+        </div>`;
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    document.body.appendChild(overlay);
+
+    setTimeout(() => document.getElementById('gift-recipient-input').focus(), 100);
+
+}
+
+
+
+async function _confirmPremiumGift(planKey) {
+
+    const input = document.getElementById('gift-recipient-input');
+
+    const username = input.value.trim().replace('@', '');
+
+    if (!username) { input.style.borderColor = '#e53e3e'; return; }
+
+    // Проверяем что пользователь существует
+
+    const r = await fetch(`/api/user-by-username/${username}`);
+
+    if (!r.ok) { input.style.borderColor = '#e53e3e'; input.placeholder = 'Пользователь не найден'; return; }
+
+    // Закрываем модал и открываем Telegram бота
+
+    document.querySelectorAll('.gift-username-modal').forEach(m => m.remove());
+
+    document.querySelectorAll('.profile-modal').forEach(m => m.remove());
+
+    const startParam = `gift_${planKey}_${username}`;
+
+    window.open(`https://t.me/TabletonePay_bot?start=${startParam}`, '_blank');
+
+}
+
+
+
+async function sendGiftFromCatalog(giftTypeId) {
+
+    const username = prompt('Введите @username получателя:');
+
+    if (!username) return;
+
+    const clean = username.replace('@','');
+
+    const r = await fetch(`/api/user-by-username/${clean}`);
+
+    if (!r.ok) { alert('Пользователь не найден'); return; }
+
+    const d = await r.json();
+
+    const res = await fetch('/gifts/send', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({gift_type_id: giftTypeId, recipient_id: d.id})});
+
+    const rd = await res.json();
+
+    if (rd.success) { alert('Подарок отправлен! 🎉'); document.querySelectorAll('.profile-modal').forEach(m=>m.remove()); }
+
+    else alert(rd.error || 'Ошибка');
+
+}
+
+
+
+async function toggleGiftDisplay(giftId, btn) {
+
+    const r = await fetch(`/gifts/${giftId}/display`, {method:'POST'});
+
+    const d = await r.json();
+
+    if (d.success) {
+
+        btn.textContent = d.is_displayed ? '👁 Скрыть' : '👁 Показать';
+
+        btn.style.background = d.is_displayed ? '#667eea' : 'transparent';
+
+        btn.style.color = d.is_displayed ? '#fff' : '#667eea';
+
+    }
+
+}
+
+
+
+async function sellGift(giftId, price, btn) {
+
+    if (!confirm(`Продать подарок за ${price} ✨ (комиссия 20%)`)) return;
+
+    const r = await fetch(`/gifts/${giftId}/sell`, {method:'POST'});
+
+    const d = await r.json();
+
+    if (d.success) { alert(`Продано за ${d.earned} ?`); btn.closest('div[style*="border"]').remove(); }
+
+    else alert(d.error || 'Ошибка');
+
+}
+
+
+
+function _createModal(title, content) {
+
+    const m = document.createElement('div');
+
+    m.className = 'profile-modal';
+
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+    m.innerHTML = `<div style="background:var(--bg-primary,#fff);color:var(--text-primary,#000);border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+
+            <h3 style="font-size:18px;font-weight:700;">${title}</h3>
+
+            <button onclick="this.closest('.profile-modal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#718096;">&times;</button>
+
+        </div>
+
+        ${content}
+
+    </div>`;
+
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+
+    return m;
+
+}
+
+
+
+// -- NFT ----------------------------------------------------------------------
+
+const _NFT_EMOJIS_P = ['🐱','🚀','🌿','💎','🔮','🦊','🐉','⚡','🌊','🎭'];
+
+
+
+(async function loadMyNFTs() {
+
+    try {
+
+        const r = await fetch('/nft/my');
+
+        const d = await r.json();
+
+        const grid = document.getElementById('my-nft-grid');
+
+        const empty = document.getElementById('my-nft-empty');
+
+        if (!d.nfts || d.nfts.length === 0) {
+
+            empty.style.display = '';
+
+            return;
+
+        }
+
+        d.nfts.forEach(nft => {
+
+            const emoji = _NFT_EMOJIS_P[nft.collection_id % _NFT_EMOJIS_P.length];
+
+            const total = nft.total_supply >= 1000
+
+                ? (nft.total_supply/1000).toFixed(1).replace('.0','')+'K'
+
+                : nft.total_supply;
+
+            const card = document.createElement('div');
+
+            card.style.cssText = `border-radius:14px;overflow:hidden;cursor:pointer;position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:${nft.bg_color||'#2d3748'};`;
+
+            card.innerHTML = `
+
+                <div style="position:absolute;top:0;right:0;background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:3px 6px 3px 10px;border-radius:0 14px 0 14px;backdrop-filter:blur(4px);">${nft.serial_number} из ${total}</div>
+
+                <div style="font-size:40px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));">${emoji}</div>
+
+            `;
+
+            card.addEventListener('click', () => _showNFTModalProfile(nft, emoji));
+
+            grid.appendChild(card);
+
+        });
+
+    } catch(e) {}
+
+})();
+
+
+
+function _showNFTModalProfile(nft, emoji) {
+
+    document.querySelectorAll('.nft-modal-overlay').forEach(m => m.remove());
+
+    const total = nft.total_supply >= 1000
+
+        ? (nft.total_supply/1000).toFixed(1).replace('.0','')+'K'
+
+        : nft.total_supply;
+
+    const attrs = nft.attributes || {};
+
+    let attrRows = '';
+
+    for (const [k, v] of Object.entries(attrs)) {
+
+        attrRows += `<tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${k}</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${v}</td></tr>`;
+
+    }
+
+    const overlay = document.createElement('div');
+
+    overlay.className = 'nft-modal-overlay';
+
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:flex-end;justify-content:center;';
+
+    overlay.innerHTML = `
+
+        <div style="background:var(--bg-primary);border-radius:20px 20px 0 0;width:100%;max-width:480px;overflow:hidden;animation:nftSlideUp .25s ease;">
+
+            <div style="padding:28px 20px 20px;text-align:center;background:${nft.bg_color||'#2d3748'};position:relative;">
+
+                <button onclick="this.closest('.nft-modal-overlay').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.15);border:none;border-radius:50%;width:32px;height:32px;color:#fff;font-size:15px;cursor:pointer;">&times;</button>
+
+                <div style="width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:56px;">${emoji}</div>
+
+                <div style="font-size:22px;font-weight:700;color:#fff;margin:0 0 4px;">${nft.collection_name}</div>
+
+                <div style="font-size:13px;color:rgba(255,255,255,.7);">Коллекционный предмет #${nft.serial_number}</div>
+
+            </div>
+
+            <div style="padding:20px;">
+
+                <table style="width:100%;border-collapse:collapse;">${attrRows}
+
+                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">Количество</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${nft.serial_number}, выпущено ${nft.total_supply.toLocaleString('ru')}</td></tr>
+
+                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;font-size:14px;">Ценность</td><td style="padding:10px 0;font-size:14px;">${nft.value_sparks ? nft.value_sparks+' ?' : '—'}</td></tr>
+
+                </table>
+
+            </div>
+
+            <div style="display:flex;gap:10px;padding:0 20px 20px;">
+
+                <button onclick="toggleNFTDisplay(${nft.user_nft_id}, this)" style="flex:1;padding:12px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;font-size:14px;cursor:pointer;">${nft.is_displayed ? '🙈 Скрыть' : '🙈 Показать'}</button>
+
+                <button onclick="this.closest('.nft-modal-overlay').remove()" style="flex:2;padding:12px;background:#4299e1;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;">OK</button>
+
+            </div>
+
+        </div>
+
+    `;
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    document.body.appendChild(overlay);
+
+}
+
+
+
+async function toggleNFTDisplay(userNftId, btn) {
+
+    const r = await fetch(`/nft/${userNftId}/toggle-display`, {method:'POST'});
+
+    const d = await r.json();
+
+    if (d.success) btn.textContent = d.is_displayed ? '👁 Скрыть' : '👁 Показать';
+
+}
+
+
+
+async function showNFTShop() {
+
+    try {
+
+        const [colR, balR] = await Promise.all([fetch('/nft/collections'), fetch('/sparks/balance')]);
+
+        const colD = await colR.json();
+
+        const balD = await balR.json();
+
+        const balance = balD.balance || 0;
+
+        const cols = colD.collections || [];
+
+        if (!cols.length) { alert('Магазин NFT пуст'); return; }
+
+        let html = `<div style="margin-bottom:14px;font-size:13px;color:#718096;">Ваш баланс: <strong>${balance} ✨</strong></div><div style="display:flex;flex-direction:column;gap:12px;">`;
+
+        cols.forEach(c => {
+
+            const emoji = _NFT_EMOJIS_P[c.id % _NFT_EMOJIS_P.length];
+
+            const left = c.total_supply - c.minted;
+
+            html += `<div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg-secondary);border-radius:14px;border:1px solid var(--border-color);">
+
+                <div style="width:60px;height:60px;border-radius:12px;background:${c.bg_color};display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;">${emoji}</div>
+
+                <div style="flex:1;">
+
+                    <div style="font-weight:700;font-size:15px;">${c.name}</div>
+
+                    <div style="font-size:12px;color:#718096;margin:2px 0;">${c.description}</div>
+
+                    <div style="font-size:12px;color:#a0aec0;">Осталось: ${left} из ${c.total_supply}</div>
+
+                </div>
+
+                <button onclick="buyNFT(${c.id}, this)" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">${c.price_sparks} ?</button>
+
+            </div>`;
+
+        });
+
+        html += '</div>';
+
+        const m = _createModal('Магазин NFT 💎', html);
+
+        document.body.appendChild(m);
+
+    } catch(e) { alert('Ошибка загрузки'); }
+
+}
+
+
+
+async function buyNFT(collectionId, btn) {
+
+    btn.disabled = true; btn.textContent = '...';
+
+    try {
+
+        const r = await fetch(`/nft/buy/${collectionId}`, {method:'POST'});
+
+        const d = await r.json();
+
+        if (d.success) {
+
+            document.querySelectorAll('.profile-modal').forEach(m => m.remove());
+
+            alert(`NFT получен! ${d.nft.collection_name} #${d.nft.serial_number}`);
+
+            location.reload();
+
+        } else {
+
+            alert(d.error || 'Ошибка');
+
+            btn.disabled = false; btn.textContent = 'Купить';
+
+        }
+
+    } catch(e) { btn.disabled = false; btn.textContent = 'Купить'; }
+
+}
+
+
+
+// -- Платные сообщения ---------------------------------------------------------
+
+(async function loadMsgPrice() {    try {
+
+        const r = await fetch('/user/msg-price');
+
+        const d = await r.json();
+
+        const el = document.getElementById('msg-price-current');
+
+        const inp = document.getElementById('msg-price-input');
+
+        if (el) el.textContent = d.price ? `${d.price} ?` : 'бесплатно';
+
+        if (inp && d.price) inp.value = d.price;
+
+    } catch(e) {}
+
+})();
+
+
+
+async function saveMsgPrice() {
+
+    const inp = document.getElementById('msg-price-input');
+
+    const price = inp ? parseInt(inp.value) || 0 : 0;
+
+    if (price > 15000) {
+
+        alert('Максимальная цена — 15 000 ?');
+
+        inp.value = 15000;
+
+        return;
+
+    }
+
+    const r = await fetch('/user/msg-price', {
+
+        method: 'POST',
+
+        headers: {'Content-Type': 'application/json'},
+
+        body: JSON.stringify({price})
+
+    });
+
+    const d = await r.json();
+
+    if (d.success) {
+
+        const el = document.getElementById('msg-price-current');
+
+        if (el) el.textContent = d.price ? `${d.price} ?` : 'бесплатно';
+
+        if (inp) inp.value = d.price || '';
+
+        alert(d.price ? `Цена установлена: ${d.price} ?` : 'Платные сообщения отключены');
+
+    }
+
+}
+
+
+
+async function showAutoReplySettings() {
+
+    const r = await fetch('/user/auto-reply');
+
+    const d = await r.json();
+
+    const current = d.text || '';
+
+    const modal = _createModal('Настройки автоответа 🤖', `
+
+        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">
+
+            Автоответ отправляется автоматически на первое сообщение от пользователя.
+
+        </p>
+
+        <textarea id="auto-reply-text" rows="4" maxlength="200" placeholder="Например: Сейчас недоступен, отвечу позже..."
+
+            style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;resize:vertical;box-sizing:border-box;">${current}</textarea>
+
+        <small style="color:var(--text-secondary);font-size:12px;display:block;margin:6px 0 14px;">Максимум 200 символов. Оставьте пустым чтобы отключить.</small>
+
+        <div style="display:flex;gap:8px;">
+
+            <button onclick="saveAutoReply()" class="btn btn-primary" style="flex:1;padding:10px;">
+
+                <i class="fas fa-save"></i> Сохранить
+
+            </button>
+
+            <button onclick="this.closest('.profile-modal').remove()" class="btn" style="padding:10px 16px;">
+
+                Отмена
+
+            </button>
+
+        </div>
+
+    `);
+
+    document.body.appendChild(modal);
+
+}
+
+
+
+async function saveAutoReply() {
+
+    const text = document.getElementById('auto-reply-text').value.trim();
+
+    const r = await fetch('/user/auto-reply', {
+
+        method: 'POST',
+
+        headers: {'Content-Type': 'application/json'},
+
+        body: JSON.stringify({text})
+
+    });
+
+    const d = await r.json();
+
+    if (d.success) {
+
+        document.querySelectorAll('.profile-modal').forEach(m => m.remove());
+
+        showToast(text ? 'Автоответ сохранён' : 'Автоответ отключён');
+
+    } else {
+
+        alert(d.error || 'Ошибка');
+
+    }
+
+}
+
+
+
+async function saveEmail() {
+
+    const input = document.getElementById('email-input');
+
+    const status = document.getElementById('email-save-status');
+
+    const email = input.value.trim();
+
+    try {
+
+        const r = await fetch('/profile/email', {
+
+            method: 'POST',
+
+            headers: { 'Content-Type': 'application/json' },
+
+            body: JSON.stringify({ email })
+
+        });
+
+        const d = await r.json();
+
+        if (d.success && d.need_verify) {
+
+            const hint = d.via_telegram
+
+                ? `<i class="fab fa-telegram"></i> Код отправлен в <strong>Telegram</strong>`
+
+                : `<i class="fas fa-envelope"></i> Код отправлен на <strong>${email}</strong>`;
+
+            status.innerHTML = `
+
+                <div style="margin-top:10px;">
+
+                    <p style="color:#667eea;font-size:13px;margin-bottom:8px;">${hint}</p>
+
+                    <div style="display:flex;gap:8px;align-items:center;">
+
+                        <input type="text" id="email-code-input" placeholder="000000" maxlength="6"
+
+                               style="width:110px;padding:8px 12px;border:2px solid #e2e8f0;border-radius:10px;font-size:16px;text-align:center;letter-spacing:4px;">
+
+                        <button type="button" class="btn btn-primary" onclick="verifyEmailCode()" style="padding:8px 14px;font-size:13px;">
+
+                            <i class="fas fa-check"></i> Подтвердить
+
+                        </button>
+
+                    </div>
+
+                    <div id="email-verify-status" style="margin-top:6px;font-size:13px;"></div>
+
+                </div>`;
+
+        } else if (d.success) {
+
+            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Email сохранён';
+
+            const banner = document.getElementById('email-warning-banner');
+
+            if (banner && email) banner.style.display = 'none';
+
+            setTimeout(() => { status.innerHTML = ''; }, 3000);
+
+        } else {
+
+            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
+
+        }
+
+    } catch(e) {
+
+        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
+
+    }
+
+}
+
+
+
+async function verifyEmailCode() {
+
+    const code = document.getElementById('email-code-input').value.trim();
+
+    const vstatus = document.getElementById('email-verify-status');
+
+    try {
+
+        const r = await fetch('/profile/email/verify', {
+
+            method: 'POST',
+
+            headers: { 'Content-Type': 'application/json' },
+
+            body: JSON.stringify({ code })
+
+        });
+
+        const d = await r.json();
+
+        if (d.success) {
+
+            document.getElementById('email-save-status').innerHTML =
+
+                '<i class="fas fa-check-circle" style="color:#38a169;"></i> Email подтверждён';
+
+            const banner = document.getElementById('email-warning-banner');
+
+            if (banner) banner.style.display = 'none';
+
+        } else {
+
+            vstatus.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Неверный код'}</span>`;
+
+        }
+
+    } catch(e) {
+
+        vstatus.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
+
+    }
+
+}
+
+
+
+async function savePrivacySettings() {
+
+    const payload = {
+
+        privacy_who_can_message:       document.getElementById('priv-message').value,
+
+        privacy_who_can_call:          document.getElementById('priv-call').value,
+
+        privacy_who_can_add_to_groups: document.getElementById('priv-groups').value,
+
+        privacy_show_last_seen:        document.getElementById('priv-last-seen').value,
+
+        privacy_show_phone:            document.getElementById('priv-phone').value,
+
+    };
+
+    const status = document.getElementById('priv-save-status');
+
+    try {
+
+        const r = await fetch('/profile/privacy', {
+
+            method: 'POST',
+
+            headers: { 'Content-Type': 'application/json' },
+
+            body: JSON.stringify(payload)
+
+        });
+
+        const d = await r.json();
+
+        if (d.success) {
+
+            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Сохранено';
+
+            setTimeout(() => { status.innerHTML = ''; }, 3000);
+
+        } else {
+
+            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
+
+        }
+
+    } catch(e) {
+
+        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
+
+    }
+
+}
+
+</script>
+
 {% endblock %}
