@@ -5378,7 +5378,7 @@ def warn_user(user_id):
     return jsonify({'success': True, 'warnings_count': user.warnings_count, 'spam_blocked': user.is_spam_blocked})
 
 @app.route('/admin/users/<int:user_id>/warnings-list', methods=['GET'])
-def get_user_warnings(user_id):
+def get_user_warnings_list(user_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401
     admin = User.query.get(session['user_id'])
