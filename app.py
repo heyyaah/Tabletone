@@ -246,6 +246,8 @@ class User(db.Model):
     privacy_show_phone      = db.Column(db.String(20), default='nobody')
     privacy_show_profile    = db.Column(db.String(20), default='everyone')
     warnings_count          = db.Column(db.Integer, default=0)  # Предупреждения пользователя
+    is_business             = db.Column(db.Boolean, default=False)   # Business-мод
+    business_until          = db.Column(db.DateTime, nullable=True)  # Дата окончания Business
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -1012,6 +1014,8 @@ def _init_db():
                 'ALTER TABLE message_media ALTER COLUMN media_url TYPE TEXT',
                 'ALTER TABLE group_message ADD COLUMN IF NOT EXISTS topic_id INTEGER REFERENCES group_topic(id)',
                 f"ALTER TABLE spark_balance ADD COLUMN IF NOT EXISTS sparks_last_monthly {ts_type}",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS is_business BOOLEAN DEFAULT FALSE",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_until {ts_type}",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT 0",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
@@ -1069,6 +1073,8 @@ def _init_db():
                 "ALTER TABLE message ADD COLUMN secret_chat_id INTEGER",
                 "ALTER TABLE group_message ADD COLUMN topic_id INTEGER REFERENCES group_topic(id)",
                 f"ALTER TABLE spark_balance ADD COLUMN sparks_last_monthly {ts_type}",
+                f"ALTER TABLE {user_table} ADD COLUMN is_business BOOLEAN DEFAULT 0",
+                f"ALTER TABLE {user_table} ADD COLUMN business_until {ts_type}",
             ]
 
         with db.engine.connect() as conn:
@@ -2305,13 +2311,19 @@ PAY_SPARKS_PLANS = {
     "sparks_1500": {"label": "1500 Искр ✨", "price": "299 ₽", "sparks": 1500},
     "sparks_5000": {"label": "5000 Искр ✨", "price": "799 ₽", "sparks": 5000},
 }
+PAY_BUSINESS_PLANS = {
+    "business_30":  {"label": "Business 30 дней",  "price": "229 ₽", "days": 30},
+    "business_90":  {"label": "Business 3 месяца", "price": "599 ₽", "days": 90},
+    "business_365": {"label": "Business 1 год",    "price": "1990 ₽","days": 365},
+}
 PAY_CARD = "+79519603466"
 
 def _pay_main_kb():
     return {"inline_keyboard": [
-        [{"text": "👑 Купить Premium", "callback_data": "menu_premium"}],
-        [{"text": "✨ Купить Искры",   "callback_data": "menu_sparks"}],
-        [{"text": "🖼 Купить NFT",     "callback_data": "menu_nft"}],
+        [{"text": "👑 Купить Premium",  "callback_data": "menu_premium"}],
+        [{"text": "💼 Купить Business", "callback_data": "menu_business"}],
+        [{"text": "✨ Купить Искры",    "callback_data": "menu_sparks"}],
+        [{"text": "🖼 Купить NFT",      "callback_data": "menu_nft"}],
     ]}
 
 @app.route('/payment/webhook', methods=['POST'])
@@ -2339,6 +2351,11 @@ def payment_webhook():
                        for k, p in PAY_PREMIUM_PLANS.items()]
             buttons.append([{"text": "◀️ Назад", "callback_data": "menu_main"}])
             _pay_tg_edit(token, chat_id, msg_id, "👑 *Выберите срок Premium:*", {"inline_keyboard": buttons})
+        elif cq_data == 'menu_business':
+            buttons = [[{"text": f"{p['label']} — {p['price']}", "callback_data": f"buy_{k}"}]
+                       for k, p in PAY_BUSINESS_PLANS.items()]
+            buttons.append([{"text": "◀️ Назад", "callback_data": "menu_main"}])
+            _pay_tg_edit(token, chat_id, msg_id, "💼 *Выберите срок Business:*", {"inline_keyboard": buttons})
         elif cq_data == 'menu_sparks':
             buttons = [[{"text": f"{p['label']} — {p['price']}", "callback_data": f"buy_{k}"}]
                        for k, p in PAY_SPARKS_PLANS.items()]
@@ -2383,7 +2400,7 @@ def payment_webhook():
                         f"✅ Вы выбрали: *{nft['name']}* — *{nft.get('price','?')} ₽*\n\nВведите ваш *username* в Tabletone (без @):",
                         {"inline_keyboard": [[{"text": "◀️ Отмена", "callback_data": "menu_main"}]]})
             else:
-                plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key)
+                plan = PAY_PREMIUM_PLANS.get(key) or PAY_SPARKS_PLANS.get(key) or PAY_BUSINESS_PLANS.get(key)
                 if plan:
                     ud['pending_key'] = key
                     ud['awaiting_username'] = True
@@ -2403,7 +2420,7 @@ def payment_webhook():
                 key = f"nft_{parts_nft[1]}"
                 raw = '_'.join(parts_nft[2:])
             else:
-                for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()):
+                for k in list(PAY_PREMIUM_PLANS.keys()) + list(PAY_SPARKS_PLANS.keys()) + list(PAY_BUSINESS_PLANS.keys()):
                     if raw.startswith(k + '_'):
                         key = k
                         raw = raw[len(k)+1:]
@@ -2434,6 +2451,10 @@ def payment_webhook():
                     elif key.startswith('premium'):
                         plan = PAY_PREMIUM_PLANS[key]
                         ep = f"{site_url_pay}/api/payment/activate-premium"
+                        pl = json.dumps({"username": username, "days": plan["days"], "secret": pay_secret}).encode()
+                    elif key.startswith('business'):
+                        plan = PAY_BUSINESS_PLANS[key]
+                        ep = f"{site_url_pay}/api/payment/activate-business"
                         pl = json.dumps({"username": username, "days": plan["days"], "secret": pay_secret}).encode()
                     else:
                         plan = PAY_SPARKS_PLANS[key]
@@ -3179,6 +3200,7 @@ def get_chat(user_id):
                 'avatar_url': other_user.avatar_url,
                 'avatar_letter': other_user.get_avatar_letter(),
                 'is_verified': other_user.is_verified,
+                'is_business': getattr(other_user, 'is_business', False),
                 'is_online': other_user.id in online_users,
                 'bio': other_user.bio,
                 'last_seen': other_user.last_seen.isoformat() if other_user.last_seen else None
@@ -4393,6 +4415,7 @@ def get_users():
                     'avatar_url': user.avatar_url,
                     'avatar_letter': user.get_avatar_letter(),
                     'is_verified': user.is_verified,
+                    'is_business': getattr(user, 'is_business', False),
                     'is_bot': user.is_bot,
                     'is_online': user.id in online_users,
                     'last_seen': user.last_seen.isoformat() if user.last_seen else None,
@@ -4483,6 +4506,7 @@ def get_user_info(user_id):
         'avatar_letter': user.get_avatar_letter(),
         'is_verified': user.is_verified,
         'is_premium': user.is_premium,
+        'is_business': getattr(user, 'is_business', False),
         'is_bot': user.is_bot,
         'reputation': user.reputation if user.reputation is not None else 100,
         'premium_emoji': user.premium_emoji,
@@ -9944,6 +9968,41 @@ def payment_cancel_premium():
         return jsonify({'error': f'User @{username} not found'}), 404
     user.is_premium = False
     user.premium_until = None
+    db.session.commit()
+    return jsonify({'success': True, 'username': username})
+
+@app.route('/api/payment/activate-business', methods=['POST'])
+def payment_activate_business():
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').strip().lstrip('@')
+    days = int(data.get('days', 30))
+    if not username or days <= 0:
+        return jsonify({'error': 'Bad request'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'Пользователь @{username} не найден'}), 404
+    base = user.business_until if (user.business_until and user.business_until > datetime.utcnow()) else datetime.utcnow()
+    user.is_business = True
+    user.business_until = base + timedelta(days=days)
+    db.session.commit()
+    print(f"✅ Business активирован для @{username} до {user.business_until}")
+    return jsonify({'success': True, 'username': username, 'days': days, 'until': user.business_until.isoformat()})
+
+@app.route('/api/payment/cancel-business', methods=['POST'])
+def payment_cancel_business():
+    data = request.get_json() or {}
+    if data.get('secret') != PAYMENT_SECRET:
+        return jsonify({'error': 'Forbidden'}), 403
+    username = data.get('username', '').strip().lstrip('@')
+    if not username:
+        return jsonify({'error': 'Bad request'}), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'error': f'User @{username} not found'}), 404
+    user.is_business = False
+    user.business_until = None
     db.session.commit()
     return jsonify({'success': True, 'username': username})
 

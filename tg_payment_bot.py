@@ -24,6 +24,11 @@ PREMIUM_PLANS = {
     "premium_180": {"label": "Premium 6 mesyacev", "price": "499 rub", "days": 180},
     "premium_365": {"label": "Premium 1 god",     "price": "799 rub", "days": 365},
 }
+BUSINESS_PLANS = {
+    "business_30":  {"label": "Business 30 dney",  "price": "229 rub", "days": 30},
+    "business_90":  {"label": "Business 3 mesyaca", "price": "599 rub", "days": 90},
+    "business_365": {"label": "Business 1 god",    "price": "1990 rub","days": 365},
+}
 SPARKS_PLANS = {
     "sparks_100":  {"label": "100 Iskr",  "price": "29 rub",  "sparks": 100},
     "sparks_300":  {"label": "300 Iskr",  "price": "79 rub",  "sparks": 300},
@@ -42,9 +47,10 @@ def owner_only(func):
 
 def main_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Kupit Premium", callback_data="menu_premium")],
-        [InlineKeyboardButton("Kupit Iskry",   callback_data="menu_sparks")],
-        [InlineKeyboardButton("Kupit NFT",     callback_data="menu_nft")],
+        [InlineKeyboardButton("Kupit Premium",  callback_data="menu_premium")],
+        [InlineKeyboardButton("Kupit Business", callback_data="menu_business")],
+        [InlineKeyboardButton("Kupit Iskry",    callback_data="menu_sparks")],
+        [InlineKeyboardButton("Kupit NFT",      callback_data="menu_nft")],
     ])
 
 async def _api_post(path, payload):
@@ -289,6 +295,15 @@ async def menu_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons.append([InlineKeyboardButton("Nazad", callback_data="menu_main")])
     await q.edit_message_text("Vyberi plan Premium:", reply_markup=InlineKeyboardMarkup(buttons))
 
+async def menu_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query; await q.answer()
+    buttons = [
+        [InlineKeyboardButton(f"{p['label']} - {p['price']}", callback_data=f"buy_{k}")]
+        for k, p in BUSINESS_PLANS.items()
+    ]
+    buttons.append([InlineKeyboardButton("Nazad", callback_data="menu_main")])
+    await q.edit_message_text("Vyberi plan Business:", reply_markup=InlineKeyboardMarkup(buttons))
+
 async def menu_sparks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query; await q.answer()
     buttons = [
@@ -323,7 +338,7 @@ async def buy_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key = q.data[4:]
     is_nft = key.startswith("nft_")
     if not is_nft:
-        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key) or BUSINESS_PLANS.get(key)
         if not plan: return
         label, price = plan["label"], plan["price"]
     else:
@@ -352,7 +367,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key = context.user_data.get("pending_key", "")
     is_nft = key.startswith("nft_")
     if not is_nft:
-        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        plan = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key) or BUSINESS_PLANS.get(key)
         if not plan:
             await update.message.reply_text("Oshibka. Nazhmi /start"); return
         price = plan["price"]
@@ -388,7 +403,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = context.user_data.get("tabletone_username", "?")
     is_nft   = key.startswith("nft_")
     if not is_nft:
-        plan  = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key)
+        plan  = PREMIUM_PLANS.get(key) or SPARKS_PLANS.get(key) or BUSINESS_PLANS.get(key)
         label = plan["label"] if plan else key
         price = plan["price"] if plan else "?"
     else:
@@ -438,7 +453,7 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
         key = f"nft_{parts[1]}"
         remainder = "_".join(parts[2:])
     else:
-        for k in list(PREMIUM_PLANS.keys()) + list(SPARKS_PLANS.keys()):
+        for k in list(PREMIUM_PLANS.keys()) + list(SPARKS_PLANS.keys()) + list(BUSINESS_PLANS.keys()):
             if raw.startswith(k + "_"):
                 key = k
                 remainder = raw[len(k) + 1:]
@@ -457,6 +472,9 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
             elif key.startswith("premium"):
                 plan = PREMIUM_PLANS[key]
                 data = await _api_post("/api/payment/activate-premium", {"username": username, "days": plan["days"]})
+            elif key.startswith("business"):
+                plan = BUSINESS_PLANS[key]
+                data = await _api_post("/api/payment/activate-business", {"username": username, "days": plan["days"]})
             else:
                 plan = SPARKS_PLANS[key]
                 data = await _api_post("/api/payment/add-sparks", {"username": username, "sparks": plan["sparks"]})
@@ -469,6 +487,9 @@ async def handle_confirm_reject(update: Update, context: ContextTypes.DEFAULT_TY
         elif key.startswith("premium"):
             plan = PREMIUM_PLANS[key]
             user_msg = f"Payment confirmed! Premium {plan['days']}d for @{username}."
+        elif key.startswith("business"):
+            plan = BUSINESS_PLANS[key]
+            user_msg = f"Payment confirmed! Business {plan['days']}d for @{username}."
         else:
             plan = SPARKS_PLANS[key]
             user_msg = f"Payment confirmed! {plan['sparks']} sparks for @{username}."
@@ -496,6 +517,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data
     if data == "menu_premium":
         await menu_premium(update, context)
+    elif data == "menu_business":
+        await menu_business(update, context)
     elif data == "menu_sparks":
         await menu_sparks(update, context)
     elif data == "menu_nft":

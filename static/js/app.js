@@ -235,7 +235,8 @@ function handleProfileUpdate(userInfo) {
         
         if (chatUsername) {
             const verifiedBadge = userInfo.is_verified ? ' <i class="fas fa-check-circle" style="color: #667eea;"></i>' : '';
-            chatUsername.innerHTML = escapeHtml(userInfo.display_name || userInfo.username) + verifiedBadge;
+            const businessBadge1 = userInfo.is_business ? ' <span style="font-size:13px;" title="Business">💼</span>' : '';
+            chatUsername.innerHTML = escapeHtml(userInfo.display_name || userInfo.username) + verifiedBadge + businessBadge1;
         }
         
         if (chatAvatar) {
@@ -361,7 +362,8 @@ function updateChatItemAvatar(userInfo) {
         
         if (username) {
             const verifiedBadge = userInfo.is_verified ? '<i class="fas fa-check-circle" style="color: #667eea; margin-left: 5px; font-size: 14px;"></i>' : '';
-            username.innerHTML = escapeHtml(userInfo.display_name || userInfo.username) + verifiedBadge;
+            const businessBadge2 = userInfo.is_business ? ' <span style="font-size:13px;" title="Business">💼</span>' : '';
+            username.innerHTML = escapeHtml(userInfo.display_name || userInfo.username) + verifiedBadge + businessBadge2;
         }
     }
 }
@@ -925,6 +927,7 @@ function displayAllChats(chats) {
             }
             
             const verifiedBadge = chat.is_verified ? '<i class="fas fa-check-circle" style="color: #667eea; margin-left: 5px; font-size: 14px;"></i>' : '';
+            const businessBadge3 = chat.is_business ? ' <span style="font-size:11px;" title="Business">💼</span>' : '';
             const botBadge = chat.is_bot ? '<span style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:5px;vertical-align:middle;">BOT</span>' : '';
             
             // Последнее сообщение (если есть)
@@ -945,7 +948,7 @@ function displayAllChats(chats) {
                         ${avatarContent}
                     </div>
                     <div class="chat-info">
-                        <div class="chat-username">${escapeHtml(chat.display_name || chat.username)}${verifiedBadge}${botBadge}</div>
+                        <div class="chat-username">${escapeHtml(chat.display_name || chat.username)}${verifiedBadge}${businessBadge3}${botBadge}</div>
                         <div class="chat-last-message" style="color: #a0aec0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(lastMessageText)}</div>
                     </div>
                     ${unreadBadge}

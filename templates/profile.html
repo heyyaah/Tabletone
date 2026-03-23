@@ -441,6 +441,38 @@
             </div>
             {% endif %}
 
+                        <!-- Business статус -->
+            {% if user.is_business %}
+            <div class="profile-section" style="background:linear-gradient(135deg,rgba(49,130,206,0.1),rgba(66,153,225,0.1));border:1px solid rgba(49,130,206,0.3);border-radius:12px;padding:16px;">
+                <h3 style="color:#2b6cb0;"><i class="fas fa-briefcase" style="color:#4299e1;"></i> Business активен</h3>
+                {% if user.business_until %}
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Действует до: <strong>{{ user.business_until.strftime('%d.%m.%Y') }}</strong></p>
+                {% endif %}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Бизнес-профиль</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Аналитика</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Приоритетная поддержка</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Значок 💼</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Расширенные боты</div>
+                    <div style="display:flex;align-items:center;gap:6px;color:#4a5568;"><i class="fas fa-check" style="color:#38a169;"></i> Реклама каналов</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="profile-section" style="background:var(--bg-secondary);border-radius:12px;padding:16px;">
+                <h3><i class="fas fa-briefcase" style="color:#a0aec0;"></i> Получить Business</h3>
+                <p style="color:#718096;font-size:13px;margin-bottom:12px;">Инструменты для бизнеса и продвижения — от 229 ₽/мес.</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:14px;">
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Бизнес-профиль</div>
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Аналитика</div>
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Приоритетная поддержка</div>
+                    <div style="color:#a0aec0;"><i class="fas fa-lock" style="color:#cbd5e0;margin-right:4px;"></i> Значок 💼</div>
+                </div>
+                <button onclick="buyBusiness()" class="btn btn-primary" style="background:linear-gradient(135deg,#4299e1,#3182ce);border:none;cursor:pointer;">
+                    <i class="fas fa-briefcase"></i> Купить Business
+                </button>
+            </div>
+            {% endif %}
+
             <!-- Настройки приватности -->
             <div class="profile-section">
                 <h3><i class="fas fa-user-shield" style="color:#667eea;"></i> Приватность</h3>
