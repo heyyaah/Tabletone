@@ -1792,7 +1792,7 @@ async function showSparkHistory() {
 
     const d = await r.json();
 
-    const modal = _createModal('История искр ?', d.transactions.length ? d.transactions.map(t => {
+    const modal = _createModal('История искр ✨', d.transactions.length ? d.transactions.map(t => {
 
         const sign = t.amount > 0 ? '+' : '';
 
@@ -1804,7 +1804,7 @@ async function showSparkHistory() {
 
             <span style="color:#4a5568;">${labels[t.reason] || t.reason}</span>
 
-            <span style="font-weight:700;color:${color};">${sign}${t.amount} ?</span>
+            <span style="font-weight:700;color:${color};">${sign}${t.amount} ✨</span>
 
         </div>`;
 
@@ -2118,7 +2118,7 @@ async function sellGift(giftId, price, btn) {
 
     const d = await r.json();
 
-    if (d.success) { alert(`Продано за ${d.earned} ?`); btn.closest('div[style*="border"]').remove(); }
+    if (d.success) { alert(`Продано за ${d.earned} ✨`); btn.closest('div[style*="border"]').remove(); }
 
     else alert(d.error || 'Ошибка');
 
@@ -2264,7 +2264,7 @@ function _showNFTModalProfile(nft, emoji) {
 
                     <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">Количество</td><td style="padding:10px 0;border-bottom:1px solid var(--border-color);font-size:14px;">${nft.serial_number}, выпущено ${nft.total_supply.toLocaleString('ru')}</td></tr>
 
-                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;font-size:14px;">Ценность</td><td style="padding:10px 0;font-size:14px;">${nft.value_sparks ? nft.value_sparks+' ?' : '—'}</td></tr>
+                    <tr><td style="color:#718096;font-weight:600;width:40%;padding:10px 0;font-size:14px;">Ценность</td><td style="padding:10px 0;font-size:14px;">${nft.value_sparks ? nft.value_sparks+' ✨' : '—'}</td></tr>
 
                 </table>
 
@@ -2340,7 +2340,7 @@ async function showNFTShop() {
 
                 </div>
 
-                <button onclick="buyNFT(${c.id}, this)" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">${c.price_sparks} ?</button>
+                <button onclick="buyNFT(${c.id}, this)" style="padding:8px 14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">${c.price_sparks} ✨</button>
 
             </div>`;
 
@@ -2402,7 +2402,7 @@ async function buyNFT(collectionId, btn) {
 
         const inp = document.getElementById('msg-price-input');
 
-        if (el) el.textContent = d.price ? `${d.price} ?` : 'бесплатно';
+        if (el) el.textContent = d.price ? `${d.price} ✨` : 'бесплатно';
 
         if (inp && d.price) inp.value = d.price;
 
@@ -2420,7 +2420,7 @@ async function saveMsgPrice() {
 
     if (price > 15000) {
 
-        alert('Максимальная цена — 15 000 ?');
+        alert('Максимальная цена — 15 000 ✨');
 
         inp.value = 15000;
 
@@ -2444,11 +2444,11 @@ async function saveMsgPrice() {
 
         const el = document.getElementById('msg-price-current');
 
-        if (el) el.textContent = d.price ? `${d.price} ?` : 'бесплатно';
+        if (el) el.textContent = d.price ? `${d.price} ✨` : 'бесплатно';
 
         if (inp) inp.value = d.price || '';
 
-        alert(d.price ? `Цена установлена: ${d.price} ?` : 'Платные сообщения отключены');
+        alert(d.price ? `Цена установлена: ${d.price} ✨` : 'Платные сообщения отключены');
 
     }
 
