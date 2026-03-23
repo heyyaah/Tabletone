@@ -4522,8 +4522,6 @@ def update_profile():
         user.avatar_color = data['avatar_color']
     
     if 'chat_wallpaper' in data:
-        if not user.is_premium and not user.is_admin and data['chat_wallpaper'] != 'default':
-            return jsonify({'error': 'premium_required', 'message': 'Смена обоев доступна только для Premium пользователей'}), 403
         user.chat_wallpaper = data['chat_wallpaper']
 
     if 'timezone' in data:
