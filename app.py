@@ -1738,7 +1738,6 @@ def check_ip_ban():
 
 _init_db()
 
-
 @app.route('/admin/reports', methods=['GET'])
 def get_reports():
     """Возвращает список всех жалоб"""
@@ -11819,6 +11818,8 @@ with app.app_context():
             ('user', 'timezone',                "VARCHAR(100) DEFAULT 'Europe/Moscow'"),
             ('user', 'telegram_chat_id',        'BIGINT'),
             ('user', 'telegram_link_code',      'VARCHAR(32)'),
+            ('nft_collection', 'pattern',       "VARCHAR(30) DEFAULT 'none'"),
+            ('nft_collection', 'model',         "VARCHAR(10) DEFAULT '🔮'"),
         ]
         for _tbl, _col, _def in _auto_migrations:
             try:
