@@ -1662,6 +1662,64 @@ function adminDeleteGroup(groupId) {
         .then(d => { if (d.success) loadChannels(); else alert(d.error || 'Ошибка'); });
 }
 
+// ── IP-баны ───────────────────────────────────────────────────────────────
+function loadIpBans() {
+    fetch('/admin/ip-bans')
+        .then(r => r.json())
+        .then(data => {
+            const list = document.getElementById('ipbans-list');
+            if (!data.bans || data.bans.length === 0) {
+                list.innerHTML = '<div class="empty-state"><i class="fas fa-ban"></i><p>Нет заблокированных IP</p></div>';
+                return;
+            }
+            list.innerHTML = data.bans.map(ban => `
+                <div class="user-item">
+                    <div class="user-info">
+                        <h3>${ban.ip}</h3>
+                        <p>${ban.reason || 'Без причины'}</p>
+                        <p>Добавлен: ${ban.created_at || ''}</p>
+                    </div>
+                    <div class="user-actions">
+                        <button class="action-btn unban" onclick="removeIpBan('${ban.ip}')">Разблокировать</button>
+                    </div>
+                </div>`).join('');
+        })
+        .catch(() => {
+            const list = document.getElementById('ipbans-list');
+            if (list) list.innerHTML = '<div class="empty-state"><p>Ошибка загрузки</p></div>';
+        });
+}
+
+function addIpBan() {
+    const ip = document.getElementById('ip-input').value.trim();
+    const reason = document.getElementById('ip-reason-input').value.trim();
+    if (!ip) { alert('Введите IP-адрес'); return; }
+    fetch('/admin/ip-bans/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, reason })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            document.getElementById('ip-input').value = '';
+            document.getElementById('ip-reason-input').value = '';
+            loadIpBans();
+        } else { alert(d.error || 'Ошибка'); }
+    });
+}
+
+function removeIpBan(ip) {
+    if (!confirm(`Разблокировать IP ${ip}?`)) return;
+    fetch('/admin/ip-bans/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip })
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) loadIpBans(); else alert(d.error || 'Ошибка'); });
+}
+
 // ── Заявки на удаление аккаунтов ─────────────────────────────────────────
 function loadDeletionRequests() {
     fetch('/admin/deletion-requests')

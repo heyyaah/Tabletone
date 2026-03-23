@@ -235,6 +235,8 @@ async function toggleScreenShare() {
 
 // ── Socket events ─────────────────────────────────────────────────────────────
 
+function initCallSocketHandlers(socket) {
+
 socket.on('call_offer', async ({ from_user_id, from_username, sdp, is_video, avatar_letter, avatar_color }) => {
     if (callPeerConnection) { socket.emit('call_reject', { to_user_id: from_user_id }); return; }
     callTargetUserId = from_user_id;
@@ -271,3 +273,5 @@ socket.on('call_ice', async ({ candidate }) => {
 
 socket.on('call_end',    () => { _cleanupCall(); });
 socket.on('call_reject', () => { _setCallStatus('Otkloneno'); setTimeout(_cleanupCall, 1500); });
+
+}

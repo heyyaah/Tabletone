@@ -12173,6 +12173,8 @@ def business_is_open(user_id):
     except Exception as e:
         result['error'] = str(e)
     return jsonify(result)
+
+@app.route('/user/msg-price', methods=['GET', 'POST'])
 def msg_price_settings():
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401
