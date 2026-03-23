@@ -1,4 +1,4 @@
-﻿import eventlet
+import eventlet
 eventlet.monkey_patch()
 
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response
@@ -733,6 +733,8 @@ class NFTCollection(db.Model):
     price_sparks = db.Column(db.Integer, default=0)           # цена покупки в искрах
     image_url = db.Column(db.String(500))                     # базовое изображение
     bg_color = db.Column(db.String(20), default='#2d3748')    # цвет фона карточки
+    pattern = db.Column(db.String(30), default='none')        # узор: none, dots, lines, grid, waves
+    model = db.Column(db.String(10), default='🔮')            # emoji-модель NFT
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     items = db.relationship('NFTItem', backref='collection', lazy='dynamic')
@@ -10270,7 +10272,7 @@ def api_admin_gift_catalog():
     nfts  = NFTCollection.query.filter_by(is_active=True).all()
     return jsonify({
         'gifts': [{'id': g.id, 'name': g.name, 'emoji': g.emoji, 'rarity': g.rarity} for g in gifts],
-        'nfts':  [{'id': c.id, 'name': c.name, 'bg_color': c.bg_color} for c in nfts],
+        'nfts':  [{'id': c.id, 'name': c.name, 'bg_color': c.bg_color, 'pattern': getattr(c,'pattern','none'), 'model': getattr(c,'model','🔮')} for c in nfts],
     })
 
 import logging
@@ -11482,7 +11484,7 @@ def admin_nft_list():
             'id': c.id, 'name': c.name, 'description': c.description,
             'total_supply': c.total_supply, 'minted': minted, 'items_generated': total_items,
             'price_sparks': c.price_sparks, 'image_url': c.image_url,
-            'bg_color': c.bg_color, 'is_active': c.is_active,
+            'bg_color': c.bg_color, 'pattern': getattr(c,'pattern','none'), 'model': getattr(c,'model','🔮'), 'is_active': c.is_active,
         })
     return jsonify({'collections': result})
 
@@ -11499,6 +11501,8 @@ def admin_nft_create():
         price_sparks=int(data.get('price_sparks', 100)),
         image_url=data.get('image_url', ''),
         bg_color=data.get('bg_color', '#2d3748'),
+        pattern=data.get('pattern', 'none'),
+        model=data.get('model', '🔮'),
         is_active=data.get('is_active', True),
     )
     db.session.add(col)
@@ -11526,7 +11530,7 @@ def admin_nft_update(cid):
     if not u or u.admin_role not in ('owner', 'senior_admin'): return jsonify({'error': 'Forbidden'}), 403
     col = NFTCollection.query.get_or_404(cid)
     data = request.get_json() or {}
-    for field in ('name', 'description', 'price_sparks', 'image_url', 'bg_color', 'is_active', 'total_supply'):
+    for field in ('name', 'description', 'price_sparks', 'image_url', 'bg_color', 'pattern', 'model', 'is_active', 'total_supply'):
         if field in data:
             setattr(col, field, data[field])
     db.session.commit()
@@ -11620,7 +11624,7 @@ def nft_collections():
             'id': c.id, 'name': c.name, 'description': c.description,
             'total_supply': c.total_supply, 'minted': minted,
             'price_sparks': c.price_sparks, 'image_url': c.image_url,
-            'bg_color': c.bg_color,
+            'bg_color': c.bg_color, 'pattern': getattr(c,'pattern','none'), 'model': getattr(c,'model','🔮'),
         })
     return jsonify({'collections': result})
 
@@ -11657,7 +11661,7 @@ def nft_buy(collection_id):
             'total_supply': col.total_supply,
             'attributes': attrs,
             'value_sparks': item.value_sparks,
-            'bg_color': col.bg_color,
+            'bg_color': col.bg_color, 'pattern': getattr(col,'pattern','none'), 'model': getattr(col,'model','🔮'),
             'image_url': col.image_url,
         }
     })
@@ -11691,7 +11695,7 @@ def _nft_list_for_user(uid, public=False):
             'total_supply': col.total_supply,
             'attributes': attrs,
             'value_sparks': item.value_sparks,
-            'bg_color': col.bg_color,
+            'bg_color': col.bg_color, 'pattern': getattr(col,'pattern','none'), 'model': getattr(col,'model','🔮'),
             'image_url': col.image_url,
             'is_displayed': un.is_displayed,
             'acquired_at': un.acquired_at.isoformat(),
@@ -11734,7 +11738,7 @@ def nft_item_info(nft_item_id):
         'attributes': attrs,
         'attr_rarity': attr_stats,
         'value_sparks': item.value_sparks,
-        'bg_color': col.bg_color,
+        'bg_color': col.bg_color, 'pattern': getattr(col,'pattern','none'), 'model': getattr(col,'model','🔮'),
         'image_url': col.image_url,
         'owner': owner_name,
     })
