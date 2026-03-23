@@ -865,7 +865,8 @@ class UserWarning(db.Model):
     issuer = db.relationship('User', foreign_keys=[issued_by])
 
 # ── Блокировка пользователей ──────────────────────────────────────────────────
-class BlockedUser(db.Model):    id = db.Column(db.Integer, primary_key=True)
+class BlockedUser(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     blocked_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
