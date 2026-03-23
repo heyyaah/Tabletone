@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupProfileForm();
     loadSessions();
     setupAvatarUpload();
+    loadMonthlySparkStatus();
 });
 
 // Локальный fallback updateWallpaper если app.js не загружен
@@ -454,3 +455,49 @@ async function deleteAvatar() {
 }
 
 window.deleteAvatar = deleteAvatar;
+
+// ============================================
+// ЕЖЕМЕСЯЧНЫЕ ИСКРЫ
+// ============================================
+
+async function loadMonthlySparkStatus() {
+    const statusEl = document.getElementById('monthly-sparks-status');
+    const btnEl = document.getElementById('claim-sparks-btn');
+    if (!statusEl) return;
+    try {
+        const r = await fetch('/sparks/monthly-status');
+        const data = await r.json();
+        if (data.can_claim) {
+            statusEl.textContent = 'Доступно к получению!';
+            statusEl.style.color = '#38a169';
+            if (btnEl) btnEl.style.display = 'inline-flex';
+        } else {
+            statusEl.textContent = `Следующее начисление через ${data.days_left} дн.`;
+            statusEl.style.color = '#a0aec0';
+            if (btnEl) btnEl.style.display = 'none';
+        }
+    } catch(e) {
+        if (statusEl) statusEl.textContent = 'Ошибка загрузки';
+    }
+}
+
+async function claimMonthlySparks() {
+    const btn = document.getElementById('claim-sparks-btn');
+    if (btn) btn.disabled = true;
+    try {
+        const r = await fetch('/sparks/claim-monthly', { method: 'POST' });
+        const data = await r.json();
+        if (data.success) {
+            showSuccessMessage(data.message || 'Начислено 100 ✨ искр!');
+            loadMonthlySparkStatus();
+        } else {
+            alert(data.message || 'Ошибка');
+            if (btn) btn.disabled = false;
+        }
+    } catch(e) {
+        alert('Ошибка сети');
+        if (btn) btn.disabled = false;
+    }
+}
+
+window.claimMonthlySparks = claimMonthlySparks;

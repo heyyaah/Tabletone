@@ -636,6 +636,7 @@ class SparkBalance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
     balance = db.Column(db.Integer, default=0)
+    sparks_last_monthly = db.Column(db.DateTime, nullable=True)  # Когда последний раз начислялись ежемесячные искры
     user = db.relationship('User', foreign_keys=[user_id])
 
 class SparkTransaction(db.Model):
@@ -1010,6 +1011,7 @@ def _init_db():
                 'ALTER TABLE message ALTER COLUMN media_url TYPE TEXT',
                 'ALTER TABLE message_media ALTER COLUMN media_url TYPE TEXT',
                 'ALTER TABLE group_message ADD COLUMN IF NOT EXISTS topic_id INTEGER REFERENCES group_topic(id)',
+                f"ALTER TABLE spark_balance ADD COLUMN IF NOT EXISTS sparks_last_monthly {ts_type}",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT 0",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
@@ -1066,6 +1068,7 @@ def _init_db():
                 "ALTER TABLE message ADD COLUMN is_secret BOOLEAN DEFAULT 0",
                 "ALTER TABLE message ADD COLUMN secret_chat_id INTEGER",
                 "ALTER TABLE group_message ADD COLUMN topic_id INTEGER REFERENCES group_topic(id)",
+                f"ALTER TABLE spark_balance ADD COLUMN sparks_last_monthly {ts_type}",
             ]
 
         with db.engine.connect() as conn:
@@ -9130,6 +9133,39 @@ def sparks_history():
         return jsonify({'error': 'Unauthorized'}), 401
     txs = SparkTransaction.query.filter_by(user_id=session['user_id']).order_by(SparkTransaction.created_at.desc()).limit(50).all()
     return jsonify({'transactions': [{'amount': t.amount, 'reason': t.reason, 'created_at': t.created_at.isoformat()} for t in txs]})
+
+@app.route('/sparks/claim-monthly', methods=['POST'])
+def sparks_claim_monthly():
+    """Получить ежемесячные 100 искр (доступно всем пользователям раз в месяц)."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    uid = session['user_id']
+    sb = _get_spark_balance(uid)
+    now = datetime.utcnow()
+    if sb.sparks_last_monthly:
+        days_since = (now - sb.sparks_last_monthly).days
+        if days_since < 30:
+            days_left = 30 - days_since
+            return jsonify({'error': 'already_claimed', 'days_left': days_left,
+                            'message': f'Следующее начисление через {days_left} дн.'}), 400
+    _add_sparks(uid, 100, 'monthly_grant')
+    sb.sparks_last_monthly = now
+    db.session.commit()
+    return jsonify({'success': True, 'balance': sb.balance, 'message': 'Начислено 100 ✨ искр!'})
+
+@app.route('/sparks/monthly-status')
+def sparks_monthly_status():
+    """Статус ежемесячного начисления."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    sb = _get_spark_balance(session['user_id'])
+    now = datetime.utcnow()
+    if not sb.sparks_last_monthly:
+        return jsonify({'can_claim': True, 'days_left': 0})
+    days_since = (now - sb.sparks_last_monthly).days
+    if days_since >= 30:
+        return jsonify({'can_claim': True, 'days_left': 0})
+    return jsonify({'can_claim': False, 'days_left': 30 - days_since})
 
 @app.route('/sparks/react/<int:msg_id>', methods=['POST'])
 def spark_react(msg_id):
