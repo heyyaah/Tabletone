@@ -9136,10 +9136,13 @@ def sparks_history():
 
 @app.route('/sparks/claim-monthly', methods=['POST'])
 def sparks_claim_monthly():
-    """Получить ежемесячные 100 искр (доступно всем пользователям раз в месяц)."""
+    """Получить ежемесячные 100 искр (только для Premium пользователей)."""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     uid = session['user_id']
+    user = User.query.get(uid)
+    if not user or (not user.is_premium and not user.is_admin):
+        return jsonify({'error': 'premium_required', 'message': 'Ежемесячные искры доступны только для Premium пользователей'}), 403
     sb = _get_spark_balance(uid)
     now = datetime.utcnow()
     if sb.sparks_last_monthly:
@@ -9158,7 +9161,11 @@ def sparks_monthly_status():
     """Статус ежемесячного начисления."""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    sb = _get_spark_balance(session['user_id'])
+    uid = session['user_id']
+    user = User.query.get(uid)
+    if not user or (not user.is_premium and not user.is_admin):
+        return jsonify({'can_claim': False, 'days_left': 0, 'premium_required': True})
+    sb = _get_spark_balance(uid)
     now = datetime.utcnow()
     if not sb.sparks_last_monthly:
         return jsonify({'can_claim': True, 'days_left': 0})

@@ -467,7 +467,11 @@ async function loadMonthlySparkStatus() {
     try {
         const r = await fetch('/sparks/monthly-status');
         const data = await r.json();
-        if (data.can_claim) {
+        if (data.premium_required) {
+            statusEl.innerHTML = '<i class="fas fa-lock" style="margin-right:4px;"></i>Только для Premium пользователей';
+            statusEl.style.color = '#a0aec0';
+            if (btnEl) btnEl.style.display = 'none';
+        } else if (data.can_claim) {
             statusEl.textContent = 'Доступно к получению!';
             statusEl.style.color = '#38a169';
             if (btnEl) btnEl.style.display = 'inline-flex';
