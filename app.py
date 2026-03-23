@@ -248,6 +248,16 @@ class User(db.Model):
     warnings_count          = db.Column(db.Integer, default=0)  # Предупреждения пользователя
     is_business             = db.Column(db.Boolean, default=False)   # Business-мод
     business_until          = db.Column(db.DateTime, nullable=True)  # Дата окончания Business
+    # ── Business поля ────────────────────────────────────────────────────────
+    business_address        = db.Column(db.String(200), nullable=True)   # Адрес компании
+    business_hours          = db.Column(db.String(200), nullable=True)   # JSON: {"mon":"09:00-18:00",...}
+    business_quick_replies  = db.Column(db.Text, nullable=True)          # JSON: [{"title":"...","text":"..."}]
+    business_greeting       = db.Column(db.String(500), nullable=True)   # Приветствие новому пользователю
+    business_away_msg       = db.Column(db.String(500), nullable=True)   # Автоответ в нерабочее время
+    business_chat_link_text = db.Column(db.String(200), nullable=True)   # Текст для ссылки на чат
+    business_welcome_msg    = db.Column(db.String(500), nullable=True)   # Сообщение на пустом чате
+    business_welcome_sticker= db.Column(db.String(100), nullable=True)   # Стикер на пустом чате
+    business_tags           = db.Column(db.Text, nullable=True)          # JSON: {"chat_id": "tag"}
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -1016,6 +1026,15 @@ def _init_db():
                 f"ALTER TABLE spark_balance ADD COLUMN IF NOT EXISTS sparks_last_monthly {ts_type}",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS is_business BOOLEAN DEFAULT FALSE",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_until {ts_type}",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_address VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_hours VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_quick_replies TEXT",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_greeting VARCHAR(500)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_away_msg VARCHAR(500)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_chat_link_text VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_welcome_msg VARCHAR(500)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_welcome_sticker VARCHAR(100)",
+                f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_tags TEXT",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT 0",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
@@ -1075,6 +1094,15 @@ def _init_db():
                 f"ALTER TABLE spark_balance ADD COLUMN sparks_last_monthly {ts_type}",
                 f"ALTER TABLE {user_table} ADD COLUMN is_business BOOLEAN DEFAULT 0",
                 f"ALTER TABLE {user_table} ADD COLUMN business_until {ts_type}",
+                f"ALTER TABLE {user_table} ADD COLUMN business_address VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_hours VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_quick_replies TEXT",
+                f"ALTER TABLE {user_table} ADD COLUMN business_greeting VARCHAR(500)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_away_msg VARCHAR(500)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_chat_link_text VARCHAR(200)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_welcome_msg VARCHAR(500)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_welcome_sticker VARCHAR(100)",
+                f"ALTER TABLE {user_table} ADD COLUMN business_tags TEXT",
             ]
 
         with db.engine.connect() as conn:
@@ -3593,6 +3621,67 @@ def send_message():
         db.session.rollback()
         print(f'[auto_reply] error: {_e}')
 
+    # Business автоответы
+    try:
+        if getattr(receiver, 'is_business', False) and not receiver.is_bot:
+            import pytz as _pytz
+            _sender_id = session['user_id']
+            _prev_msg = Message.query.filter(
+                ((Message.sender_id == receiver_id) & (Message.receiver_id == _sender_id)) |
+                ((Message.sender_id == _sender_id) & (Message.receiver_id == receiver_id))
+            ).filter(Message.id != message.id).first()
+            _is_first = _prev_msg is None
+
+            def _biz_send(text, mtype='text'):
+                _m = Message(sender_id=receiver_id, receiver_id=_sender_id,
+                             content=encrypt_msg(text), message_type=mtype)
+                db.session.add(_m)
+                db.session.flush()
+                socketio.emit('new_message', {
+                    'message': {'id': _m.id, 'sender_id': receiver_id, 'content': text,
+                                'timestamp': _m.timestamp.strftime('%H:%M %d.%m'),
+                                'timestamp_iso': _m.timestamp.isoformat() + 'Z',
+                                'is_mine': False, 'is_auto_reply': True},
+                    'other_user_id': receiver_id,
+                    'sender_info': {'id': receiver.id, 'username': receiver.username,
+                                    'display_name': receiver.display_name or receiver.username,
+                                    'avatar_color': receiver.avatar_color,
+                                    'avatar_letter': receiver.get_avatar_letter()}
+                }, room=f'user_{_sender_id}', namespace='/')
+
+            # Приветствие — только первое сообщение
+            if _is_first and receiver.business_greeting:
+                _biz_send(receiver.business_greeting)
+
+            # Автоответ в нерабочее время
+            if receiver.business_away_msg and receiver.business_hours:
+                try:
+                    _hours = json.loads(receiver.business_hours)
+                    _tz = _pytz.timezone(receiver.timezone or 'Europe/Moscow')
+                    _now = datetime.now(_tz)
+                    _day = ['mon','tue','wed','thu','fri','sat','sun'][_now.weekday()]
+                    _dh = _hours.get(_day, '')
+                    _is_open = False
+                    if _dh and '-' in _dh:
+                        _ot, _ct = _dh.split('-', 1)
+                        _oh, _om = map(int, _ot.split(':'))
+                        _ch, _cm = map(int, _ct.split(':'))
+                        _cur = _now.hour * 60 + _now.minute
+                        _is_open = (_oh * 60 + _om) <= _cur < (_ch * 60 + _cm)
+                    if not _is_open:
+                        _recent_away = Message.query.filter_by(
+                            sender_id=receiver_id, receiver_id=_sender_id
+                        ).filter(Message.timestamp >= datetime.utcnow() - timedelta(hours=1)).first()
+                        if not _recent_away:
+                            _biz_send(receiver.business_away_msg)
+                except Exception:
+                    pass
+
+            db.session.commit()
+    except Exception as _be:
+        db.session.rollback()
+        print(f'[business_auto] error: {_be}')
+
     return jsonify({
         'success': True,
         'message_id': message.id,
@@ -4340,6 +4429,15 @@ def get_users():
         return jsonify({'error': 'Не авторизован'}), 401
     
     try:
+        # Загружаем теги текущего пользователя (Business)
+        _me = User.query.get(session['user_id'])
+        _my_tags = {}
+        try:
+            if _me and getattr(_me, 'business_tags', None):
+                _my_tags = json.loads(_me.business_tags)
+        except Exception:
+            pass
+
         # Получаем пользователей, с которыми есть переписка
         # Используем CASE для эмуляции greatest/least в SQLite
         subquery = db.session.query(
@@ -4419,9 +4517,10 @@ def get_users():
                     'is_bot': user.is_bot,
                     'is_online': user.id in online_users,
                     'last_seen': user.last_seen.isoformat() if user.last_seen else None,
-                    'last_message_time': sort_timestamp.isoformat() + 'Z',  # ISO формат UTC для клиента
+                    'last_message_time': sort_timestamp.isoformat() + 'Z',
                     'last_message': last_message_text,
-                    'unread_count': unread_count
+                    'unread_count': unread_count,
+                    'chat_tag': _my_tags.get(str(user.id), None),
                 })
         
         # Сортируем по времени последнего сообщения (новые сверху)
@@ -4507,6 +4606,11 @@ def get_user_info(user_id):
         'is_verified': user.is_verified,
         'is_premium': user.is_premium,
         'is_business': getattr(user, 'is_business', False),
+        'business_address': getattr(user, 'business_address', None),
+        'business_hours': json.loads(user.business_hours) if getattr(user, 'business_hours', None) else {},
+        'business_welcome_msg': getattr(user, 'business_welcome_msg', None),
+        'business_welcome_sticker': getattr(user, 'business_welcome_sticker', None),
+        'business_chat_link_text': getattr(user, 'business_chat_link_text', None),
         'is_bot': user.is_bot,
         'reputation': user.reputation if user.reputation is not None else 100,
         'premium_emoji': user.premium_emoji,
@@ -11961,7 +12065,114 @@ def auto_reply_settings():
         return jsonify({'success': True, 'text': user.auto_reply_text})
     return jsonify({'text': getattr(user, 'auto_reply_text', None) or ''})
 
-@app.route('/user/msg-price', methods=['GET', 'POST'])
+@app.route('/business/settings', methods=['GET', 'POST'])
+def business_settings():
+    """Настройки Business-мода."""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Не авторизован'}), 401
+    user = User.query.get(session['user_id'])
+    if not user or (not user.is_business and not user.is_admin):
+        return jsonify({'error': 'Требуется Business'}), 403
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        if 'address' in data:
+            user.business_address = data['address'][:200] if data['address'] else None
+        if 'hours' in data:
+            user.business_hours = json.dumps(data['hours']) if data['hours'] else None
+        if 'quick_replies' in data:
+            qr = data['quick_replies']
+            if isinstance(qr, list):
+                qr = qr[:20]  # max 20
+                for item in qr:
+                    item['title'] = item.get('title', '')[:50]
+                    item['text'] = item.get('text', '')[:500]
+            user.business_quick_replies = json.dumps(qr) if qr else None
+        if 'greeting' in data:
+            user.business_greeting = data['greeting'][:500] if data['greeting'] else None
+        if 'away_msg' in data:
+            user.business_away_msg = data['away_msg'][:500] if data['away_msg'] else None
+        if 'chat_link_text' in data:
+            user.business_chat_link_text = data['chat_link_text'][:200] if data['chat_link_text'] else None
+        if 'welcome_msg' in data:
+            user.business_welcome_msg = data['welcome_msg'][:500] if data['welcome_msg'] else None
+        if 'welcome_sticker' in data:
+            user.business_welcome_sticker = data['welcome_sticker'][:100] if data['welcome_sticker'] else None
+        if 'tags' in data:
+            user.business_tags = json.dumps(data['tags']) if data['tags'] else None
+        db.session.commit()
+        return jsonify({'success': True})
+    # GET
+    import pytz
+    def _parse_hours(h):
+        try: return json.loads(h) if h else {}
+        except: return {}
+    hours = _parse_hours(user.business_hours)
+    # Определяем открыто/закрыто по timezone пользователя
+    is_open = False
+    try:
+        tz = pytz.timezone(user.timezone or 'Europe/Moscow')
+        now_local = datetime.now(tz)
+        day_key = ['mon','tue','wed','thu','fri','sat','sun'][now_local.weekday()]
+        day_hours = hours.get(day_key, '')
+        if day_hours and '-' in day_hours:
+            open_t, close_t = day_hours.split('-', 1)
+            oh, om = map(int, open_t.split(':'))
+            ch, cm = map(int, close_t.split(':'))
+            cur_min = now_local.hour * 60 + now_local.minute
+            is_open = (oh * 60 + om) <= cur_min < (ch * 60 + cm)
+    except Exception:
+        pass
+    def _parse_json(v):
+        try: return json.loads(v) if v else None
+        except: return None
+    return jsonify({
+        'address': user.business_address,
+        'hours': hours,
+        'is_open': is_open,
+        'quick_replies': _parse_json(user.business_quick_replies) or [],
+        'greeting': user.business_greeting,
+        'away_msg': user.business_away_msg,
+        'chat_link_text': user.business_chat_link_text,
+        'welcome_msg': user.business_welcome_msg,
+        'welcome_sticker': user.business_welcome_sticker,
+        'tags': _parse_json(user.business_tags) or {},
+    })
+
+@app.route('/business/chat-link/<username>')
+def business_chat_link(username):
+    """Открыть чат с пользователем с предзаполненным текстом."""
+    user = User.query.filter_by(username=username).first_or_404()
+    text = request.args.get('text', user.business_chat_link_text or '')
+    return redirect(f'/?open_chat={username}&prefill={text}')
+
+@app.route('/business/is-open/<int:user_id>')
+def business_is_open(user_id):
+    """Проверить открыт ли бизнес сейчас (с учётом timezone запрашивающего)."""
+    import pytz
+    target = User.query.get_or_404(user_id)
+    viewer_tz_str = request.args.get('tz', 'Europe/Moscow')
+    result = {'is_open': False, 'owner_time': None, 'viewer_time': None, 'hours_today': None}
+    try:
+        hours = json.loads(target.business_hours or '{}')
+        owner_tz = pytz.timezone(target.timezone or 'Europe/Moscow')
+        viewer_tz = pytz.timezone(viewer_tz_str)
+        now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+        now_owner = now_utc.astimezone(owner_tz)
+        now_viewer = now_utc.astimezone(viewer_tz)
+        day_key = ['mon','tue','wed','thu','fri','sat','sun'][now_owner.weekday()]
+        day_hours = hours.get(day_key, '')
+        result['owner_time'] = now_owner.strftime('%H:%M')
+        result['viewer_time'] = now_viewer.strftime('%H:%M')
+        result['hours_today'] = day_hours
+        if day_hours and '-' in day_hours:
+            open_t, close_t = day_hours.split('-', 1)
+            oh, om = map(int, open_t.split(':'))
+            ch, cm = map(int, close_t.split(':'))
+            cur_min = now_owner.hour * 60 + now_owner.minute
+            result['is_open'] = (oh * 60 + om) <= cur_min < (ch * 60 + cm)
+    except Exception as e:
+        result['error'] = str(e)
+    return jsonify(result)
 def msg_price_settings():
     if 'user_id' not in session:
         return jsonify({'error': 'Не авторизован'}), 401

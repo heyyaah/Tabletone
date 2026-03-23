@@ -237,6 +237,50 @@ function handleProfileUpdate(userInfo) {
             const verifiedBadge = userInfo.is_verified ? ' <i class="fas fa-check-circle" style="color: #667eea;"></i>' : '';
             const businessBadge1 = userInfo.is_business ? ' <span style="font-size:13px;" title="Business">💼</span>' : '';
             chatUsername.innerHTML = escapeHtml(userInfo.display_name || userInfo.username) + verifiedBadge + businessBadge1;
+            // Store user data for empty chat welcome
+            window._currentChatUserData = userInfo;
+            // Business info panel
+            const _existingBizPanel = document.getElementById('_biz-info-panel');
+            if (_existingBizPanel) _existingBizPanel.remove();
+            if (userInfo.is_business) {
+                fetch(`/business/is-open/${userInfo.id}?tz=${Intl.DateTimeFormat().resolvedOptions().timeZone}`)
+                    .then(r => r.json()).then(biz => {
+                        const _panel = document.createElement('div');
+                        _panel.id = '_biz-info-panel';
+                        _panel.style.cssText = 'background:linear-gradient(135deg,rgba(49,130,206,0.08),rgba(66,153,225,0.06));border-bottom:1px solid rgba(49,130,206,0.2);padding:6px 16px;font-size:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;';
+                        const openBadge = biz.is_open
+                            ? '<span style="background:#38a169;color:#fff;padding:1px 8px;border-radius:8px;font-weight:700;">Открыто</span>'
+                            : '<span style="background:#e53e3e;color:#fff;padding:1px 8px;border-radius:8px;font-weight:700;">Закрыто</span>';
+                        const ownerTime = biz.owner_time ? `<span style="color:#718096;">Время компании: ${biz.owner_time}</span>` : '';
+                        const viewerTime = biz.viewer_time ? `<span style="color:#718096;">Ваше время: ${biz.viewer_time}</span>` : '';
+                        const hoursText = biz.hours_today ? `<span style="color:#718096;">Сегодня: ${biz.hours_today}</span>` : '';
+                        const addrText = userInfo.business_address ? `<span style="color:#718096;"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(userInfo.business_address)}</span>` : '';
+                        _panel.innerHTML = openBadge + ownerTime + viewerTime + hoursText + addrText;
+                        const _msgContainer = document.querySelector('.message-input-container');
+                        if (_msgContainer) _msgContainer.parentElement.insertBefore(_panel, _msgContainer);
+                    }).catch(() => {});
+                // Quick replies
+                const _existingQR = document.getElementById('_biz-quick-replies');
+                if (_existingQR) _existingQR.remove();
+                if (userInfo.business_quick_replies && userInfo.business_quick_replies.length) {
+                    const _qrPanel = document.createElement('div');
+                    _qrPanel.id = '_biz-quick-replies';
+                    _qrPanel.style.cssText = 'padding:6px 16px 4px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border-color,#e2e8f0);';
+                    userInfo.business_quick_replies.forEach(qr => {
+                        const btn = document.createElement('button');
+                        btn.style.cssText = 'background:rgba(102,126,234,0.1);border:1px solid rgba(102,126,234,0.3);color:var(--text-primary);border-radius:12px;padding:3px 12px;font-size:12px;cursor:pointer;white-space:nowrap;';
+                        btn.textContent = qr.title || qr.text;
+                        btn.title = qr.text;
+                        btn.onclick = () => {
+                            const inp = document.getElementById('message-input');
+                            if (inp) { inp.value = qr.text; inp.focus(); }
+                        };
+                        _qrPanel.appendChild(btn);
+                    });
+                    const _msgContainer2 = document.querySelector('.message-input-container');
+                    if (_msgContainer2) _msgContainer2.parentElement.insertBefore(_qrPanel, _msgContainer2);
+                }
+            }
         }
         
         if (chatAvatar) {
@@ -948,7 +992,7 @@ function displayAllChats(chats) {
                         ${avatarContent}
                     </div>
                     <div class="chat-info">
-                        <div class="chat-username">${escapeHtml(chat.display_name || chat.username)}${verifiedBadge}${businessBadge3}${botBadge}</div>
+                        <div class="chat-username">${escapeHtml(chat.display_name || chat.username)}${verifiedBadge}${businessBadge3}${botBadge}${chat.chat_tag ? '<span style="background:rgba(102,126,234,0.15);color:#667eea;font-size:10px;padding:1px 7px;border-radius:8px;margin-left:5px;font-weight:600;">' + escapeHtml(chat.chat_tag) + '</span>' : ''}</div>
                         <div class="chat-last-message" style="color: #a0aec0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(lastMessageText)}</div>
                     </div>
                     ${unreadBadge}
@@ -1585,13 +1629,26 @@ function displayMessages(messages) {
     hideTypingIndicator();
     
     if (!messages || messages.length === 0) {
-        container.innerHTML = `
-            <div class="no-messages">
-                <i class="fas fa-comment-medical"></i>
-                <p>Начните общение с этим пользователем</p>
-                <p class="hint">Напишите первое сообщение</p>
-            </div>
-        `;
+        // Business welcome message on empty chat
+        const _bizWelcomeMsg = window._currentChatUserData && window._currentChatUserData.business_welcome_msg;
+        const _bizWelcomeSticker = window._currentChatUserData && window._currentChatUserData.business_welcome_sticker;
+        if (_bizWelcomeMsg || _bizWelcomeSticker) {
+            container.innerHTML = `
+                <div class="no-messages" style="gap:12px;">
+                    ${_bizWelcomeSticker ? `<img src="/static/media/stickers/${escapeHtml(_bizWelcomeSticker)}" style="width:80px;height:80px;object-fit:contain;" onerror="this.style.display='none'">` : '<i class="fas fa-briefcase" style="color:#4299e1;font-size:32px;"></i>'}
+                    ${_bizWelcomeMsg ? `<p style="font-size:15px;font-weight:600;">${escapeHtml(_bizWelcomeMsg)}</p>` : ''}
+                    <p class="hint">Напишите первое сообщение</p>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="no-messages">
+                    <i class="fas fa-comment-medical"></i>
+                    <p>Начните общение с этим пользователем</p>
+                    <p class="hint">Напишите первое сообщение</p>
+                </div>
+            `;
+        }
         return;
     }
     

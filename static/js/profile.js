@@ -505,3 +505,115 @@ async function claimMonthlySparks() {
 }
 
 window.claimMonthlySparks = claimMonthlySparks;
+
+// ── Business настройки ────────────────────────────────────────────────────────
+function toggleBizDay(day) {
+    const check = document.querySelector(`.biz-day-check[data-day="${day}"]`);
+    const panel = document.getElementById(`biz-hours-${day}`);
+    if (panel) panel.style.display = check && check.checked ? 'flex' : 'none';
+}
+
+async function saveBusinessSettings() {
+    const status = document.getElementById('biz-save-status');
+    // Часы работы
+    const hours = {};
+    document.querySelectorAll('.biz-day-check').forEach(cb => {
+        const day = cb.dataset.day;
+        const fromEl = document.querySelector(`.biz-time-from[data-day="${day}"]`);
+        const toEl = document.querySelector(`.biz-time-to[data-day="${day}"]`);
+        hours[day] = { open: cb.checked, from: fromEl ? fromEl.value : '09:00', to: toEl ? toEl.value : '18:00' };
+    });
+    // Быстрые ответы
+    const qrRaw = (document.getElementById('biz-quick-replies') || {}).value || '';
+    const quick_replies = qrRaw.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+        const idx = l.indexOf('|');
+        if (idx === -1) return { title: l, text: l };
+        return { title: l.slice(0, idx).trim(), text: l.slice(idx + 1).trim() };
+    });
+    // Теги
+    const tagsRaw = (document.getElementById('biz-tags') || {}).value || '';
+    const tags = {};
+    tagsRaw.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
+        const idx = l.indexOf('|');
+        if (idx !== -1) tags[l.slice(0, idx).trim()] = l.slice(idx + 1).trim();
+    });
+
+    const payload = {
+        address: (document.getElementById('biz-address') || {}).value || '',
+        hours: hours,
+        quick_replies: quick_replies,
+        greeting: (document.getElementById('biz-greeting') || {}).value || '',
+        away_msg: (document.getElementById('biz-away-msg') || {}).value || '',
+        welcome_msg: (document.getElementById('biz-welcome-msg') || {}).value || '',
+        welcome_sticker: (document.getElementById('biz-welcome-sticker') || {}).value || '',
+        chat_link_text: (document.getElementById('biz-chat-link-text') || {}).value || '',
+        tags: tags,
+    };
+
+    try {
+        const r = await fetch('/business/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        if (d.success) {
+            status.innerHTML = '<i class="fas fa-check-circle" style="color:#38a169;"></i> Сохранено';
+            setTimeout(() => { status.innerHTML = ''; }, 3000);
+        } else {
+            status.innerHTML = `<span style="color:#e53e3e;">${d.error || 'Ошибка'}</span>`;
+        }
+    } catch(e) {
+        status.innerHTML = '<span style="color:#e53e3e;">Ошибка сети</span>';
+    }
+}
+
+// Загрузка business настроек при открытии страницы
+(async function initBusinessSettings() {
+    if (!document.getElementById('business-settings-section')) return;
+    try {
+        const r = await fetch('/business/settings');
+        if (!r.ok) return;
+        const d = await r.json();
+        // Адрес
+        const addrEl = document.getElementById('biz-address');
+        if (addrEl && d.address) addrEl.value = d.address;
+        // Часы работы
+        if (d.hours && typeof d.hours === 'object') {
+            Object.entries(d.hours).forEach(([day, val]) => {
+                const cb = document.querySelector(`.biz-day-check[data-day="${day}"]`);
+                const fromEl = document.querySelector(`.biz-time-from[data-day="${day}"]`);
+                const toEl = document.querySelector(`.biz-time-to[data-day="${day}"]`);
+                const panel = document.getElementById(`biz-hours-${day}`);
+                if (cb && val) {
+                    cb.checked = !!val.open;
+                    if (panel) panel.style.display = val.open ? 'flex' : 'none';
+                    if (fromEl && val.from) fromEl.value = val.from;
+                    if (toEl && val.to) toEl.value = val.to;
+                }
+            });
+        }
+        // Быстрые ответы
+        const qrEl = document.getElementById('biz-quick-replies');
+        if (qrEl && d.quick_replies && d.quick_replies.length) {
+            qrEl.value = d.quick_replies.map(q => `${q.title} | ${q.text}`).join('\n');
+        }
+        // Остальные поля
+        const fields = {
+            'biz-greeting': d.greeting,
+            'biz-away-msg': d.away_msg,
+            'biz-welcome-msg': d.welcome_msg,
+            'biz-welcome-sticker': d.welcome_sticker,
+            'biz-chat-link-text': d.chat_link_text,
+        };
+        Object.entries(fields).forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            if (el && val) el.value = val;
+        });
+        // Теги
+        const tagsEl = document.getElementById('biz-tags');
+        if (tagsEl && d.tags && typeof d.tags === 'object') {
+            tagsEl.value = Object.entries(d.tags).map(([u, t]) => `${u} | ${t}`).join('\n');
+        }
+    } catch(e) {}
+})();
