@@ -1419,6 +1419,9 @@ async function openChat(userId, username) {
     const sidebar = document.getElementById('sidebar');
     const chatArea = document.getElementById('chat-area');
     const backBtn = document.getElementById('back-to-chats-btn');
+
+    // Удаляем дублирующую кнопку если есть (от старого кода)
+    document.querySelectorAll('.mobile-back-btn').forEach(el => el.remove());
     
     if (sidebar && chatArea) {
         if (window.innerWidth <= 768) {
@@ -2073,21 +2076,7 @@ window.setTheme = setTheme;
 window.loadTheme = loadTheme;
 // Настройка мобильной навигации
 function setupMobileNavigation() {
-    const isMobile = window.innerWidth <= 768;
-    
-    if (isMobile) {
-        // Добавляем кнопку назад, если её еще нет
-        const chatHeader = document.querySelector('.chat-header');
-        if (chatHeader && !chatHeader.querySelector('.mobile-back-btn')) {
-            const backButton = document.createElement('button');
-            backButton.className = 'mobile-back-btn';
-            backButton.innerHTML = '<i class="fas fa-arrow-left"></i>';
-            backButton.onclick = showChatList;
-            
-            const chatUserInfo = chatHeader.querySelector('.chat-user-info');
-            chatHeader.insertBefore(backButton, chatUserInfo);
-        }
-    }
+    // back-to-chats-btn уже есть в HTML, динамическое создание не нужно
 }
 
 // Показать список чатов на мобильных
@@ -3463,9 +3452,9 @@ async function openGroup(groupId, groupName) {
                 sidebar.classList.add('mobile-hidden');
                 chatArea.classList.add('mobile-active');
             }
-            
-            // Настраиваем кнопку назад
-            setupMobileNavigation();
+            document.querySelectorAll('.mobile-back-btn').forEach(el => el.remove());
+            const backBtn = document.getElementById('back-to-chats-btn');
+            if (backBtn) backBtn.style.display = 'flex';
         }
         
         // Сбрасываем активный класс у всех чатов
@@ -5094,11 +5083,10 @@ async function openFavorites() {
         const chatArea = document.getElementById('chat-area');
         if (sidebar) sidebar.classList.add('mobile-hidden');
         if (chatArea) chatArea.classList.add('mobile-active');
-        setupMobileNavigation();
+        document.querySelectorAll('.mobile-back-btn').forEach(el => el.remove());
+        const backBtn = document.getElementById('back-to-chats-btn');
+        if (backBtn) backBtn.style.display = 'flex';
     }
-
-    // Заголовок
-    const chatAvatar = document.getElementById('chat-header-avatar');
     if (chatAvatar) {
         chatAvatar.style.backgroundImage = 'none';
         chatAvatar.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
