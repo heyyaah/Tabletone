@@ -474,6 +474,19 @@ function setupEventListeners() {
 
     // Контекстное меню сообщений (long-press / правый клик)
     setupMessageContextMenu();
+
+    // Делегированные клики по медиа в альбомах
+    document.addEventListener('click', function(e) {
+        const imgItem = e.target.closest('[data-view-image]');
+        if (imgItem) {
+            viewImage(decodeURIComponent(imgItem.dataset.viewImage));
+            return;
+        }
+        const vidItem = e.target.closest('[data-play-video]');
+        if (vidItem) {
+            playAlbumVideo(decodeURIComponent(vidItem.dataset.playVideo));
+        }
+    });
 }
 
 // ─── Контекстное меню сообщений ───────────────────────────────────────────────
@@ -1688,13 +1701,13 @@ function createMessageHTML(msg) {
         msg.media_files.forEach((file, index) => {
             if (file.media_type === 'image') {
                 mediaHtml += `
-                    <div class="album-item" onclick="viewImage('${file.media_url}')">
+                    <div class="album-item" data-view-image="${encodeURIComponent(file.media_url)}">
                         <img src="${file.media_url}" alt="Изображение" loading="lazy">
                     </div>
                 `;
             } else if (file.media_type === 'video') {
                 mediaHtml += `
-                    <div class="album-item video-item" onclick="playAlbumVideo('${file.media_url}')">
+                    <div class="album-item video-item" data-play-video="${encodeURIComponent(file.media_url)}">
                         <video src="${file.media_url}#t=0.001" preload="auto" muted playsinline></video>
                         <div class="video-play-overlay">
                             <i class="fas fa-play"></i>
@@ -2159,29 +2172,31 @@ window.playVideoMessage = playVideoMessage;
 // Проигрывание обычного видео из альбома
 function playAlbumVideo(videoUrl) {
     const modal = document.createElement('div');
-    modal.className = 'modal active';
+    modal.className = 'video-modal active';
+    modal.style.cssText = 'border-radius:0;';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 90vw; max-height: 90vh; background: #000; padding: 0; overflow: hidden;">
-            <div style="position: relative; width: 100%; height: 100%;">
-                <video 
-                    id="_album_video_player"
-                    src="${videoUrl}" 
-                    controls 
-                    playsinline
-                    style="width: 100%; height: 100%; max-height: 90vh; object-fit: contain;">
-                </video>
-                <button 
-                    onclick="this.closest('.modal').remove()" 
-                    style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); border: none; color: white; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 10;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
+        <div style="position:relative;width:100%;max-width:100vw;max-height:100vh;display:flex;align-items:center;justify-content:center;">
+            <video
+                id="_album_video_player"
+                src="${videoUrl}"
+                controls
+                playsinline
+                webkit-playsinline
+                style="width:100%;max-width:100vw;max-height:90vh;object-fit:contain;background:#000;">
+            </video>
+            <button
+                onclick="this.closest('.video-modal').remove()"
+                style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.7);border:none;color:white;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:20px;z-index:10;display:flex;align-items:center;justify-content:center;">
+                ✕
+            </button>
         </div>
     `;
     document.body.appendChild(modal);
-    // Явный play() после монтирования — обходит политику автовоспроизведения
     const vid = modal.querySelector('#_album_video_player');
-    if (vid) vid.play().catch(() => {});
+    if (vid) {
+        vid.load();
+        vid.play().catch(() => {});
+    }
     modal.addEventListener('click', function(e) {
         if (e.target === modal) modal.remove();
     });
@@ -3080,14 +3095,20 @@ async function handleImageSelect(event) {
 function viewImage(imageUrl) {
     const modal = document.createElement('div');
     modal.className = 'image-preview-modal active';
-    modal.innerHTML = `
-        <div class="image-preview-container">
-            <button class="image-preview-close" onclick="this.closest('.image-preview-modal').remove()">
-                <i class="fas fa-times"></i>
-            </button>
-            <img src="${imageUrl}" alt="Изображение">
-        </div>
-    `;
+    const img = document.createElement('img');
+    img.style.cssText = 'max-width:100%;max-height:90vh;border-radius:4px;display:block;';
+    img.alt = 'Изображение';
+    img.onerror = () => { img.style.display = 'none'; };
+    img.src = imageUrl;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'image-preview-close';
+    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    closeBtn.onclick = () => modal.remove();
+    const container = document.createElement('div');
+    container.className = 'image-preview-container';
+    container.appendChild(closeBtn);
+    container.appendChild(img);
+    modal.appendChild(container);
     document.body.appendChild(modal);
     modal.addEventListener('click', function(e) {
         if (e.target === modal) modal.remove();
@@ -3731,13 +3752,13 @@ function createGroupMessageHTML(msg) {
         msg.media_files.forEach((file, index) => {
             if (file.media_type === 'image') {
                 mediaHtml += `
-                    <div class="album-item" onclick="viewImage('${file.media_url}')">
+                    <div class="album-item" data-view-image="${encodeURIComponent(file.media_url)}">
                         <img src="${file.media_url}" alt="Изображение" loading="lazy">
                     </div>
                 `;
             } else if (file.media_type === 'video') {
                 mediaHtml += `
-                    <div class="album-item video-item" onclick="playAlbumVideo('${file.media_url}')">
+                    <div class="album-item video-item" data-play-video="${encodeURIComponent(file.media_url)}">
                         <video src="${file.media_url}#t=0.001" preload="auto" muted playsinline></video>
                         <div class="video-play-overlay">
                             <i class="fas fa-play"></i>
