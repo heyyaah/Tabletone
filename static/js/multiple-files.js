@@ -50,7 +50,7 @@ function showFilesPreviewModal() {
                 <button class="btn" onclick="closeFilesPreviewModal()" style="flex: 1; background: var(--bg-secondary); color: var(--text-primary);">
                     <i class="fas fa-times"></i> Отмена
                 </button>
-                <button class="btn btn-primary" onclick="sendSelectedFiles()" style="flex: 2;">
+                <button class="btn btn-primary" id="files-send-btn" onclick="sendSelectedFiles()" style="flex: 2;">
                     <i class="fas fa-paper-plane"></i> Отправить
                 </button>
             </div>
@@ -172,7 +172,17 @@ function closeFilesPreviewModal() {
 async function sendSelectedFiles() {
     if (selectedFiles.length === 0) return;
     if (!currentChatUserId && !currentGroupId) return;
-    
+
+    const sendBtn = document.getElementById('files-send-btn');
+    if (sendBtn) {
+        if (sendBtn.disabled) return; // уже отправляется
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+    }
+    // Блокируем кнопку прикрепления
+    const attachBtn = document.getElementById('image-btn');
+    if (attachBtn) attachBtn.disabled = true;
+
     const caption = document.getElementById('files-caption-input').value.trim();
     
     try {
@@ -185,9 +195,14 @@ async function sendSelectedFiles() {
         closeFilesPreviewModal();
         showError('Файлы отправлены!', 'success');
         
-        // НЕ перезагружаем чаты - сообщение придет через Socket.IO
     } catch (error) {
         showError('Не удалось отправить файлы');
+    } finally {
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить';
+        }
+        if (attachBtn) attachBtn.disabled = false;
     }
 }
 

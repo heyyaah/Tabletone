@@ -1695,7 +1695,7 @@ function createMessageHTML(msg) {
             } else if (file.media_type === 'video') {
                 mediaHtml += `
                     <div class="album-item video-item" onclick="playAlbumVideo('${file.media_url}')">
-                        <video src="${file.media_url}" preload="metadata"></video>
+                        <video src="${file.media_url}#t=0.001" preload="auto" muted playsinline></video>
                         <div class="video-play-overlay">
                             <i class="fas fa-play"></i>
                         </div>
@@ -1766,6 +1766,18 @@ function createMessageHTML(msg) {
         } else {
             content = `<img src="${msg.media_url}" class="message-image" onclick="viewImage('${msg.media_url}')" alt="Изображение" loading="lazy">`;
         }
+    }
+    // Видео-кружочек
+    else if (msg.message_type === 'video_note' && msg.media_url) {
+        const dur = msg.duration || 0;
+        const m = String(Math.floor(dur / 60)).padStart(2, '0');
+        const s = String(dur % 60).padStart(2, '0');
+        content = `<div class="video-note-message">
+            <video class="video-note-circle" src="${msg.media_url}" loop playsinline
+                onclick="this.paused ? this.play() : this.pause()"
+                title="Нажмите для воспроизведения"></video>
+            <span class="voice-duration">${m}:${s}</span>
+        </div>`;
     }
     // Обычное текстовое сообщение
     else {
@@ -2146,16 +2158,15 @@ window.playVideoMessage = playVideoMessage;
 
 // Проигрывание обычного видео из альбома
 function playAlbumVideo(videoUrl) {
-    // Создаем модальное окно для просмотра обычного видео
     const modal = document.createElement('div');
     modal.className = 'modal active';
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 90vw; max-height: 90vh; background: #000; padding: 0; overflow: hidden;">
             <div style="position: relative; width: 100%; height: 100%;">
                 <video 
+                    id="_album_video_player"
                     src="${videoUrl}" 
                     controls 
-                    autoplay 
                     playsinline
                     style="width: 100%; height: 100%; max-height: 90vh; object-fit: contain;">
                 </video>
@@ -2168,12 +2179,11 @@ function playAlbumVideo(videoUrl) {
         </div>
     `;
     document.body.appendChild(modal);
-    
-    // Закрытие по клику вне видео
+    // Явный play() после монтирования — обходит политику автовоспроизведения
+    const vid = modal.querySelector('#_album_video_player');
+    if (vid) vid.play().catch(() => {});
     modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.remove();
-        }
+        if (e.target === modal) modal.remove();
     });
 }
 
@@ -3013,6 +3023,14 @@ async function handleImageSelect(event) {
         showError('Размер изображения не должен превышать 10MB');
         return;
     }
+
+    // Блокируем кнопку на время загрузки
+    const attachBtn = document.getElementById('image-btn');
+    if (attachBtn) {
+        if (attachBtn.disabled) return;
+        attachBtn.disabled = true;
+        attachBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
     
     // Создаем FormData
     const formData = new FormData();
@@ -3049,10 +3067,13 @@ async function handleImageSelect(event) {
     } catch (error) {
         console.error('Ошибка отправки изображения:', error);
         showError('Не удалось отправить изображение');
+    } finally {
+        if (attachBtn) {
+            attachBtn.disabled = false;
+            attachBtn.innerHTML = '<i class="fas fa-plus"></i>';
+        }
+        event.target.value = '';
     }
-    
-    // Очищаем input
-    event.target.value = '';
 }
 
 // Просмотр изображения
@@ -3717,7 +3738,7 @@ function createGroupMessageHTML(msg) {
             } else if (file.media_type === 'video') {
                 mediaHtml += `
                     <div class="album-item video-item" onclick="playAlbumVideo('${file.media_url}')">
-                        <video src="${file.media_url}" preload="metadata"></video>
+                        <video src="${file.media_url}#t=0.001" preload="auto" muted playsinline></video>
                         <div class="video-play-overlay">
                             <i class="fas fa-play"></i>
                         </div>

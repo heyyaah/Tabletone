@@ -3405,6 +3405,23 @@ body:not(.messenger-page) .container {
 }
 .voice-speed-btn:hover { background: var(--primary-light); color: var(--primary); }
 
+/* ═══ ВИДЕО-КРУЖОЧЕК ═══ */
+.video-note-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.video-note-circle {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    background: #000;
+    display: block;
+}
+
 /* ═══ СЕКРЕТНЫЙ ЧАТ — кнопка в меню ═══ */
 .secret-chat-btn {
     background: linear-gradient(135deg, #1a1a2e, #16213e);
