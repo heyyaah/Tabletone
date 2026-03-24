@@ -2253,6 +2253,9 @@ async function handleSendMessage(e) {
         optimisticEl.innerHTML = `<div class="message-content">${escapeHtml(content)}</div><div class="message-time" style="opacity:0.5">отправка...</div>`;
         if (container) { container.appendChild(optimisticEl); scrollToBottom(); }
         messageInput.value = '';
+        // Удаляем черновик после отправки
+        localStorage.removeItem('draft_group_' + currentGroupId);
+        document.getElementById('_draft-indicator')?.remove();
         _cancelReply();
         try {
             const response = await fetch(`/groups/${currentGroupId}/send`, {
@@ -2285,6 +2288,10 @@ async function handleSendMessage(e) {
     optimisticEl.innerHTML = `<div class="message-content">${escapeHtml(content)}</div><div class="message-time" style="opacity:0.5">отправка...</div>`;
     if (container) { container.appendChild(optimisticEl); scrollToBottom(); }
     messageInput.value = '';
+    // Удаляем черновик после отправки
+    const _draftKey = 'user_' + currentChatUserId;
+    localStorage.removeItem('draft_' + _draftKey);
+    document.getElementById('_draft-indicator')?.remove();
     _cancelReply();
 
     try {
@@ -2477,8 +2484,9 @@ function updateUserOnlineStatus(userId, isOnline, lastSeen = null) {
 // Форматирование времени "был(а) в сети"
 function formatLastSeen(lastSeenStr) {
     try {
-        // lastSeenStr теперь в формате ISO (например "2026-03-08T10:30:00")
-        const lastSeenDate = new Date(lastSeenStr);
+        // Добавляем Z если нет — сервер отдаёт UTC без суффикса
+        const iso = lastSeenStr.endsWith('Z') || lastSeenStr.includes('+') ? lastSeenStr : lastSeenStr + 'Z';
+        const lastSeenDate = new Date(iso);
         const now = new Date();
         
         const diffMs = now - lastSeenDate;
@@ -2492,9 +2500,9 @@ function formatLastSeen(lastSeenStr) {
         if (diffDays === 1) return 'вчера';
         if (diffDays < 7) return `${diffDays} дн. назад`;
         
-        // Для старых дат показываем дату
-        const day = String(lastSeenDate.getDate()).padStart(2, '0');
-        const month = String(lastSeenDate.getMonth() + 1).padStart(2, '0');
+        // Для старых дат показываем дату в часовом поясе текущего пользователя
+        const day = String(new Date(lastSeenDate.toLocaleString('en-US', { timeZone: userTimezone })).getDate()).padStart(2, '0');
+        const month = String(new Date(lastSeenDate.toLocaleString('en-US', { timeZone: userTimezone })).getMonth() + 1).padStart(2, '0');
         return `${day}.${month}`;
     } catch (e) {
         console.error('Error formatting last_seen:', e, lastSeenStr);
