@@ -957,8 +957,7 @@ def _init_db():
     with app.app_context():
         from sqlalchemy import text
 
-        # Создаём таблицы без новых колонок — временно отключаем email в метаданных
-        # через прямой SQL чтобы избежать конфликта
+        # Создаём таблицы (новые) — для существующих таблиц миграции ниже
         db.create_all()
 
         # Миграции с IF NOT EXISTS (PostgreSQL 9.6+)
@@ -1037,6 +1036,8 @@ def _init_db():
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_welcome_msg VARCHAR(500)",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_welcome_sticker VARCHAR(100)",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS business_tags TEXT",
+                "ALTER TABLE nft_collection ADD COLUMN IF NOT EXISTS pattern VARCHAR(30) DEFAULT 'none'",
+                "ALTER TABLE nft_collection ADD COLUMN IF NOT EXISTS model VARCHAR(10) DEFAULT '🔮'",
                 f"ALTER TABLE {user_table} ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT 0",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code VARCHAR(8)",
                 f"ALTER TABLE {user_table} ADD COLUMN two_fa_code_expires DATETIME",
