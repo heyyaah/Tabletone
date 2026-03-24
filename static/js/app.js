@@ -2250,8 +2250,21 @@ async function handleSendMessage(e) {
         return;
     }
 
-    // Если открыта группа
+    // Если открыта группа — оптимистичный UI
     if (currentGroupId) {
+        const container = document.getElementById('messages-container');
+        const noMsg = container?.querySelector('.no-messages');
+        if (noMsg) noMsg.remove();
+        const optimisticId = 'opt-' + Date.now();
+        const optimisticEl = document.createElement('div');
+        optimisticEl.className = 'message sent';
+        optimisticEl.id = optimisticId;
+        optimisticEl.setAttribute('data-is-mine', '1');
+        optimisticEl.setAttribute('data-is-deleted', '0');
+        optimisticEl.innerHTML = `<div class="message-content">${escapeHtml(content)}</div><div class="message-time" style="opacity:0.5">отправка...</div>`;
+        if (container) { container.appendChild(optimisticEl); scrollToBottom(); }
+        messageInput.value = '';
+        _cancelReply();
         try {
             const response = await fetch(`/groups/${currentGroupId}/send`, {
                 method: 'POST',
@@ -2260,15 +2273,31 @@ async function handleSendMessage(e) {
             });
             if (!response.ok) throw new Error('Ошибка отправки сообщения');
             const data = await response.json();
-            if (data.success) { messageInput.value = ''; _cancelReply(); }
+            if (data.success) { optimisticEl.remove(); }
+            else { optimisticEl.remove(); showError(data.error || 'Ошибка'); }
         } catch (error) {
+            optimisticEl.remove();
             showError('Не удалось отправить сообщение');
         }
         _isSending = false;
         return;
     }
     
-    // Личный чат
+    // Личный чат — оптимистичный UI: показываем сообщение сразу
+    const container = document.getElementById('messages-container');
+    const noMsg = container?.querySelector('.no-messages');
+    if (noMsg) noMsg.remove();
+    const optimisticId = 'opt-' + Date.now();
+    const optimisticEl = document.createElement('div');
+    optimisticEl.className = 'message sent';
+    optimisticEl.id = optimisticId;
+    optimisticEl.setAttribute('data-is-mine', '1');
+    optimisticEl.setAttribute('data-is-deleted', '0');
+    optimisticEl.innerHTML = `<div class="message-content">${escapeHtml(content)}</div><div class="message-time" style="opacity:0.5">отправка...</div>`;
+    if (container) { container.appendChild(optimisticEl); scrollToBottom(); }
+    messageInput.value = '';
+    _cancelReply();
+
     try {
         const response = await fetch('/send', {
             method: 'POST',
@@ -2277,22 +2306,29 @@ async function handleSendMessage(e) {
         });
         const data = await response.json();
         if (data.error === 'spam_blocked') {
+            optimisticEl.remove();
             showSpamblockModal(data.until);
         } else if (data.error === 'contacts_required') {
+            optimisticEl.remove();
             showContactsRequiredModal();
         } else if (data.error === 'premium_required') {
+            optimisticEl.remove();
             showPremiumModal(data.message || 'Эта функция доступна только для Premium пользователей.');
         } else if (data.error === 'not_enough_sparks') {
+            optimisticEl.remove();
             _showNotEnoughSparksModal(data.required || 0);
         } else if (data.error === 'privacy') {
+            optimisticEl.remove();
             showError(data.message || 'Этот пользователь ограничил входящие сообщения');
         } else if (data.success) {
-            messageInput.value = '';
-            _cancelReply();
+            // Сервер подтвердил — убираем временное сообщение (придёт через socket)
+            optimisticEl.remove();
         } else if (!response.ok) {
+            optimisticEl.remove();
             showError(data.error || 'Не удалось отправить сообщение');
         }
     } catch (error) {
+        optimisticEl.remove();
         showError('Не удалось отправить сообщение');
     } finally {
         _isSending = false;
