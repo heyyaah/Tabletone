@@ -12571,23 +12571,31 @@ def credits_page():
 
 # ── ИИ Модератор ─────────────────────────────────────────────────────────────import requests as _requests
 
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-
 def _ai_check_message(text):
-    """Проверяет текст через Gemini. Возвращает dict {violation, category, reason}."""
-    if not GEMINI_API_KEY or not text:
+    """Проверяет текст через Groq (llama). Возвращает dict {violation, category, reason}."""
+    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+    if not GROQ_API_KEY or not text:
         return {'violation': False, 'category': None, 'reason': None}
     prompt = (
-        "Ты модератор мессенджера. Проверь следующее сообщение на нарушения правил.\n"
-        "Категории нарушений: реклама, экстремизм, оскорбления, угрозы, нарушение правил площадки.\n"
-        "Ответь ТОЛЬКО в формате JSON: {\"violation\": true/false, \"category\": \"категория или null\", \"reason\": \"краткое объяснение или null\"}\n\n"
-        f"Сообщение: {text[:500]}"
+        "You are a chat moderator. Check the following message for rule violations.\n"
+        "Violation categories: spam/ads, extremism, insults, threats, platform rule violation.\n"
+        "Reply ONLY with valid JSON, no extra text: {\"violation\": true/false, \"category\": \"category or null\", \"reason\": \"short explanation or null\"}\n\n"
+        f"Message: {text[:500]}"
     )
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-        resp = _requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=10)
+        resp = _requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "llama-3.1-8b-instant",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0,
+                "max_tokens": 100,
+            },
+            timeout=10
+        )
         if resp.status_code == 200:
-            raw = resp.json()['candidates'][0]['content']['parts'][0]['text']
+            raw = resp.json()['choices'][0]['message']['content']
             raw = raw.strip().strip('```json').strip('```').strip()
             return json.loads(raw)
     except Exception as e:
@@ -12601,8 +12609,8 @@ def ai_moderation_scan():
     admin = User.query.get(session['user_id'])
     if not admin or not admin.is_admin:
         return jsonify({'error': 'Доступ запрещен'}), 403
-    if not GEMINI_API_KEY:
-        return jsonify({'error': 'GEMINI_API_KEY не настроен'}), 400
+    if not os.environ.get('GROQ_API_KEY', ''):
+        return jsonify({'error': 'GROQ_API_KEY не настроен'}), 400
 
     # Берём последние 50 сообщений не удалённых
     messages = Message.query.filter_by(is_deleted=False).order_by(Message.timestamp.desc()).limit(50).all()
