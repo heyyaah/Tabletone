@@ -3360,47 +3360,6 @@ def check_spam_block(sender):
     until_msk = (until + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M') if until else 'неизвестно'
     return True, until_msk
 
-def _ai_moderate_message(text):
-    """Проверяет сообщение через Cloudflare AI. Возвращает причину нарушения или None."""
-    try:
-        import urllib.request, json as _json, os as _os
-        account_id = _os.environ.get('CF_ACCOUNT_ID', '')
-        api_token = _os.environ.get('CF_API_TOKEN', '')
-        if not account_id or not api_token:
-            return None
-        system_prompt = (
-            "You are a content moderation AI. Analyze the message and determine if it violates rules.\n"
-            "Rules: no spam/advertising, no extremist content, no threats, no illegal content, no hate speech.\n"
-            "Reply with JSON only: {\"violation\": true/false, \"reason\": \"short reason in Russian or null\"}\n"
-            "Be strict but fair. Normal conversation is always allowed."
-        )
-        payload = _json.dumps({
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text[:500]}
-            ],
-            "max_tokens": 100
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/meta/llama-3.1-8b-instruct",
-            data=payload,
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_token}"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = _json.loads(resp.read().decode('utf-8'))
-        response_text = result.get('result', {}).get('response', '').strip()
-        # Извлекаем JSON из ответа
-        start = response_text.find('{')
-        end = response_text.rfind('}') + 1
-        if start >= 0 and end > start:
-            data = _json.loads(response_text[start:end])
-            if data.get('violation') and data.get('reason'):
-                return data['reason']
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"AI moderation error: {e}")
-    return None
 
 @app.route('/send', methods=['POST'])
 def send_message():
@@ -3488,32 +3447,6 @@ def send_message():
                     'message': f'Для первого сообщения этому пользователю нужно {_msg_price} ✨ искр',
                     'required': _msg_price
                 }), 402
-
-    # ── ИИ модерация ─────────────────────────────────────────────────────────
-    if not sender.is_admin and not sender.is_bot and len(content) > 3:
-        _ai_violation = _ai_moderate_message(content)
-        if _ai_violation:
-            _warn = UserWarning(user_id=sender.id, reason=f'ИИ модератор: {_ai_violation}', issued_by=sender.id)
-            db.session.add(_warn)
-            sender.warnings_count = (sender.warnings_count or 0) + 1
-            if sender.warnings_count >= 3:
-                from datetime import timedelta
-                sender.is_spam_blocked = True
-                block_hours = 12 if sender.is_premium else 24
-                sender.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
-            db.session.commit()
-            try:
-                support_bot = User.query.filter_by(username='tabletone_supportbot').first()
-                if support_bot:
-                    _bot_send_message(support_bot.id, sender.id,
-                        f"⚠️ *Ваше сообщение заблокировано ИИ модератором*\n\n"
-                        f"Причина: {_ai_violation}\n\n"
-                        f"Предупреждений: {sender.warnings_count}/3\n"
-                        f"{'🚫 Вы получили спам-блок за 3 предупреждения.' if sender.warnings_count >= 3 else ''}"
-                    )
-            except Exception:
-                pass
-            return jsonify({'error': 'moderated', 'message': f'Сообщение заблокировано: {_ai_violation}'}), 403
 
     message = Message(
         sender_id=session['user_id'],
@@ -12568,114 +12501,6 @@ else:
 @app.route('/credits')
 def credits_page():
     return render_template('credits.html')
-
-# ── ИИ Модератор ─────────────────────────────────────────────────────────────import requests as _requests
-
-def _ai_check_message(text):
-    """Проверяет текст через Groq (llama). Возвращает dict {violation, category, reason}."""
-    GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
-    if not GROQ_API_KEY or not text:
-        return {'violation': False, 'category': None, 'reason': None}
-    prompt = (
-        "You are a chat moderator. Check the following message for rule violations.\n"
-        "Violation categories: spam/ads, extremism, insults, threats, platform rule violation.\n"
-        "Reply ONLY with valid JSON, no extra text: {\"violation\": true/false, \"category\": \"category or null\", \"reason\": \"short explanation or null\"}\n\n"
-        f"Message: {text[:500]}"
-    )
-    try:
-        resp = _requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0,
-                "max_tokens": 100,
-            },
-            timeout=10
-        )
-        if resp.status_code == 200:
-            raw = resp.json()['choices'][0]['message']['content']
-            raw = raw.strip().strip('```json').strip('```').strip()
-            return json.loads(raw)
-    except Exception as e:
-        app.logger.warning(f"AI moderation error: {e}")
-    return {'violation': False, 'category': None, 'reason': None}
-
-@app.route('/admin/ai-moderation/scan', methods=['POST'])
-def ai_moderation_scan():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    admin = User.query.get(session['user_id'])
-    if not admin or not admin.is_admin:
-        return jsonify({'error': 'Доступ запрещен'}), 403
-    if not os.environ.get('GROQ_API_KEY', ''):
-        return jsonify({'error': 'GROQ_API_KEY не настроен'}), 400
-
-    # Берём последние 50 сообщений не удалённых
-    messages = Message.query.filter_by(is_deleted=False).order_by(Message.timestamp.desc()).limit(50).all()
-    violations = []
-    for msg in messages:
-        text = msg.decrypted_content
-        if not text or msg.message_type != 'text':
-            continue
-        result = _ai_check_message(text)
-        if result.get('violation'):
-            sender = User.query.get(msg.sender_id)
-            violations.append({
-                'message_id': msg.id,
-                'sender_id': msg.sender_id,
-                'sender_username': sender.username if sender else '?',
-                'content': text[:200],
-                'category': result.get('category'),
-                'reason': result.get('reason'),
-                'timestamp': msg.timestamp.strftime('%d.%m.%Y %H:%M')
-            })
-    return jsonify({'violations': violations})
-
-@app.route('/admin/ai-moderation/delete/<int:message_id>', methods=['POST'])
-def ai_moderation_delete(message_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    admin = User.query.get(session['user_id'])
-    if not admin or not admin.is_admin:
-        return jsonify({'error': 'Доступ запрещен'}), 403
-    msg = Message.query.get_or_404(message_id)
-    msg.is_deleted = True
-    db.session.commit()
-    return jsonify({'success': True})
-
-@app.route('/admin/ai-moderation/warn/<int:user_id>', methods=['POST'])
-def ai_moderation_warn(user_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    admin = User.query.get(session['user_id'])
-    if not admin or not admin.is_admin:
-        return jsonify({'error': 'Доступ запрещен'}), 403
-    data = request.get_json() or {}
-    reason = data.get('reason', 'Нарушение правил площадки (ИИ модератор)').strip()
-    user = User.query.get_or_404(user_id)
-    warning = UserWarning(user_id=user_id, reason=reason, issued_by=session['user_id'])
-    db.session.add(warning)
-    user.warnings_count = (user.warnings_count or 0) + 1
-    if user.warnings_count >= 3:
-        user.is_spam_blocked = True
-        block_hours = 12 if user.is_premium else 24
-        user.spam_block_until = datetime.utcnow() + timedelta(hours=block_hours)
-    db.session.commit()
-    try:
-        support_bot = User.query.filter_by(username='tabletone_supportbot').first()
-        if support_bot:
-            warn_text = (
-                f"⚠️ *Вы получили предупреждение от ИИ модератора*\n\n"
-                f"Причина: {reason}\n\n"
-                f"Предупреждений: {user.warnings_count}/3\n"
-                f"{'🚫 Вы получили спам-блок за 3 предупреждения.' if user.warnings_count >= 3 else ''}"
-            )
-            _bot_send_message(support_bot.id, user_id, warn_text)
-    except Exception as e:
-        app.logger.warning(f"ai_warn notify error: {e}")
-    return jsonify({'success': True, 'warnings_count': user.warnings_count})
 
 # ─────────────────────────────────────────────────────────────────────────────
 
