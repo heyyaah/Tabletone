@@ -40,15 +40,33 @@ if _db_url.startswith('postgres://'):
     _db_url = _db_url.replace('postgres://', 'postgresql+pg8000://', 1)
 elif _db_url.startswith('postgresql://') and 'pg8000' not in _db_url and 'psycopg2' not in _db_url:
     _db_url = _db_url.replace('postgresql://', 'postgresql+pg8000://', 1)
+
+# Убираем ВСЕ query-параметры которые pg8000 не понимает
+import re as _re
+_ssl_required = 'sslmode' in _db_url
+# Убираем sslmode= из URL полностью
+_db_url = _re.sub(r'[?&]sslmode=[^&]*', '', _db_url)
+# Убираем channel_binding если есть
+_db_url = _re.sub(r'[?&]channel_binding=[^&]*', '', _db_url)
+# Убираем options если есть
+_db_url = _re.sub(r'[?&]options=[^&]*', '', _db_url)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = _db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+_engine_opts = {
     'pool_size': 5,
     'max_overflow': 10,
     'pool_timeout': 10,
     'pool_recycle': 1800,
     'pool_pre_ping': True,
 }
+if _ssl_required:
+    import ssl as _ssl
+    _ssl_ctx = _ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = _ssl.CERT_NONE
+    _engine_opts['connect_args'] = {'ssl_context': _ssl_ctx}
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = _engine_opts
 app.config['UPLOAD_FOLDER'] = 'static/media'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 app.config['PROPAGATE_EXCEPTIONS'] = True
